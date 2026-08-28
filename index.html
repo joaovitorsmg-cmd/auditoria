@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoria Agroquima</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text1: #f1f5f9;
+    --text2: #94a3b8;
+    --accent: #3b82f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text1);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px;
+  }
+  header { text-align: center; margin-bottom: 40px; }
+  header h1 { font-size: 26px; margin: 0 0 6px; }
+  header p { color: var(--text2); margin: 0; font-size: 14px; }
+  .grid {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  a.card {
+    display: block;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-decoration: none;
+    color: var(--text1);
+    transition: border-color .15s, transform .15s;
+  }
+  a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card .icon { font-size: 24px; margin-bottom: 10px; }
+  .card .name { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+  .card .desc { font-size: 13px; color: var(--text2); }
+  footer { margin-top: 48px; color: var(--text2); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Auditoria Agroquima</h1>
+    <p>Painéis internos de controle e auditoria</p>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="controledelote/">
+      <div class="icon">📦</div>
+      <div class="name">Controle de Lotes</div>
+      <div class="desc">Auditoria física de lotes, vencimentos e placas de identificação</div>
+    </a>
+  </div>
+
+  <footer>Agroquima Produtos Agropecuários</footer>
+</body>
+</html>
