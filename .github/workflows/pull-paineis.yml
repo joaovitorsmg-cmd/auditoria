@@ -21,11 +21,76 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Controle_Lote_Pedido/main/viewer.html" -o controledelote/viewer.html
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Controle_Lote_Pedido/main/tools/gerar_base_sazonalidade.py" -o controledelote/tools/gerar_base_sazonalidade.py
 
+      - name: Baixar Ranking Auditoria
+        run: |
+          mkdir -p ranking-auditoria
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Ranking-Auditoria/main/index.html" -o ranking-auditoria/index.html
+
+      - name: Baixar Controle de Empréstimos
+        run: |
+          mkdir -p controle-emprestimos
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Controle-Emprestimos/main/index.html" -o controle-emprestimos/index.html
+
+      - name: Baixar Entrega Futura
+        run: |
+          mkdir -p entrega-futura/icons
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Entrega-Futura/main/index.html" -o entrega-futura/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Entrega-Futura/main/sw.js" -o entrega-futura/sw.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Entrega-Futura/main/manifest.json" -o entrega-futura/manifest.json
+          for f in icon-192.png icon-512.png icon-maskable-192.png icon-maskable-512.png apple-touch-icon.png favicon-32.png; do
+            curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Entrega-Futura/main/icons/$f" -o "entrega-futura/icons/$f"
+          done
+
+      - name: Baixar Vencidos Agroquima
+        run: |
+          mkdir -p vencidos-agroquima/icons
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/index.html" -o vencidos-agroquima/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/sw.js" -o vencidos-agroquima/sw.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/manifest.webmanifest" -o vencidos-agroquima/manifest.webmanifest
+          for f in icon-192.png icon-512.png icon-maskable-192.png icon-maskable-512.png apple-touch-icon.png favicon-32.png; do
+            curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/icons/$f" -o "vencidos-agroquima/icons/$f"
+          done
+
+      - name: Baixar Progresso D60
+        run: |
+          mkdir -p progresso-d60
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Progresso-D60/main/index.html" -o progresso-d60/index.html
+
+      - name: Baixar Mapa de Despesa
+        run: |
+          mkdir -p mapadespesa
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/MapaDespesa/main/index.html" -o mapadespesa/index.html
+
+      - name: Baixar Alvarás e Licenças
+        run: |
+          mkdir -p alvaras-e-licencas
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Alvaras-e-Licencas/main/index.html" -o alvaras-e-licencas/index.html
+
+      - name: Baixar Contagem Agroquima
+        run: |
+          mkdir -p contagem-agroquima/icons
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Contagem-Agroquima/main/index.html" -o contagem-agroquima/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Contagem-Agroquima/main/sw.js" -o contagem-agroquima/sw.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Contagem-Agroquima/main/manifest.json" -o contagem-agroquima/manifest.json
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Contagem-Agroquima/main/icons/icon-192.png" -o contagem-agroquima/icons/icon-192.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Contagem-Agroquima/main/icons/icon-512.png" -o contagem-agroquima/icons/icon-512.png
+
+      - name: Baixar Agenda Agroquima
+        run: |
+          mkdir -p agenda-agroquima
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/index.html" -o agenda-agroquima/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/sw.js" -o agenda-agroquima/sw.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/manifest.json" -o agenda-agroquima/manifest.json
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/icon-192.png" -o agenda-agroquima/icon-192.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/icon-512.png" -o agenda-agroquima/icon-512.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/icon-maskable.png" -o agenda-agroquima/icon-maskable.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/apple-touch-icon.png" -o agenda-agroquima/apple-touch-icon.png
+
       - name: Publicar se houver mudança
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add controledelote
+          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima
           if git diff --cached --quiet; then
             echo "Nada novo para publicar."
           else
