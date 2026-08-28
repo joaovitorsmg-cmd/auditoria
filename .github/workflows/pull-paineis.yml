@@ -1,0 +1,34 @@
+name: Sincronizar painéis (automático)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar Controle de Lotes
+        run: |
+          mkdir -p controledelote/tools
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Controle_Lote_Pedido/main/index.html" -o controledelote/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Controle_Lote_Pedido/main/viewer.html" -o controledelote/viewer.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Controle_Lote_Pedido/main/tools/gerar_base_sazonalidade.py" -o controledelote/tools/gerar_base_sazonalidade.py
+
+      - name: Publicar se houver mudança
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add controledelote
+          if git diff --cached --quiet; then
+            echo "Nada novo para publicar."
+          else
+            git commit -m "Sincroniza painéis (automático)"
+            git push
+          fi
