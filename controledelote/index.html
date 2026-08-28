@@ -2034,6 +2034,7 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
 <div id="mod-switcher">
   <button id="btn-mod-lotes" class="ativo" onclick="PED_switchModule('lotes')">🗂 Lotes</button>
   <button id="btn-mod-pedidos" onclick="PED_switchModule('pedidos')">📋 Pedidos</button>
+  <button id="btn-limpar-importados" onclick="limparDadosImportados()" title="Apaga da tela e do navegador os dados importados de Lotes e Pedidos" style="background:var(--vermelho);color:#fff;border-color:var(--vermelho);">🗑️ Limpar</button>
 </div>
 
 <div id="mod-lotes">
@@ -3881,6 +3882,7 @@ function carregarLotes(input) {
       document.getElementById('status-lotes').textContent = `✓ ${APP.allLotes.length} lotes carregados — Filial ${APP.sigla}${avisoMulti}${avisoInvalidas}`;
       document.getElementById('status-lotes').classList.remove('hidden');
       document.getElementById('processando-msg')?.classList.remove('hidden');
+      salvarLotesImportados();
       setTimeout(() => processarDados(), 150);
     } catch(err) {
       card.classList.remove('loading');
@@ -3934,6 +3936,48 @@ function aplicarFilial(sigla, reprocess) {
 function trocarFilial(sigla) {
   if (!sigla || sigla === APP.sigla) return;
   aplicarFilial(sigla, true);
+  salvarLotesImportados();
+}
+
+/* ===== Persistência do arquivo de Lotes importado (sobrevive a F5 / reabrir aba) ===== */
+const LS_LOTES_IMPORT = 'aqLotesImport';
+
+function salvarLotesImportados() {
+  try {
+    localStorage.setItem(LS_LOTES_IMPORT, JSON.stringify({ allLotes: APP.allLotes, sigla: APP.sigla }));
+  } catch(e) { /* quota excedida ou indisponível — segue sem persistir */ }
+}
+
+function limparLotesImportados() {
+  try { localStorage.removeItem(LS_LOTES_IMPORT); } catch(e) {}
+}
+
+function restaurarLotesImportados() {
+  try {
+    const raw = localStorage.getItem(LS_LOTES_IMPORT);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!s.allLotes || !s.allLotes.length) return false;
+
+    APP.allLotes = s.allLotes;
+    const siglasArq = [...new Set(s.allLotes.map(l => l.sigla).filter(Boolean))].sort();
+    popularSeletorFilial(siglasArq);
+    const siglaRestaurar = (s.sigla && siglasArq.includes(s.sigla)) ? s.sigla : (siglasArq[0] || s.allLotes[0]?.sigla || '—');
+    aplicarFilial(siglaRestaurar, false);
+    APP.lotesLoaded = true;
+
+    const card = document.getElementById('card-lotes');
+    if (card) card.classList.add('loaded');
+    const avisoMulti = siglasArq.length > 1 ? ` · ${siglasArq.length} filiais no arquivo (analisando ${APP.sigla})` : '';
+    const statusEl = document.getElementById('status-lotes');
+    if (statusEl) {
+      statusEl.textContent = `✓ ${APP.allLotes.length} lotes restaurados (sessão anterior) — Filial ${APP.sigla}${avisoMulti}`;
+      statusEl.classList.remove('hidden');
+    }
+    document.getElementById('processando-msg')?.classList.remove('hidden');
+    setTimeout(() => processarDados(), 150);
+    return true;
+  } catch(e) { return false; }
 }
 
 // Sanitização contra XSS — escapa HTML
@@ -9098,7 +9142,101 @@ async function PED_handleFiles(files){
   }
 
   PED_renderTudo();
+  salvarPedidosImportados();
 }
+
+/* ===== Persistência do arquivo de Pedidos importado (sobrevive a F5 / reabrir aba) ===== */
+const LS_PED_IMPORT = 'aqPedidosImport';
+
+function salvarPedidosImportados() {
+  try {
+    localStorage.setItem(LS_PED_IMPORT, JSON.stringify({
+      pedidos: APP_PED.pedidos, canhoto: APP_PED.canhoto,
+      semIds: [...APP_PED.semIds], copiaIds: [...APP_PED.copiaIds],
+      semValor: APP_PED.semValor, semFilial: APP_PED.semFilial,
+      filialManual: APP_PED.filialManual, filialIncerta: APP_PED.filialIncerta,
+      fi: APP_PED.fi, periodo: APP_PED.periodo,
+    }));
+  } catch(e) { /* quota excedida ou indisponível — segue sem persistir */ }
+}
+
+function limparPedidosImportados() {
+  try { localStorage.removeItem(LS_PED_IMPORT); } catch(e) {}
+}
+
+function restaurarPedidosImportados() {
+  try {
+    const raw = localStorage.getItem(LS_PED_IMPORT);
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!(s.pedidos && s.pedidos.length) && !(s.canhoto && s.canhoto.length)) return false;
+
+    APP_PED.pedidos = s.pedidos || [];
+    APP_PED.canhoto = s.canhoto || [];
+    APP_PED.semIds = new Set(s.semIds || []);
+    APP_PED.copiaIds = new Set(s.copiaIds || []);
+    APP_PED.semValor = s.semValor || {};
+    APP_PED.semFilial = s.semFilial || null;
+    APP_PED.filialManual = s.filialManual || null;
+    APP_PED.filialIncerta = !!s.filialIncerta;
+    APP_PED.fi = s.fi || null;
+    APP_PED.periodo = s.periodo || '';
+
+    PED_renderTudo();
+    const st = document.getElementById('ped-arq-status');
+    if (st) st.innerHTML = '<span class="arq-tag ok">✔ Pedidos restaurados (sessão anterior)</span>';
+    return true;
+  } catch(e) { return false; }
+}
+
+/* Reseta APP para o estado inicial (sem reatribuir o binding const) */
+function _resetAppLotes() {
+  const inicial = {
+    lotes: [], vendas: {}, vendasFilial: {}, vencidos: [], emRisco: [], semGiro: [],
+    allLotes: [], filial: '', sigla: '', dataAuditoria: new Date(), lotesLoaded: false,
+    regionais: {},
+    sortState: { risco: {col:-1,asc:true}, vencidos: {col:-1,asc:true}, semgiro: {col:-1,asc:true} },
+    pages: { risco: 1, vencidos: 1, semgiro: 1 }, pageSize: 50,
+    filteredRisco: [], filteredVencidos: [], filteredSemGiro: [],
+    alerta: [], filteredAlerta: [], cacaErros: [], filteredCacaErros: [],
+    checklistExtras: [], checklistExcluidos: [], checklistObs: {},
+    checklistLinhasExcluidas: [], checklistLinhasForcadas: [],
+  };
+  Object.keys(APP).forEach(k => delete APP[k]);
+  Object.assign(APP, inicial);
+}
+
+/* Botão único "🗑️ Limpar" — apaga da tela E do navegador os dois conjuntos de dados importados */
+function limparDadosImportados() {
+  if (!confirm('Isso vai apagar da tela e do navegador todos os dados importados (Lotes e Pedidos).\n\nOs arquivos originais não são afetados — você pode importá-los de novo quando quiser.\n\nTem certeza?')) return;
+
+  // --- Lotes ---
+  _resetAppLotes();
+  const inputLotes = document.getElementById('input-lotes'); if (inputLotes) inputLotes.value = '';
+  const cardLotes = document.getElementById('card-lotes');
+  if (cardLotes) { cardLotes.classList.remove('loaded'); cardLotes.classList.remove('loading'); }
+  const statusLotes = document.getElementById('status-lotes');
+  if (statusLotes) { statusLotes.classList.add('hidden'); statusLotes.textContent = ''; }
+  const seletor = document.getElementById('seletor-filial');
+  if (seletor) { seletor.classList.add('hidden'); seletor.innerHTML = ''; }
+  limparLotesImportados();
+
+  // --- Pedidos ---
+  APP_PED = { pedidos:[], canhoto:[], semIds:new Set(), copiaIds:new Set(), semValor:{}, semFilial:null, filialManual:null, filialIncerta:false, fi:null, periodo:'' };
+  const inputPed = document.getElementById('ped-fi'); if (inputPed) inputPed.value = '';
+  const stPed = document.getElementById('ped-arq-status'); if (stPed) stPed.innerHTML = '';
+  const diagPainel = document.getElementById('ped-import-diag'); if (diagPainel) diagPainel.innerHTML = '';
+  limparPedidosImportados();
+
+  alert('🗑️ Dados importados removidos — tela e navegador limpos.');
+}
+
+/* Restaura automaticamente Lotes e Pedidos salvos ao abrir/recarregar a página */
+document.addEventListener('DOMContentLoaded', function() {
+  restaurarLotesImportados();
+  restaurarPedidosImportados();
+});
+
 function PED_procPedido(rows){
   APP_PED.pedidos=rows.map(r=>({...r,_num:PED_exNum(r.PEDIDO||r['PEDIDO'])}));
 }
