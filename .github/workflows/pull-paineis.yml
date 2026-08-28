@@ -43,10 +43,11 @@ jobs:
 
       - name: Baixar Vencidos Agroquima
         run: |
-          mkdir -p vencidos-agroquima/icons
+          mkdir -p vencidos-agroquima/icons vencidos-agroquima/data
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/index.html" -o vencidos-agroquima/index.html
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/sw.js" -o vencidos-agroquima/sw.js
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/manifest.webmanifest" -o vencidos-agroquima/manifest.webmanifest
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/data/vencidos.json" -o vencidos-agroquima/data/vencidos.json
           for f in icon-192.png icon-512.png icon-maskable-192.png icon-maskable-512.png apple-touch-icon.png favicon-32.png; do
             curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Vencidos-Agroquima/main/icons/$f" -o "vencidos-agroquima/icons/$f"
           done
