@@ -893,7 +893,7 @@ function toast(msg){
 /* ---------- PAINEL DE CONFIGURAÇÃO (5 cliques no logo) ---------- */
 let logoClicks=0, logoTimer;
 function logoTap(){
-  if(location.hash==='#agendar') return; // desativado na página pública
+  if(location.hash==='#agendar' || !podeVerQuadro()) return; // desativado na página pública
   logoClicks++;
   clearTimeout(logoTimer);
   logoTimer=setTimeout(()=>logoClicks=0, 2500);
@@ -1043,8 +1043,17 @@ function detectarIOS(){
   }
 }
 
+/* ---------- CONTROLE DE ACESSO AO QUADRO ---------- */
+const QUADRO_PERMITIDO = ['luciana.ramos@agroquima.com.br','gabriela.amorim@agroquima.com.br'];
+function podeVerQuadro(){
+  try{
+    const u = (localStorage.getItem('auditoria_user')||'').trim().toLowerCase();
+    return QUADRO_PERMITIDO.includes(u);
+  }catch(e){ return false; }
+}
+
 /* ---------- BOOT ---------- */
-if(location.hash==='#agendar'){
+if(location.hash==='#agendar' || !podeVerQuadro()){
   iniciarPublico();
 } else {
   $('app').style.display='block';
