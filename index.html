@@ -7,27 +7,34 @@
 <style>
   :root {
     --bg: #0f172a;
-    --card: #1e293b;
-    --border: #334155;
-    --text1: #f1f5f9;
-    --text2: #94a3b8;
+    --card: rgba(15, 23, 42, 0.82);
+    --card-border: rgba(148, 163, 184, 0.28);
+    --text1: #f8fafc;
+    --text2: #cbd5e1;
     --accent: #3b82f6;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    background: var(--bg);
     color: var(--text1);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 48px 20px;
+    position: relative;
+    background-image:
+      linear-gradient(180deg, rgba(2,6,23,.80) 0%, rgba(8,20,45,.82) 45%, rgba(2,6,23,.92) 100%),
+      url('assets/fabrica-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
   }
   header { text-align: center; margin-bottom: 40px; }
-  header h1 { font-size: 26px; margin: 0 0 6px; }
-  header p { color: var(--text2); margin: 0; font-size: 14px; }
+  header h1 { font-size: 28px; margin: 0 0 6px; text-shadow: 0 2px 12px rgba(0,0,0,.55); }
+  header p { color: var(--text2); margin: 0; font-size: 14px; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
   .grid {
     width: 100%;
     max-width: 900px;
@@ -38,18 +45,31 @@
   a.card {
     display: block;
     background: var(--card);
-    border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 20px;
     text-decoration: none;
     color: var(--text1);
-    transition: border-color .15s, transform .15s;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    transition: border-color .15s, transform .15s, box-shadow .15s;
   }
-  a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  a.card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  }
   .card .icon { font-size: 24px; margin-bottom: 10px; }
-  .card .name { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
-  .card .desc { font-size: 13px; color: var(--text2); }
-  footer { margin-top: 48px; color: var(--text2); font-size: 12px; text-align: center; }
+  .card .name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+  .card .desc { font-size: 13px; color: var(--text2); line-height: 1.4; }
+  footer {
+    margin-top: 48px;
+    color: var(--text2);
+    font-size: 12px;
+    text-align: center;
+    text-shadow: 0 1px 6px rgba(0,0,0,.5);
+  }
 </style>
 </head>
 <body>
