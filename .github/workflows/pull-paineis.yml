@@ -86,11 +86,21 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/icon-maskable.png" -o agenda-agroquima/icon-maskable.png
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-Agroquima/main/apple-touch-icon.png" -o agenda-agroquima/apple-touch-icon.png
 
+      - name: Baixar Auditoria Semanal
+        run: |
+          mkdir -p auditoria-semanal/icons
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/index.html" -o auditoria-semanal/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/manifest.json" -o auditoria-semanal/manifest.json
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/service-worker.js" -o auditoria-semanal/service-worker.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/icons/icon-192.png" -o auditoria-semanal/icons/icon-192.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/icons/icon-512.png" -o auditoria-semanal/icons/icon-512.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/icons/icon-maskable-512.png" -o auditoria-semanal/icons/icon-maskable-512.png
+
       - name: Publicar se houver mudança
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima
+          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal
           if git diff --cached --quiet; then
             echo "Nada novo para publicar."
           else
