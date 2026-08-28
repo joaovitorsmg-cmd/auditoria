@@ -6049,8 +6049,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 /* ─── Layout ─────────────────────────────── */
 .content { padding: 10px 12px; max-width: 640px; margin: 0 auto; }
 .content.print-cols { max-width: 1300px; }
+body.pdf-render-wide { width: 1300px; }
 .print-cols .grupo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 12px; }
 .print-cols .grupo-header { grid-column: 1 / -1; }
+.print-cols .grupo.pdf-capa { display: block; }
+
+/* ─── Capa/Resumo do PDF (só aparece durante a geração do PDF) ────── */
+.pdf-capa { background: #fff; border: 1px solid #d1d5db; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+.capa-header { border-bottom: 2px solid #1a4a8a; padding-bottom: 10px; margin-bottom: 14px; }
+.capa-titulo { font-size: 20px; font-weight: 800; color: #1a4a8a; }
+.capa-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+.capa-kpis { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.capa-kpi { flex: 1; min-width: 110px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; text-align: center; }
+.capa-kpi-num { display: block; font-size: 22px; font-weight: 800; color: #1e293b; }
+.capa-kpi-lbl { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-top: 2px; }
+.capa-kpi-ok .capa-kpi-num { color: #16a34a; }
+.capa-kpi-warn .capa-kpi-num { color: #d97706; }
+.capa-kpi-err .capa-kpi-num { color: #dc2626; }
+.capa-div-titulo { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+.capa-div-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.capa-div-table th { text-align: left; background: #1e3a5f; color: #93c5fd; font-size: 10px;
+                      text-transform: uppercase; letter-spacing: .5px; padding: 6px 8px; }
+.capa-div-table td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #1e293b; }
+.capa-div-cod { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+.capa-div-dif { font-weight: 700; color: #dc2626; }
+.capa-div-empty { color: #16a34a; font-weight: 600; font-size: 13px; padding: 10px 0; }
 
 /* ─── Grupo ─────────────────────────────── */
 .grupo { margin-bottom: 14px; }
@@ -6316,6 +6339,11 @@ canvas.sig-canvas { display: block; width: 100%; height: 80px; touch-action: non
                border: 2px dashed #e2e8f0; border-radius: 10px; min-height: 46px; }
 .calc-sym   { font-size: 20px; font-weight: 300; color: #94a3b8; flex-shrink: 0;
               padding-bottom: 12px; }
+.calc-somar-row { display: flex; align-items: center; gap: 8px; background: #fffbeb;
+                   border: 2px solid #fcd34d; border-radius: 10px; padding: 10px 12px;
+                   margin: 10px 0; font-size: 13px; font-weight: 600; color: #92400e;
+                   cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.calc-somar-row input[type=checkbox] { width: 18px; height: 18px; flex-shrink: 0; accent-color: #d97706; }
 .calc-total-box { background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px;
                   display: flex; justify-content: space-between; align-items: center;
                   padding: 12px 16px; margin: 10px 0; }
@@ -6416,6 +6444,7 @@ canvas.sig-canvas { display: block; width: 100%; height: 80px; touch-action: non
 </div>
 
 <div class="content" id="content-main">
+  <div class="grupo pdf-capa" id="pdf-capa" style="display:none"></div>
   ${itensHTML}
 
   <div class="assinaturas">
@@ -6534,6 +6563,10 @@ canvas.sig-canvas { display: block; width: 100%; height: 80px; touch-action: non
                placeholder="0" oninput="calcRecalc()">
       </div>
     </div>
+    <label class="calc-somar-row" id="calc-somar-row" style="display:none">
+      <input type="checkbox" id="calc-somar-chk" onchange="calcRecalc()">
+      <span>➕ Somar ao valor já digitado (<span id="calc-atual-num">0</span>)</span>
+    </label>
     <div class="calc-total-box">
       <span>Total</span>
       <span class="calc-total-num" id="calc-total-num">—</span>
@@ -7135,12 +7168,20 @@ async function gerarPDF() {
   btn.textContent = 'Gerando…'; btn.disabled = true;
   const cont = document.getElementById('content-main');
   cont.classList.add('print-cols');
+  document.body.classList.add('pdf-render-wide');
   const fabGrp = document.querySelector('.fab-group');
   if (fabGrp) fabGrp.style.visibility = 'hidden';
+  const toastEl = document.getElementById('toast');
+  if (toastEl) toastEl.classList.remove('show');
+  const capaEl = document.getElementById('pdf-capa');
+  _montarCapaPDF();
+  if (capaEl) capaEl.style.display = 'block';
   try {
     const { jsPDF } = window.jspdf;
     const SCALE = 1.5;
     const bd = document.body;
+    // dá tempo do navegador recalcular o layout na largura de impressão antes de medir/capturar
+    await new Promise(r => setTimeout(r, 60));
     const fc = await html2canvas(bd, {
       scale: SCALE, backgroundColor: '#fff', useCORS: true,
       logging: false, scrollY: 0, height: bd.scrollHeight, windowHeight: bd.scrollHeight,
@@ -7187,8 +7228,80 @@ async function gerarPDF() {
     alert('Erro ao gerar PDF: ' + e.message);
   } finally {
     cont.classList.remove('print-cols');
+    document.body.classList.remove('pdf-render-wide');
+    if (capaEl) capaEl.style.display = 'none';
     if (fabGrp) fabGrp.style.visibility = '';
   }
+}
+
+/* Monta o conteúdo da capa de resumo (visível só durante a geração do PDF) */
+function _montarCapaPDF() {
+  var el = document.getElementById('pdf-capa');
+  if (!el) return;
+  var conf = document.querySelectorAll('.item.conferido').length;
+  var keys = Object.keys(divState);
+  var divItems = [];
+  for (var i = 0; i < keys.length; i++) {
+    var s = divState[keys[i]];
+    if (s.qtdDif || s.lote || s.fab || s.venc || s.manual) divItems.push([parseInt(keys[i]), s]);
+  }
+  var nDivQtd = 0, nDivLote = 0;
+  for (var i = 0; i < divItems.length; i++) {
+    if (divItems[i][1].qtdDif) nDivQtd++;
+    if (divItems[i][1].lote || divItems[i][1].fab || divItems[i][1].venc || divItems[i][1].manual) nDivLote++;
+  }
+  var pct = _nextIdx > 0 ? Math.round((conf / _nextIdx) * 100) : 0;
+  var filialTxt = ((document.querySelector('.header-filial') || {}).textContent) || '';
+  var dataTxt = ((document.querySelector('.header-data') || {}).textContent) || '';
+
+  var html = '';
+  html += '<div class="capa-header">';
+  html += '<div class="capa-titulo">Resumo da Auditoria</div>';
+  html += '<div class="capa-sub">' + filialTxt + ' &middot; ' + dataTxt + '</div>';
+  html += '</div>';
+  html += '<div class="capa-kpis">';
+  html += '<div class="capa-kpi"><span class="capa-kpi-num">' + _nextIdx + '</span><span class="capa-kpi-lbl">Total de itens</span></div>';
+  html += '<div class="capa-kpi ' + (conf === _nextIdx ? 'capa-kpi-ok' : 'capa-kpi-warn') + '"><span class="capa-kpi-num">' + conf + ' (' + pct + '%)</span><span class="capa-kpi-lbl">Conferidos</span></div>';
+  html += '<div class="capa-kpi ' + (nDivQtd > 0 ? 'capa-kpi-err' : 'capa-kpi-ok') + '"><span class="capa-kpi-num">' + nDivQtd + '</span><span class="capa-kpi-lbl">Diverg. quantidade</span></div>';
+  html += '<div class="capa-kpi ' + (nDivLote > 0 ? 'capa-kpi-err' : 'capa-kpi-ok') + '"><span class="capa-kpi-num">' + nDivLote + '</span><span class="capa-kpi-lbl">Diverg. dados do lote</span></div>';
+  html += '</div>';
+
+  if (divItems.length > 0) {
+    html += '<div class="capa-div-titulo">Itens com Divergência (' + divItems.length + ')</div>';
+    html += '<table class="capa-div-table"><thead><tr><th>Produto</th><th>Lote</th><th>Sistema</th><th>Encontrado</th><th>Diferença</th><th>Observações</th></tr></thead><tbody>';
+    for (var i = 0; i < divItems.length; i++) {
+      var idx = divItems[i][0], s = divItems[i][1];
+      var ref = null;
+      for (var j = 0; j < LOTES_REF.length; j++) { if (LOTES_REF[j].idx === idx) { ref = LOTES_REF[j]; break; } }
+      ref = ref || {};
+      var qtdEl = document.getElementById('qtd-' + idx);
+      var sisVal = qtdEl ? qtdEl.dataset.sistema : '';
+      var encVal = qtdEl ? qtdEl.value : '';
+      var difEl = document.getElementById('div-' + idx);
+      var difTxt = difEl ? difEl.textContent : '';
+      var obsEl = document.getElementById('obs-' + idx);
+      var obs = obsEl ? obsEl.value.trim() : '';
+      var motivos = [];
+      if (s.lote) motivos.push('lote físico diverge');
+      if (s.fab) motivos.push('fabricação diverge');
+      if (s.venc) motivos.push('vencimento diverge');
+      if (s.manual) motivos.push('marcado manualmente');
+      var obsCompleta = obs;
+      if (motivos.length) obsCompleta = (obsCompleta ? obsCompleta + ' — ' : '') + motivos.join(', ');
+      html += '<tr>';
+      html += '<td>' + (ref.nome || '—') + '<div class="capa-div-cod">C&oacute;d ' + (ref.cod || '—') + '</div></td>';
+      html += '<td>' + (ref.lote || '—') + '</td>';
+      html += '<td>' + (sisVal !== '' && sisVal != null ? Number(sisVal).toLocaleString('pt-BR') : '—') + '</td>';
+      html += '<td>' + (encVal !== '' ? Number(encVal).toLocaleString('pt-BR') : '—') + '</td>';
+      html += '<td class="capa-div-dif">' + (difTxt || '—') + '</td>';
+      html += '<td>' + (obsCompleta ? obsCompleta.replace(/</g,'&lt;') : '—') + '</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="capa-div-empty">Nenhuma divergência registrada — contagem 100% conforme o sistema.</div>';
+  }
+  el.innerHTML = html;
 }
 
 /* ─────────────────────────────────────────────
@@ -7311,6 +7424,7 @@ var _calcTargetId = null;
 var _calcPalletSize = 0;
 var _calcCustomActive = false;
 var _calcTotal = 0;
+var _calcBaseAtual = 0;
 
 function abrirCalc(targetId) {
   _calcTargetId = targetId || null;
@@ -7330,6 +7444,15 @@ function abrirCalc(targetId) {
   if (ub) ub.disabled=true;
   var sd=document.getElementById('calc-sz-disp');
   if (sd) sd.textContent='—';
+  // Valor já digitado no campo-alvo — permite "somar" em vez de substituir
+  var targetInp = _calcTargetId ? document.getElementById(_calcTargetId) : null;
+  _calcBaseAtual = targetInp ? (parseFloat(targetInp.value) || 0) : 0;
+  var somarRow = document.getElementById('calc-somar-row');
+  var somarChk = document.getElementById('calc-somar-chk');
+  var atualNum = document.getElementById('calc-atual-num');
+  if (somarChk) somarChk.checked = false;
+  if (atualNum) atualNum.textContent = _calcBaseAtual.toLocaleString('pt-BR');
+  if (somarRow) somarRow.style.display = (_calcTargetId && _calcBaseAtual > 0) ? 'flex' : 'none';
   var p=document.getElementById('calc-panel');
   if (p) p.style.display='block';
   setTimeout(function(){
@@ -7411,25 +7534,32 @@ function calcRecalc() {
   var pal=parseInt((document.getElementById('calc-pallets')||{}).value)||0;
   var av =parseInt((document.getElementById('calc-avulso') ||{}).value)||0;
   _calcTotal=pal*sz+av;
+  var somarChk=document.getElementById('calc-somar-chk');
+  var somar=!!(somarChk && somarChk.checked);
+  var totalExibido=somar?(_calcBaseAtual+_calcTotal):_calcTotal;
   var tn=document.getElementById('calc-total-num');
-  if (tn) tn.textContent=_calcTotal>0?_calcTotal.toLocaleString('pt-BR'):(sz===0&&pal===0&&av===0?'—':'0');
+  if (tn) tn.textContent=_calcTotal>0?totalExibido.toLocaleString('pt-BR'):(sz===0&&pal===0&&av===0?'—':(somar?_calcBaseAtual.toLocaleString('pt-BR'):'0'));
   var ub=document.getElementById('calc-usar-btn');
   if (ub) ub.disabled=(_calcTotal<=0);
 }
 
 function calcUsar() {
   if (_calcTotal<=0) return;
+  var targetId=_calcTargetId;
+  var somarChk=document.getElementById('calc-somar-chk');
+  var somar=!!(somarChk && somarChk.checked);
+  var resultado=somar?(_calcBaseAtual+_calcTotal):_calcTotal;
   fecharCalc();
-  if (!_calcTargetId) {
-    mostrar('Total calculado: '+_calcTotal.toLocaleString('pt-BR')+' unid.', 3000);
+  if (!targetId) {
+    mostrar('Total calculado: '+resultado.toLocaleString('pt-BR')+' unid.', 3000);
     return;
   }
-  var inp=document.getElementById(_calcTargetId);
+  var inp=document.getElementById(targetId);
   if (!inp) return;
-  inp.value=String(_calcTotal);
+  inp.value=String(resultado);
   inp.dispatchEvent(new Event('input',{bubbles:true}));
   inp.scrollIntoView({behavior:'smooth',block:'center'});
-  mostrar('✓ '+_calcTotal.toLocaleString('pt-BR')+' inserido', 2000);
+  mostrar('✓ '+resultado.toLocaleString('pt-BR')+' inserido'+(somar?' (somado)':''), 2000);
 }
 
 /* ─────────────────────────────────────────────
