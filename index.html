@@ -25,6 +25,7 @@
     align-items: center;
     padding: 48px 20px;
     position: relative;
+    overflow-x: hidden;
     background-image:
       linear-gradient(180deg, rgba(2,6,23,.80) 0%, rgba(8,20,45,.82) 45%, rgba(2,6,23,.92) 100%),
       url('assets/fabrica-bg.jpg');
@@ -32,11 +33,12 @@
     background-position: center;
     background-repeat: no-repeat;
   }
-  header { text-align: center; margin-bottom: 40px; }
+  header { text-align: center; margin-bottom: 40px; max-width: 100%; }
   header h1 { font-size: 28px; margin: 0 0 6px; text-shadow: 0 2px 12px rgba(0,0,0,.55); }
   header p { color: var(--text2); margin: 0; font-size: 14px; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
   .grid {
     width: 100%;
+    min-width: 0;
     max-width: 900px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -70,7 +72,11 @@
     text-align: center;
     text-shadow: 0 1px 6px rgba(0,0,0,.5);
   }
-  .app-content { display: none; }
+  .app-content {
+    display: none;
+    width: 100%;
+    max-width: 900px;
+  }
   #loginOverlay {
     position: fixed;
     inset: 0;
