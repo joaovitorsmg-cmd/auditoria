@@ -888,7 +888,9 @@ function identificarTipo(nome, raw) {
       return Object.assign({}, d, {periodo});
     });
     const pedNorm = pedArr.map(d => {
-      const periodo = mesAnoDe(d.dataReg) || (_ehMesAno(d.periodo)?d.periodo:null) || d.periodo || '';
+      // Prioriza o período já informado no registro (mês real da auditoria); dataReg é só
+      // quando o arquivo foi gerado/carregado e pode ser bem depois do período em si.
+      const periodo = (_ehMesAno(d.periodo)?d.periodo:null) || mesAnoDe(d.dataReg) || d.periodo || '';
       return Object.assign({}, d, {periodo});
     });
     if (vencNorm.length) out.push({id:id+'-v', nome:nome+' [Vencidos]', tipo:'venc', dados:vencNorm});
@@ -1207,9 +1209,11 @@ function processarERenderizar() {
     arq.dados.forEach(d => {
       if (!d.filial) return;
       const periodo = d.periodo || '';
-      // Usa a data exata (dia) do registro para diferenciar auditorias distintas no mesmo mês
-      const diaAud = (d.dataReg||'').split(' ')[0] || '';
-      const chave = (d.filial+'|'+periodo+(diaAud?'|'+diaAud:'')).toUpperCase();
+      // Chave por filial+período (mês) — não usa dia: no arquivo unificado, o dia de
+      // "vencidos" é a data da auditoria em si, mas o de "pedido" só existe via dataReg
+      // (data em que o arquivo foi gerado, que pode ser bem depois do período), então
+      // comparar dia a dia nunca casava e pedido+vencidos nunca se mesclavam.
+      const chave = (d.filial+'|'+periodo).toUpperCase();
       if (!map[chave]) map[chave] = _regVazio(d.filial, periodo);
       const r = map[chave];
       r.temPed=true;
@@ -1225,9 +1229,8 @@ function processarERenderizar() {
       const filial = d.filial||'';
       const periodo = d.mes||d.periodo||'';
       if (!filial) return;
-      // Usa a data exata (dia) da auditoria para diferenciar auditorias distintas no mesmo mês
-      const diaAud = (d.dataAuditoria||'').split(' ')[0] || (d.dataReg||'').split(' ')[0] || '';
-      const chave = (filial+'|'+periodo+(diaAud?'|'+diaAud:'')).toUpperCase();
+      // Chave por filial+período (mês) — ver comentário equivalente no loop de 'ped' acima.
+      const chave = (filial+'|'+periodo).toUpperCase();
       if (!map[chave]) map[chave] = _regVazio(filial, periodo);
       const r = map[chave];
       r.temVenc=true;
