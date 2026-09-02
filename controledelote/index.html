@@ -1868,11 +1868,11 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
 #mod-switcher{position:fixed;top:10px;right:16px;z-index:9999;display:flex;gap:6px;}
 #mod-switcher button{padding:5px 14px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text2);font-size:11px;font-weight:700;letter-spacing:.4px;cursor:pointer;transition:.15s;white-space:nowrap;}
 #mod-switcher button.ativo{background:var(--accent);color:#fff;border-color:var(--accent);}
-.topbar,#ped-topo{padding-right:200px !important;}
+.topbar,#ped-topo{padding-right:300px !important;}
 @media(max-width:768px){
   #mod-switcher{top:6px;right:8px;gap:4px;}
   #mod-switcher button{padding:4px 9px;font-size:10px;}
-  .topbar,#ped-topo{padding-right:140px !important;}
+  .topbar,#ped-topo{padding-right:240px !important;}
   .topbar{flex-wrap:wrap;height:auto;min-height:50px;row-gap:4px;}
   .topbar-right{flex-basis:100%;justify-content:flex-start;}
 }
@@ -2034,7 +2034,7 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
 <div id="mod-switcher">
   <button id="btn-mod-lotes" class="ativo" onclick="PED_switchModule('lotes')">🗂 Lotes</button>
   <button id="btn-mod-pedidos" onclick="PED_switchModule('pedidos')">📋 Pedidos</button>
-  <button id="btn-limpar-importados" onclick="limparDadosImportados()" title="Apaga da tela e do navegador os dados importados de Lotes e Pedidos" style="background:var(--vermelho);color:#fff;border-color:var(--vermelho);">🗑️ Limpar</button>
+  <button id="btn-limpar-importados" onclick="limparDadosImportados()" title="Apaga da tela e do navegador os dados importados do painel ativo (Lotes ou Pedidos) — o outro painel não é afetado" style="background:var(--vermelho);color:#fff;border-color:var(--vermelho);">🗑️ Limpar</button>
 </div>
 
 <div id="mod-lotes">
@@ -8572,8 +8572,9 @@ function normalizarFilialArq(sigla, loja) {
 
 // Botão Registrar: vai direto ao registro (faturamento é gerenciado no Ranking Geral)
 function _gravarRegistroVencidos(override = {}) {
-  const filialNome = lojaNome(APP.sigla) || '—';
-  const gerente = APP.lotes[0]?.gerente || '—';
+  const sigla = override.filial || APP.sigla || '—';
+  const filialNome = lojaNome(sigla) || '—';
+  const gerente = APP.lotes[0]?.gerente || (BASE_FILIAIS[sigla] && BASE_FILIAIS[sigla].gerente) || '—';
   const totalVencidos = override.totalVencidos !== undefined ? override.totalVencidos : APP.vencidos.length;
   const valorVencidos = override.valorVencidos !== undefined ? override.valorVencidos : APP.vencidos.reduce((s, l) => s + l.vlrCustoTotal, 0);
   const semGiroProd = override.semGiroProd !== undefined ? override.semGiroProd : new Set(APP.semGiro.map(l => l.codProduto)).size;
@@ -8591,7 +8592,7 @@ function _gravarRegistroVencidos(override = {}) {
 
   const registro = {
     id: Date.now(),
-    filial: APP.sigla || '—',
+    filial: sigla,
     filialNome,
     gerente,
     periodo,
@@ -9336,11 +9337,7 @@ function _resetAppLotes() {
   Object.assign(APP, inicial);
 }
 
-/* Botão único "🗑️ Limpar" — apaga da tela E do navegador os dois conjuntos de dados importados */
-function limparDadosImportados() {
-  if (!confirm('Isso vai apagar da tela e do navegador todos os dados importados (Lotes e Pedidos).\n\nOs arquivos originais não são afetados — você pode importá-los de novo quando quiser.\n\nTem certeza?')) return;
-
-  // --- Lotes ---
+function _limparTelaLotes() {
   _resetAppLotes();
   const inputLotes = document.getElementById('input-lotes'); if (inputLotes) inputLotes.value = '';
   const cardLotes = document.getElementById('card-lotes');
@@ -9350,15 +9347,27 @@ function limparDadosImportados() {
   const seletor = document.getElementById('seletor-filial');
   if (seletor) { seletor.classList.add('hidden'); seletor.innerHTML = ''; }
   limparLotesImportados();
+}
 
-  // --- Pedidos ---
+function _limparTelaPedidos() {
   APP_PED = { pedidos:[], canhoto:[], semIds:new Set(), copiaIds:new Set(), semValor:{}, semFilial:null, filialManual:null, filialIncerta:false, fi:null, periodo:'' };
   const inputPed = document.getElementById('ped-fi'); if (inputPed) inputPed.value = '';
   const stPed = document.getElementById('ped-arq-status'); if (stPed) stPed.innerHTML = '';
   const diagPainel = document.getElementById('ped-import-diag'); if (diagPainel) diagPainel.innerHTML = '';
   limparPedidosImportados();
+}
 
-  alert('🗑️ Dados importados removidos — tela e navegador limpos.');
+/* Botão "🗑️ Limpar" — apaga da tela E do navegador só os dados do painel ativo no momento
+   (Lotes ou Pedidos), não os dois de uma vez. */
+function limparDadosImportados() {
+  const noModoPedidos = document.getElementById('btn-mod-pedidos')?.classList.contains('ativo');
+  const nomeModulo = noModoPedidos ? 'Pedidos' : 'Lotes';
+
+  if (!confirm(`Isso vai apagar da tela e do navegador os dados importados de ${nomeModulo}.\n\nOs arquivos originais não são afetados — você pode importá-los de novo quando quiser.\n\n(O outro painel não é afetado.)\n\nTem certeza?`)) return;
+
+  if (noModoPedidos) _limparTelaPedidos(); else _limparTelaLotes();
+
+  alert(`🗑️ Dados de ${nomeModulo} removidos — tela e navegador limpos.`);
 }
 
 /* Restaura automaticamente Lotes e Pedidos salvos ao abrir/recarregar a página */
@@ -10411,11 +10420,13 @@ function _gravarRegistroPedidos(override = {}) {
   }
   const periodo = `${String(dPeriodo.getMonth()+1).padStart(2,'0')}/${dPeriodo.getFullYear()}`;
 
+  const siglaSel = override.filial || fi.sigla || fi.loja || '—';
+  const filialInfo = BASE_FILIAIS[siglaSel];
   const registro = {
     id: Date.now(),
-    filial: fi.sigla || fi.loja || '—',
-    loja: fi.loja || '—',
-    gerente: fi.gerente || '—',
+    filial: siglaSel,
+    loja: (filialInfo && filialInfo.loja) || fi.loja || '—',
+    gerente: (filialInfo && filialInfo.gerente) || fi.gerente || '—',
     periodo,
     pedConf, pedAss, pedPend, pctPed,
     semPend,
@@ -10615,14 +10626,35 @@ function PED__processarHistoricoImportado(dados) {
 // para os módulos Lotes (vencidos) e Pedidos (canhoto)
 // ============================================================
 
+function _popularSelectFilialAjuste(preSelecionar) {
+  const sel = document.getElementById('ajp-filial');
+  if (!sel) return;
+  const atual = preSelecionar || sel.value;
+  const opts = Object.keys(BASE_FILIAIS).sort((a,b) => BASE_FILIAIS[a].loja.localeCompare(BASE_FILIAIS[b].loja));
+  sel.innerHTML = '<option value="">Selecione a filial…</option>' +
+    opts.map(sig => `<option value="${sig}">${BASE_FILIAIS[sig].loja} (${sig})</option>`).join('');
+  if (atual && BASE_FILIAIS[atual]) sel.value = atual;
+}
+
 function registrarAuditoriaUnificada() {
   const temLotes = APP.lotes.length > 0;
   const temPedidos = APP_PED.pedidos.length > 0 || APP_PED.canhoto.length > 0;
-  if (!temLotes || !temPedidos) {
-    document.querySelectorAll('.aviso-aud-unif').forEach(el => el.style.display = 'flex');
-    return;
+
+  // Não bloqueia mais o registro por falta de arquivo — permite lançamento 100% manual
+  // (filial + data + valor de vencidos), sem precisar importar nada.
+  const filialAuto = APP.sigla || APP_PED.fi?.sigla || '';
+  _popularSelectFilialAjuste(filialAuto);
+  const filialLbl = document.getElementById('ajp-auto-filial');
+  if (filialLbl) filialLbl.textContent = filialAuto ? 'Sistema: ' + filialAuto : 'Nenhum arquivo importado — selecione manualmente';
+
+  const avisoManual = document.getElementById('ajp-aviso-manual');
+  if (avisoManual) {
+    if (!temLotes && !temPedidos) {
+      avisoManual.innerHTML = '⚠ <strong>Lançamento manual:</strong> nenhum arquivo foi importado. Selecione a filial e a data, e informe ao menos o valor dos vencidos.';
+    } else {
+      avisoManual.innerHTML = '⚠ <strong>Ajuste temporário:</strong> preencha os campos manualmente apenas se os dados do sistema Intra estiverem incompletos. Deixe em branco para usar o cálculo automático.';
+    }
   }
-  document.querySelectorAll('.aviso-aud-unif').forEach(el => el.style.display = 'none');
 
   // Calcula os valores automáticos do sistema
   const pv = PED_agPedidosVend();
@@ -10686,12 +10718,22 @@ function ajusteRecalcScore() {
 function confirmarAjusteRegistro() {
   const valInt = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseInt(el.value) : null; return v !== null && !isNaN(v) ? v : null; };
   const valFloat = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseFloat(el.value) : null; return v !== null && !isNaN(v) ? v : null; };
+
+  const temLotes = APP.lotes.length > 0;
+  const temPedidos = APP_PED.pedidos.length > 0 || APP_PED.canhoto.length > 0;
+  const filialAuto = APP.sigla || APP_PED.fi?.sigla || '';
+  const filialSelEl = document.getElementById('ajp-filial');
+  const filialSel = filialSelEl && filialSelEl.value ? filialSelEl.value : '';
+  if (!filialAuto && !filialSel) { alert('Selecione a filial antes de registrar.'); return; }
+  if (!temLotes && !temPedidos && valFloat('valorVencidos') === null) {
+    if (!confirm('Nenhum valor de vencidos foi informado (ficará como R$ 0,00). Deseja continuar mesmo assim?')) return;
+  }
+
   const overridePed = {};
   ['pedConf','pedAss','pedPend','canConf','canAss','canPend'].forEach(k => { const v = valInt(k); if (v !== null) overridePed[k] = v; });
   const overrideVenc = {};
-  const tv = valInt('totalVencidos'); if (tv !== null) overrideVenc.totalVencidos = tv;
   const vv = valFloat('valorVencidos'); if (vv !== null) overrideVenc.valorVencidos = vv;
-  const sg = valInt('semGiroProd'); if (sg !== null) overrideVenc.semGiroProd = sg;
+  if (filialSel) { overridePed.filial = filialSel; overrideVenc.filial = filialSel; }
 
   // Data da auditoria (campo date: YYYY-MM-DD ou vazio = hoje)
   const _dataAudEl2 = document.getElementById('ajp-dataAuditoria');
@@ -10810,8 +10852,19 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
       <button onclick="document.getElementById('modal-ajuste-ped').style.display='none'" style="background:none;border:none;color:#6b8fbc;font-size:20px;cursor:pointer;line-height:1;">×</button>
     </div>
     <div style="padding:20px 24px;">
-      <div style="background:rgba(224,167,58,.1); border:1px solid rgba(224,167,58,.35); border-radius:8px; padding:9px 14px; font-size:11.5px; color:#c8941a; margin-bottom:18px; line-height:1.5;">
+      <div id="ajp-aviso-manual" style="background:rgba(224,167,58,.1); border:1px solid rgba(224,167,58,.35); border-radius:8px; padding:9px 14px; font-size:11.5px; color:#c8941a; margin-bottom:18px; line-height:1.5;">
         ⚠ <strong>Ajuste temporário:</strong> preencha os campos manualmente apenas se os dados do sistema Intra estiverem incompletos. Deixe em branco para usar o cálculo automático.
+      </div>
+
+      <!-- FILIAL -->
+      <div style="margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,.08);">
+        <label style="font-size:11.5px; color:#8ba8c8;">
+          Filial
+          <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-filial"></div>
+          <select id="ajp-filial" style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
+            <option value="">Selecione a filial…</option>
+          </select>
+        </label>
       </div>
 
       <!-- Grid de campos -->
@@ -10872,21 +10925,9 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
           <div style="font-size:11px; font-weight:700; color:#f87171; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(248,113,113,.2);">⚠ Vencidos</div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             <label style="font-size:11.5px; color:#8ba8c8;">
-              Total de lotes vencidos
-              <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-totalVencidos"></div>
-              <input id="ajp-totalVencidos" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
-                style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
-            </label>
-            <label style="font-size:11.5px; color:#8ba8c8;">
               Valor vencidos (R$)
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-valorVencidos"></div>
               <input id="ajp-valorVencidos" type="number" min="0" step="0.01" placeholder="auto"
-                style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
-            </label>
-            <label style="font-size:11.5px; color:#8ba8c8;">
-              Produtos sem giro
-              <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-semGiroProd"></div>
-              <input id="ajp-semGiroProd" type="number" min="0" placeholder="auto"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
           </div>

@@ -606,19 +606,11 @@ body,#topo,.kpi,.chart-card,.rank-wrap,.modal-box,.arq-card,.drop-zone,.btn-topo
             <input type="checkbox" id="mf-tem-venc" onchange="_manualToggleVenc();_manualScorePreview()"> Vencidos
           </label>
           <div id="mf-venc-fields" style="display:none;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <div>
-                <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--text2);">Qtd. Vencidos</label>
-                <input id="mf-totalvenc" type="number" min="0" step="1" placeholder="0"
-                  style="width:100%;box-sizing:border-box;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;"
-                  oninput="_manualScorePreview()">
-              </div>
-              <div>
-                <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--text2);">Valor Vencidos (R$)</label>
-                <input id="mf-valorvenc" type="number" min="0" step="0.01" placeholder="0.00"
-                  style="width:100%;box-sizing:border-box;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;"
-                  oninput="_manualScorePreview()">
-              </div>
+            <div>
+              <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--text2);">Valor Vencidos (R$)</label>
+              <input id="mf-valorvenc" type="number" min="0" step="0.01" placeholder="0.00"
+                style="width:100%;box-sizing:border-box;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;"
+                oninput="_manualScorePreview()">
             </div>
           </div>
         </div>
@@ -903,7 +895,7 @@ function identificarTipo(nome, raw) {
   if (!arr.length) return [{id,nome,tipo:'err',erro:'Arquivo vazio',dados:null}];
   const first = arr[0] || {};
   // VENCIDOS
-  if (first.tipo === 'VENCIDOS_AUDT' || ('valorVencidos' in first && 'totalVencidos' in first)) {
+  if (first.tipo === 'VENCIDOS_AUDT' || 'valorVencidos' in first) {
     return [{id,nome,tipo:'venc',dados:arr}];
   }
   // PEDIDO/CANHOTO
@@ -1047,8 +1039,85 @@ function renderArquivos() {
   }).join('');
 }
 
+// ============================================================
+// SENHA DE EXCLUSÃO — protege contra exclusão acidental/mal-intencionada
+// por qualquer pessoa com acesso ao painel. Só o hash fica no código;
+// nunca a senha em texto puro. Implementação em JS puro (sem
+// crypto.subtle) porque o painel pode ser servido fora de HTTPS.
+// ============================================================
+const EXCLUSAO_SENHA_HASH = '6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918';
+
+function _sha256Hex(msg){
+  function rightRotate(v, a){ return (v>>>a) | (v<<(32-a)); }
+  const maxWord = Math.pow(2,32);
+  let i, j;
+  const words = [];
+  const asciiBitLength = msg.length*8;
+  let hash = [], k = [];
+  let primeCounter = 0;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++){
+    if (!isComposite[candidate]){
+      for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (Math.pow(candidate,0.5)*maxWord)|0;
+      k[primeCounter++] = (Math.pow(candidate,1/3)*maxWord)|0;
+    }
+  }
+  msg += '\x80';
+  while (msg.length % 64 - 56) msg += '\x00';
+  for (i = 0; i < msg.length; i++){
+    j = msg.charCodeAt(i);
+    words[i>>2] |= j << ((3-i)%4)*8;
+  }
+  words[words.length] = Math.floor(asciiBitLength / maxWord);
+  words[words.length] = asciiBitLength;
+
+  for (j = 0; j < words.length;){
+    const w = words.slice(j, j += 16);
+    const oldHash = hash;
+    hash = hash.slice(0,8);
+    for (i = 0; i < 64; i++){
+      const w15 = w[i-15], w2 = w[i-2];
+      const a = hash[0], e = hash[4];
+      const temp1 = hash[7]
+        + (rightRotate(e,6) ^ rightRotate(e,11) ^ rightRotate(e,25))
+        + ((e & hash[5]) ^ (~e & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i-16]
+            + (rightRotate(w15,7) ^ rightRotate(w15,18) ^ (w15>>>3))
+            + w[i-7]
+            + (rightRotate(w2,17) ^ rightRotate(w2,19) ^ (w2>>>10))
+          )|0
+        );
+      const temp2 = (rightRotate(a,2) ^ rightRotate(a,13) ^ rightRotate(a,22))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1+temp2)|0].concat(hash);
+      hash[4] = (hash[4]+temp1)|0;
+    }
+    for (i = 0; i < 8; i++) hash[i] = (hash[i]+oldHash[i])|0;
+  }
+
+  let result = '';
+  for (i = 0; i < 8; i++){
+    for (j = 3; j+1; j--){
+      const b = (hash[i]>>(j*8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+function _confirmarSenhaExclusao(){
+  const senha = prompt('Digite a senha de exclusão:');
+  if (senha === null) return false; // cancelou
+  if (_sha256Hex(senha) !== EXCLUSAO_SENHA_HASH) { alert('Senha incorreta. Nada foi excluído.'); return false; }
+  return true;
+}
+
 function removerArquivo(id) {
   if(!confirm('Excluir este arquivo permanentemente e sincronizar?')) return;
+  if(!_confirmarSenhaExclusao()) return;
   ARQUIVOS = ARQUIVOS.filter(a => String(a.id)!==String(id));
   renderArquivos();
   renderGerenciarArquivos();
@@ -1294,9 +1363,11 @@ function processarERenderizar() {
   });
 
   // REINCIDÊNCIA de vencidos (≥2 auditorias do ano com vencidos)
+  // Usa valorVencidos (não totalVencidos/quantidade) — o registro manual de auditoria
+  // não coleta mais quantidade de lotes nem produtos sem giro, só o valor.
   const vencPorFilial = {};
   REGISTROS.forEach(r => {
-    if (r.temVenc && r.totalVencidos>0) vencPorFilial[r.filial]=(vencPorFilial[r.filial]||0)+1;
+    if (r.temVenc && r.valorVencidos>0) vencPorFilial[r.filial]=(vencPorFilial[r.filial]||0)+1;
   });
   REGISTROS.forEach(r => { r.reincidente = (vencPorFilial[r.filial]||0)>=2; });
 
@@ -1334,7 +1405,7 @@ function consolidarAnual(registros) {
     const variancia = scores.reduce((a,b)=>a+Math.pow(b-media,2),0)/scores.length;
     const desvio = Math.sqrt(variancia);
     const info = regs[0];
-    const vencidosCount = regs.filter(r=>r.temVenc&&r.totalVencidos>0).length;
+    const vencidosCount = regs.filter(r=>r.temVenc&&r.valorVencidos>0).length;
     const pctVencMed = regs.filter(r=>r.pctVencFat!=null).reduce((a,r,_,arr)=>a+r.pctVencFat/arr.length,0);
     const volTotal = regs.reduce((a,r)=>a+r.canConf+r.pedConf,0);
 
@@ -4479,6 +4550,7 @@ function lerBackupJSON(input) {
 
 function limparTudo() {
   if(!confirm('Limpar todos os dados? Esta ação não pode ser desfeita.')) return;
+  if(!_confirmarSenhaExclusao()) return;
   ARQUIVOS=[];FATURAMENTOS={};FAT_HISTORICO={};FAT_BASE_INFO=null;AUDITORIA_NOTAS={};AUDITORIA_NOTAS_INFO=null;OBSERVACOES={};REGISTROS=[];FAT_ACUM={};
   document.getElementById('tela-import').style.display='block';
   document.getElementById('painel').classList.add('hidden');
@@ -5399,7 +5471,6 @@ function abrirModalManual(id){
   document.getElementById('mf-canconf').value     = m?m.canConf||'':'';
   document.getElementById('mf-pctcan').value      = m?m.pctCan||'':'';
   document.getElementById('mf-tem-venc').checked  = !!(m&&m.temVenc);
-  document.getElementById('mf-totalvenc').value   = m?m.totalVencidos||'':'';
   document.getElementById('mf-valorvenc').value   = m?m.valorVencidos||'':'';
   document.getElementById('mf-fat').value         = m?m.faturamento||'':'';
   document.getElementById('mf-data').value        = m?m.dataAuditoria||'':'';
@@ -5439,7 +5510,6 @@ function _manualScorePreview(){
     canConf:parseFloat(document.getElementById('mf-canconf').value)||0,
     pctCan:parseFloat(document.getElementById('mf-pctcan').value)||0,
     temVenc:hasVenc,
-    totalVencidos:parseInt(document.getElementById('mf-totalvenc').value)||0,
     valorVencidos:parseFloat(document.getElementById('mf-valorvenc').value)||0,
     faturamento:parseFloat(document.getElementById('mf-fat').value)||0,
   };
@@ -5480,7 +5550,6 @@ function salvarManual(){
     canConf:parseFloat(document.getElementById('mf-canconf').value)||0,
     pctCan:parseFloat(document.getElementById('mf-pctcan').value)||0,
     temVenc:hasVenc,
-    totalVencidos:parseInt(document.getElementById('mf-totalvenc').value)||0,
     valorVencidos:parseFloat(document.getElementById('mf-valorvenc').value)||0,
     faturamento:parseFloat(document.getElementById('mf-fat').value)||0,
     dataAuditoria:document.getElementById('mf-data').value.trim(),
