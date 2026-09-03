@@ -3336,7 +3336,7 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
           <tbody>
             <tr><td>🔴 <b>Pedido de Semente</b></td><td><b>40 pts</b></td><td>Zero tolerância</td><td>40 se sem pendências / 0 se qualquer pendência</td></tr>
             <tr><td>🔵 <b>Pedido de Venda</b></td><td><b>30 pts</b></td><td>Meta ≥ 95%</td><td>MIN(% atingido / 95, 1) × 30</td></tr>
-            <tr><td>🟡 <b>Produtos Vencidos</b></td><td><b>20 pts</b></td><td>Painel Vencidos</td><td>calcScoreVencPrev(total lotes) / 100 × 20 — 0 lotes=100%, 1-2=80%, 3-5=60%, 6-10=40%, 11-20=20%, >20=0%</td></tr>
+            <tr><td>🟡 <b>Produtos Vencidos</b></td><td><b>20 pts</b></td><td>Painel Vencidos</td><td>Prévia local por valor (R$): 0=100%, até 1.000=90%, até 5.000=70%, até 20.000=40%, até 50.000=15%, acima=0%. O score oficial usa % do valor vencido sobre o faturamento, calculado no Ranking Geral.</td></tr>
             <tr><td>🟢 <b>Canhoto</b></td><td><b>10 pts</b></td><td>Meta ≥ 95%</td><td>MIN(% atingido / 95, 1) × 10</td></tr>
             <tr style="font-weight:700;background:var(--az-cl)"><td colspan="2"><b>TOTAL MÁXIMO: 100 pts</b></td><td colspan="2">🥇 ≥90 pts | 🟢 ≥75 | 🟡 ≥60 | 🔴 &lt;60</td></tr>
           </tbody>
@@ -8544,13 +8544,15 @@ function calcScoreVenc(valorVencidos, faturamento) {
   return 0;
 }
 
-// Score estimado baseado em total de lotes vencidos (sem necessidade de faturamento)
-function calcScoreVencPrev(totalLotes) {
-  if (!totalLotes || totalLotes === 0) return 100;
-  if (totalLotes <= 2)  return 80;
-  if (totalLotes <= 5)  return 60;
-  if (totalLotes <= 10) return 40;
-  if (totalLotes <= 20) return 20;
+// Score estimado baseado no VALOR vencido (sem necessidade de faturamento, que só é
+// importado no Ranking Geral). É só uma prévia local — o score final e oficial usa
+// % do valor vencido sobre o faturamento da filial, calculado no Ranking Geral.
+function calcScoreVencPrevValor(valor) {
+  if (!valor || valor <= 0) return 100;
+  if (valor <= 1000)  return 90;
+  if (valor <= 5000)  return 70;
+  if (valor <= 20000) return 40;
+  if (valor <= 50000) return 15;
   return 0;
 }
 
@@ -10699,13 +10701,13 @@ function ajusteRecalcScore() {
   const val = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseFloat(el.value) : null; return v !== null && !isNaN(v) ? v : (auto[k] ?? 0); };
   const pedConf = val('pedConf'), pedAss = val('pedAss'), pedPend = val('pedPend');
   const canConf = val('canConf'), canAss = val('canAss'), canPend = val('canPend');
-  const totalVenc = val('totalVencidos');
+  const valorVenc = val('valorVencidos');
   const pctPed = pedConf > 0 ? parseFloat((pedAss/pedConf*100).toFixed(2)) : 0;
   const pctCan = canConf > 0 ? parseFloat((canAss/canConf*100).toFixed(2)) : 0;
   const semPend = val('semPend');
   const sSem = semPend === 0 ? 40 : 0;
   const sPed = (pedConf > 0 && pctPed >= 95) ? 30 : 0;
-  const sVenc = (calcScoreVencPrev(totalVenc) / 100) * 20;
+  const sVenc = (calcScoreVencPrevValor(valorVenc) / 100) * 20;
   const sCan = (canConf > 0 && pctCan >= 95) ? 10 : 0;
   const score = Math.round((sSem + sPed + sVenc + sCan) * 100) / 100;
   const cls = score >= 90 ? '#5fd4a0' : score >= 70 ? '#fbbf24' : '#f87171';
@@ -10743,11 +10745,11 @@ function confirmarAjusteRegistro() {
   // Sementes pendentes manual
   const spv = valInt('semPend'); if (spv !== null) overridePed.semPend = spv;
 
-  // Calcula score preliminar de vencidos com base no total de lotes
-  const _totalVencFinal = overrideVenc.totalVencidos !== undefined
-    ? overrideVenc.totalVencidos
-    : (window._ajusteAutoVals?.totalVencidos ?? 0);
-  overridePed.scoreVenc = calcScoreVencPrev(_totalVencFinal);
+  // Calcula score preliminar de vencidos com base no VALOR vencido
+  const _valorVencFinal = overrideVenc.valorVencidos !== undefined
+    ? overrideVenc.valorVencidos
+    : (window._ajusteAutoVals?.valorVencidos ?? 0);
+  overridePed.scoreVenc = calcScoreVencPrevValor(_valorVencFinal);
 
   document.getElementById('modal-ajuste-ped').style.display = 'none';
 
@@ -10945,7 +10947,7 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
             <label style="font-size:11.5px; color:#8ba8c8;">
               Valor vencidos (R$)
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-valorVencidos"></div>
-              <input id="ajp-valorVencidos" type="number" min="0" step="0.01" placeholder="auto"
+              <input id="ajp-valorVencidos" type="number" min="0" step="0.01" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
           </div>
