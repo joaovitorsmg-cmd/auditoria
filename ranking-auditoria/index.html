@@ -1459,9 +1459,40 @@ function ordenarComDesempate(arr, keyScore) {
 }
 
 // ============================================================
+// ACESSO RESTRITO À ABA CONFIGURAÇÕES — apenas os e-mails abaixo.
+// Reaproveita a mesma senha padrão do hub (Agroquima#2026) e a mesma
+// implementação de SHA-256 em JS puro (_sha256Hex), sem crypto.subtle,
+// pois o painel pode ser servido fora de HTTPS.
+// ============================================================
+const CONFIG_ACESSO_EMAILS = [
+  'joao.mendes@agroquima.com.br',
+  'gabriela.amorim@agroquima.com.br',
+  'fabio.ribeiro@agroquima.com.br'
+];
+const CONFIG_ACESSO_HASH = '14a948c52efd4b22caabde0e3f292cac6b26ebd5d413205506aca7893d0de71e';
+const CONFIG_ACESSO_KEY = 'agroquima_ranking_config_acesso';
+
+function _temAcessoConfig(){
+  const salvo = sessionStorage.getItem(CONFIG_ACESSO_KEY);
+  return !!(salvo && CONFIG_ACESSO_EMAILS.includes(salvo));
+}
+function _solicitarAcessoConfig(){
+  if (_temAcessoConfig()) return true;
+  const email = ((prompt('Acesso restrito.\nDigite seu e-mail Agroquima:')||'').trim().toLowerCase());
+  if (!email) return false;
+  if (!CONFIG_ACESSO_EMAILS.includes(email)) { alert('Este e-mail não tem permissão para acessar Configurações.'); return false; }
+  const senha = prompt('Digite a senha:');
+  if (senha === null) return false;
+  if (_sha256Hex(senha) !== CONFIG_ACESSO_HASH) { alert('Senha incorreta.'); return false; }
+  sessionStorage.setItem(CONFIG_ACESSO_KEY, email);
+  return true;
+}
+
+// ============================================================
 // RENDER ABAS
 // ============================================================
 function mudarAba(aba) {
+  if (aba === 'config' && !_solicitarAcessoConfig()) return;
   ABA_ATUAL = aba;
   ['anual','periodo','regional','auditor','evolucao','cobertura','cronograma','comparativo','guia','config'].forEach(a=>{
     document.getElementById('aba-'+a)?.classList.toggle('ativa', a===aba);
