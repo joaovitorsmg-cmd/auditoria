@@ -10770,10 +10770,28 @@ function confirmarAjusteRegistro() {
 function exportarHistoricoUnificado() {
   if (!VENC_HIST.length && !H_DADOS.length) { alert('Nenhuma auditoria registrada ainda.'); return; }
   const payload = { versao: 1, tipo: 'HISTORICO_AUDITORIA_UNIFICADO', vencidos: VENC_HIST, pedidos: H_DADOS };
-  const dt = new Date().toLocaleDateString('pt-BR').split('/').join('-');
-  const sigla = APP.sigla || APP_PED.fi?.sigla || '';
-  const loja = (BASE_FILIAIS[sigla]?.loja) || APP_PED.fi?.loja || '';
-  const filial = normalizarFilialArq(sigla, loja);
+
+  // Nome do arquivo baseado nos REGISTROS de fato salvos no histórico (não no arquivo
+  // importado atual — pode nem existir nenhum, no lançamento 100% manual).
+  const todosRegistros = [...VENC_HIST, ...H_DADOS];
+  const siglas = [...new Set(todosRegistros.map(r => r.filial).filter(Boolean))];
+  let filial;
+  if (siglas.length === 1) {
+    const sigla = siglas[0];
+    const loja = (BASE_FILIAIS[sigla] && BASE_FILIAIS[sigla].loja)
+      || (VENC_HIST.find(r => r.filial === sigla) || {}).filialNome
+      || (H_DADOS.find(r => r.filial === sigla) || {}).loja
+      || '';
+    filial = normalizarFilialArq(sigla, loja);
+  } else {
+    filial = 'MULTIPLAS-FILIAIS';
+  }
+
+  const periodos = [...new Set(todosRegistros.map(r => r.periodo).filter(Boolean))];
+  const dt = periodos.length === 1
+    ? periodos[0].replace('/', '-')
+    : new Date().toLocaleDateString('pt-BR').split('/').join('-');
+
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
