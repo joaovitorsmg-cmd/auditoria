@@ -352,7 +352,7 @@ tbody tr:hover td{background:var(--row-hover)}
       <table>
         <thead><tr>
           <th class="sortavel" onclick="_sortGeral('regiao')">Região<span class="sort-ind" id="si-regiao"></span></th>
-          <th class="sortavel" onclick="_sortGeral('sigla')">Filial<span class="sort-ind" id="si-sigla"></span></th>
+          <th class="sortavel" onclick="_sortGeral('filial')">Filial<span class="sort-ind" id="si-filial"></span></th>
           <th class="sortavel" onclick="_sortGeral('codigo')">Cód.<span class="sort-ind" id="si-codigo"></span></th>
           <th class="sortavel" onclick="_sortGeral('desc')">Produto<span class="sort-ind" id="si-desc"></span></th>
           <th class="sortavel r" onclick="_sortGeral('dem')">Demanda<span class="sort-ind" id="si-dem"></span></th>
@@ -598,7 +598,7 @@ function _sortGeral(col){
   render();
 }
 function _updSortInd(){
-  ['regiao','sigla','codigo','desc','dem','est','gap','status','forn','ped'].forEach(c=>{
+  ['regiao','filial','codigo','desc','dem','est','gap','status','forn','ped'].forEach(c=>{
     const el=document.getElementById('si-'+c);
     if(!el) return;
     el.textContent = GERAL_SORT.col===c ? (GERAL_SORT.dir>0?'▲':'▼') : '';
@@ -639,7 +639,7 @@ function rGeral(d){
     const gs=(r.gap>0?'+':'')+n(r.gap);
     return `<tr>
       <td><span class="reg-tag rt-${r.regiao}">${r.regiao}</span></td>
-      <td><b>${r.sigla}</b> <span style="font-size:11px;color:var(--txt3)">${r.loja}</span></td>
+      <td><b>${r.filial}</b> <span style="font-size:11px;color:var(--txt3)">${r.loja}</span></td>
       <td style="color:var(--txt3);font-size:12px">${r.codigo}</td>
       <td style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="${r.desc}">${r.desc}</td>
       <td class="r" style="font-weight:700">${n(r.dem)}</td>
