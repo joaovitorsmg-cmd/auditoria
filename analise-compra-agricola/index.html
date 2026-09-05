@@ -139,8 +139,10 @@ select.flt:focus{outline:none;border-color:#0D47A1}
 
 /* ── CARDS ── */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-.card{border-radius:10px;padding:14px 18px;color:#fff;position:relative;overflow:hidden}
+.card{border-radius:10px;padding:14px 18px;color:#fff;position:relative;overflow:hidden;cursor:pointer;transition:opacity .15s,transform .12s;user-select:none}
 .card::after{content:'';position:absolute;right:-14px;bottom:-14px;width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.08)}
+.card:hover{transform:translateY(-2px)}
+.card.off{opacity:.32}
 .card.c-c{background:linear-gradient(135deg,#c62828,#b71c1c)}
 .card.c-p{background:linear-gradient(135deg,#e65100,#bf360c)}
 .card.c-a{background:linear-gradient(135deg,#f9a825,#f57f17);color:#1a1a1a}
@@ -155,6 +157,9 @@ select.flt:focus{outline:none;border-color:#0D47A1}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{background:var(--th-bg);color:var(--th-txt);padding:9px 13px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
 thead th.r{text-align:right}
+thead th.sortavel{cursor:pointer;user-select:none}
+thead th.sortavel:hover{opacity:.8}
+.sort-ind{margin-left:4px;font-size:9px}
 tbody td{padding:8px 13px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--txt)}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--row-hover)}
@@ -337,18 +342,25 @@ tbody tr:hover td{background:var(--row-hover)}
 
   <div class="content" id="tab-geral">
     <div class="cards">
-      <div class="card c-c"><div class="card-num" id="n-c">—</div><div class="card-lbl">COMPRAR</div></div>
-      <div class="card c-p"><div class="card-num" id="n-p">—</div><div class="card-lbl">PARCIAL</div></div>
-      <div class="card c-a"><div class="card-num" id="n-a">—</div><div class="card-lbl">ATENÇÃO</div></div>
-      <div class="card c-v"><div class="card-num" id="n-v">—</div><div class="card-lbl">ATENDE</div></div>
+      <div class="card c-c" data-v="COMPRAR" onclick="cardFiltro(this)" title="Clique para filtrar"><div class="card-num" id="n-c">—</div><div class="card-lbl">COMPRAR</div></div>
+      <div class="card c-p" data-v="PARCIAL" onclick="cardFiltro(this)" title="Clique para filtrar"><div class="card-num" id="n-p">—</div><div class="card-lbl">PARCIAL</div></div>
+      <div class="card c-a" data-v="ATENCAO" onclick="cardFiltro(this)" title="Clique para filtrar"><div class="card-num" id="n-a">—</div><div class="card-lbl">ATENÇÃO</div></div>
+      <div class="card c-v" data-v="ATENDE" onclick="cardFiltro(this)" title="Clique para filtrar"><div class="card-num" id="n-v">—</div><div class="card-lbl">ATENDE</div></div>
     </div>
     <div class="tbl-bar"><span class="tbl-cnt" id="cnt-g"></span></div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Região</th><th>Filial</th><th>Cód.</th><th>Produto</th>
-          <th class="r">Demanda</th><th class="r">Estoque</th><th class="r">GAP</th>
-          <th>Status</th><th>Fornecedor</th><th class="r">Ped.</th>
+          <th class="sortavel" onclick="_sortGeral('regiao')">Região<span class="sort-ind" id="si-regiao"></span></th>
+          <th class="sortavel" onclick="_sortGeral('sigla')">Filial<span class="sort-ind" id="si-sigla"></span></th>
+          <th class="sortavel" onclick="_sortGeral('codigo')">Cód.<span class="sort-ind" id="si-codigo"></span></th>
+          <th class="sortavel" onclick="_sortGeral('desc')">Produto<span class="sort-ind" id="si-desc"></span></th>
+          <th class="sortavel r" onclick="_sortGeral('dem')">Demanda<span class="sort-ind" id="si-dem"></span></th>
+          <th class="sortavel r" onclick="_sortGeral('est')">Estoque<span class="sort-ind" id="si-est"></span></th>
+          <th class="sortavel r" onclick="_sortGeral('gap')">GAP<span class="sort-ind" id="si-gap"></span></th>
+          <th class="sortavel" onclick="_sortGeral('status')">Status<span class="sort-ind" id="si-status"></span></th>
+          <th class="sortavel" onclick="_sortGeral('forn')">Fornecedor<span class="sort-ind" id="si-forn"></span></th>
+          <th class="sortavel r" onclick="_sortGeral('ped')">Ped.<span class="sort-ind" id="si-ped"></span></th>
         </tr></thead>
         <tbody id="tb-g"></tbody>
       </table>
@@ -556,6 +568,10 @@ function togglePill(el,g){
   else{set.add(v);el.className='pill on-'+v;}
   render();
 }
+function cardFiltro(el){
+  const pill=document.querySelector('.pill[data-v="'+el.dataset.v+'"]');
+  if(pill) togglePill(pill,'s');
+}
 function limpar(){
   flt={r:new Set(['SUL','MT','NORTE']),s:new Set(['COMPRAR','PARCIAL','ATENCAO','ATENDE']),f:''};
   document.getElementById('sel-filial').value='';
@@ -576,6 +592,18 @@ function tab(el){
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
+let GERAL_SORT={col:null,dir:1};
+function _sortGeral(col){
+  if(GERAL_SORT.col===col) GERAL_SORT.dir*=-1; else { GERAL_SORT.col=col; GERAL_SORT.dir=1; }
+  render();
+}
+function _updSortInd(){
+  ['regiao','sigla','codigo','desc','dem','est','gap','status','forn','ped'].forEach(c=>{
+    const el=document.getElementById('si-'+c);
+    if(!el) return;
+    el.textContent = GERAL_SORT.col===c ? (GERAL_SORT.dir>0?'▲':'▼') : '';
+  });
+}
 function render(){
   const d=df();
   const cnt={COMPRAR:0,PARCIAL:0,ATENCAO:0,ATENDE:0};
@@ -584,13 +612,25 @@ function render(){
   document.getElementById('n-p').textContent=cnt.PARCIAL;
   document.getElementById('n-a').textContent=cnt.ATENCAO;
   document.getElementById('n-v').textContent=cnt.ATENDE;
+  document.querySelectorAll('.card[data-v]').forEach(c=>c.classList.toggle('off', !flt.s.has(c.dataset.v)));
   if(abaAtiva==='geral') rGeral(d);
   if(abaAtiva==='comprar') rComprar(d);
   if(abaAtiva==='fornecedor') rForn(d);
 }
 
 function rGeral(d){
-  const s=[...d].sort((a,b)=>SO[a.status]-SO[b.status]||b.dem-a.dem);
+  let s=[...d];
+  if(GERAL_SORT.col){
+    const col=GERAL_SORT.col, dir=GERAL_SORT.dir;
+    s.sort((a,b)=>{
+      const av=a[col], bv=b[col];
+      if(typeof av==='string'||typeof bv==='string') return dir*String(av||'').localeCompare(String(bv||''));
+      return dir*((av||0)-(bv||0));
+    });
+  } else {
+    s=s.sort((a,b)=>SO[a.status]-SO[b.status]||b.dem-a.dem);
+  }
+  _updSortInd();
   document.getElementById('cnt-g').textContent=s.length+' itens';
   const tb=document.getElementById('tb-g');
   if(!s.length){tb.innerHTML='<tr><td colspan="10" class="empty-s">Nenhum item encontrado</td></tr>';return;}
