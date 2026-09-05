@@ -97,11 +97,16 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/icons/icon-512.png" -o auditoria-semanal/icons/icon-512.png
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Auditoria-Semanal/main/icons/icon-maskable-512.png" -o auditoria-semanal/icons/icon-maskable-512.png
 
+      - name: Baixar Análise de Compra Agrícola
+        run: |
+          mkdir -p analise-compra-agricola
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Analise-Compra-Agricola/main/index.html" -o analise-compra-agricola/index.html
+
       - name: Publicar se houver mudança
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal
+          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal analise-compra-agricola
           if git diff --cached --quiet; then
             echo "Nada novo para publicar."
           else
