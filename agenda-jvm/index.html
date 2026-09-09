@@ -588,12 +588,12 @@
   <div class="drawer-section">
     <h4>JSONBin (sincronização)</h4>
     <div class="field-group">
-      <label>Bin ID</label>
-      <input type="text" id="cfgBinId" placeholder="65f...">
+      <label>Master Key</label>
+      <input type="text" id="cfgBinKey" placeholder="$2a$...">
     </div>
     <div class="field-group">
-      <label>API Key</label>
-      <input type="text" id="cfgBinKey" placeholder="$2a$...">
+      <label>Bin ID <span style="font-weight:400;opacity:.7">(opcional — deixe em branco na primeira vez)</span></label>
+      <input type="text" id="cfgBinId" placeholder="criado automaticamente ao salvar">
     </div>
     <button class="btn-secondary" id="btnSaveSync">Salvar configuração</button>
     <div class="status-line" id="syncStatus">não configurado</div>

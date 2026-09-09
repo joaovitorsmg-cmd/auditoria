@@ -600,6 +600,25 @@ function parseComandoRapido(texto){
    JSONBIN — sincronização em nuvem (debounced)
    ============================================================ */
 
+// Cria um Bin novo automaticamente a partir só da Master Key — o usuário
+// não precisa saber o que é um "Bin ID" nem criar nada manualmente em
+// jsonbin.io: digita a chave e o painel resolve o resto sozinho.
+async function criarBinAutomatico(masterKey){
+  const r = await fetch('https://api.jsonbin.io/v3/b', {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Master-Key': masterKey,
+      'X-Bin-Name': 'Painel-JVM',
+      'X-Bin-Private': 'true'
+    },
+    body: JSON.stringify(STATE)
+  });
+  const d = await r.json();
+  if(!r.ok) throw new Error(d.message || 'Master Key inválida ou sem permissão.');
+  return d.metadata.id;
+}
+
 let syncTimer = null;
 
 function syncToCloudDebounced(){
@@ -829,14 +848,37 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('btnCloseDrawer').addEventListener('click', closeConfigDrawer);
   document.getElementById('drawerOverlay').addEventListener('click', closeConfigDrawer);
   document.getElementById('btnGoogleAuth').addEventListener('click', iniciarGoogleAuth);
-  document.getElementById('btnSaveSync').addEventListener('click', ()=>{
-    CONFIG.binId = document.getElementById('cfgBinId').value.trim();
-    CONFIG.binKey = document.getElementById('cfgBinKey').value.trim();
-    saveConfig();
-    document.getElementById('syncStatus').textContent = 'configurado';
-    document.getElementById('syncStatus').classList.add('connected');
-    showToast('Sincronização configurada');
-    loadFromCloud();
+  document.getElementById('btnSaveSync').addEventListener('click', async ()=>{
+    const key = document.getElementById('cfgBinKey').value.trim();
+    let binId = document.getElementById('cfgBinId').value.trim();
+    const btn = document.getElementById('btnSaveSync');
+    const statusEl = document.getElementById('syncStatus');
+    if(!key){
+      showToast('Cole a Master Key antes de salvar');
+      return;
+    }
+    btn.disabled = true;
+    statusEl.classList.remove('connected');
+    statusEl.textContent = binId ? 'conectando...' : 'criando Bin automaticamente...';
+    try{
+      const criouAgora = !binId;
+      if(!binId){
+        binId = await criarBinAutomatico(key);
+        document.getElementById('cfgBinId').value = binId;
+      }
+      CONFIG.binId = binId;
+      CONFIG.binKey = key;
+      saveConfig();
+      statusEl.textContent = 'configurado';
+      statusEl.classList.add('connected');
+      showToast(criouAgora ? 'Bin criado automaticamente e sincronização ativada!' : 'Sincronização configurada');
+      await loadFromCloud();
+    }catch(e){
+      statusEl.textContent = 'erro: '+(e.message||'falha desconhecida');
+      showToast('Erro ao configurar: '+(e.message||'verifique a Master Key'));
+    }finally{
+      btn.disabled = false;
+    }
   });
   document.getElementById('btnExportData').addEventListener('click', exportarDados);
   document.getElementById('btnWipeData').addEventListener('click', limparTodosDados);
