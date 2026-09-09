@@ -218,6 +218,11 @@
       <div class="name">Análise de Compra Agrícola</div>
       <div class="desc">Análise de compras do setor agrícola</div>
     </a>
+    <a class="card" href="agenda-jvm/" id="card-agenda-jvm" style="display:none;">
+      <div class="icon">📆</div>
+      <div class="name">Agenda JVM</div>
+      <div class="desc">Agenda pessoal — João Vitor Mendes</div>
+    </a>
   </div>
 
   <footer>Agroquima Produtos Agropecuários</footer>
@@ -242,6 +247,9 @@
   function liberarAcesso(){
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('appContent').style.display = 'block';
+    const emailLogado = localStorage.getItem(AUTH_KEY);
+    const cardJVM = document.getElementById('card-agenda-jvm');
+    if (cardJVM) cardJVM.style.display = (emailLogado === 'joao.mendes@agroquima.com.br') ? '' : 'none';
   }
 
   // Implementação em JS puro (não depende de crypto.subtle, que só existe em contexto HTTPS)
