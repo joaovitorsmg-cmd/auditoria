@@ -102,11 +102,21 @@ jobs:
           mkdir -p analise-compra-agricola
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Analise-Compra-Agricola/main/index.html" -o analise-compra-agricola/index.html
 
+      - name: Baixar Agenda JVM
+        run: |
+          mkdir -p agenda-jvm
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/index.html" -o agenda-jvm/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/app.js" -o agenda-jvm/app.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/sw.js" -o agenda-jvm/sw.js
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/manifest.json" -o agenda-jvm/manifest.json
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/icon-192.png" -o agenda-jvm/icon-192.png
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/icon-512.png" -o agenda-jvm/icon-512.png
+
       - name: Publicar se houver mudança
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal analise-compra-agricola
+          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal analise-compra-agricola agenda-jvm
           if git diff --cached --quiet; then
             echo "Nada novo para publicar."
           else
