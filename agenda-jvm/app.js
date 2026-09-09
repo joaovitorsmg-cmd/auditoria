@@ -7,13 +7,13 @@ const STORAGE_KEY = 'painel_jvm_state_v1';
 const CONFIG_KEY = 'painel_jvm_config_v1';
 
 const DEFAULT_RECURRENTES = [
-  { id: 'r1', nome: 'Envio relatório auditoria filiais', freq: 'semanal', diaRef: 5, ultimoFeito: null },
-  { id: 'r2', nome: 'Verificação banco de horas', freq: 'quinzenal', diaRef: 1, ultimoFeito: null },
-  { id: 'r3', nome: 'Revisão licenças/alvarás vencendo', freq: 'mensal', diaRef: 1, ultimoFeito: null },
-  { id: 'r4', nome: 'Conferência notas fiscais pendentes', freq: 'semanal', diaRef: 4, ultimoFeito: null },
-  { id: 'r5', nome: 'Atualização painel compras (Kataki)', freq: 'quinzenal', diaRef: 1, ultimoFeito: null },
-  { id: 'r6', nome: 'Backup/sync planilhas auditoria', freq: 'semanal', diaRef: 5, ultimoFeito: null },
-  { id: 'r7', nome: 'Revisão robo_auditoria.py logs', freq: 'quinzenal', diaRef: 3, ultimoFeito: null }
+  { id: 'r1', nome: 'Envio relatório auditoria filiais', freq: 'semanal', diaRef: 5, horario: '09:00', ultimoFeito: null, historico: [] },
+  { id: 'r2', nome: 'Verificação banco de horas', freq: 'quinzenal', diaRef: 1, horario: '09:00', ultimoFeito: null, historico: [] },
+  { id: 'r3', nome: 'Revisão licenças/alvarás vencendo', freq: 'mensal', diaRef: 1, horario: '09:00', ultimoFeito: null, historico: [] },
+  { id: 'r4', nome: 'Conferência notas fiscais pendentes', freq: 'semanal', diaRef: 4, horario: '09:00', ultimoFeito: null, historico: [] },
+  { id: 'r5', nome: 'Atualização painel compras (Kataki)', freq: 'quinzenal', diaRef: 1, horario: '09:00', ultimoFeito: null, historico: [] },
+  { id: 'r6', nome: 'Backup/sync planilhas auditoria', freq: 'semanal', diaRef: 5, horario: '09:00', ultimoFeito: null, historico: [] },
+  { id: 'r7', nome: 'Revisão robo_auditoria.py logs', freq: 'quinzenal', diaRef: 3, horario: '09:00', ultimoFeito: null, historico: [] }
 ];
 
 function defaultState(){
@@ -67,6 +67,10 @@ let CONFIG = loadConfig();
 
 function uid(){
   return Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+}
+
+function normalizarTexto(s){
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
 }
 
 function showToast(msg, ms=2600){
@@ -129,11 +133,30 @@ function getRecurStatus(item){
 function marcarFeito(id){
   const item = STATE.recorrentes.find(r=>r.id===id);
   if(!item) return;
+  // primeira vez que essa recorrente é concluída nunca conta como "atrasada"
+  // nas estatísticas — ela nunca teve um prazo anterior pra descumprir.
+  const statusAntes = item.ultimoFeito ? getRecurStatus(item) : 'ok';
+  if(!item.historico) item.historico = [];
+  item.historico.push({ data: new Date().toISOString(), status: statusAntes });
   item.ultimoFeito = new Date().toISOString();
   saveState();
   renderRecorrentes();
   renderSummary();
   showToast(`"${item.nome}" marcada como feita`);
+}
+
+// Histórico/estatísticas simples de uma recorrente: quantas vezes já foi
+// concluída, a sequência atual sem atraso, e o % concluído dentro do prazo.
+function calcularStatsRecorrente(item){
+  const hist = item.historico || [];
+  const total = hist.length;
+  let streak = 0;
+  for(let i=hist.length-1;i>=0;i--){
+    if(hist[i].status !== 'atrasado') streak++; else break;
+  }
+  const noPrazo = hist.filter(h=>h.status!=='atrasado').length;
+  const pct = total ? Math.round((noPrazo/total)*100) : null;
+  return { total, streak, pct };
 }
 
 function adiarRecorrente(id){
@@ -219,14 +242,21 @@ function renderRecurFullList(){
   el.innerHTML = STATE.recorrentes.map(r=>{
     const status = getRecurStatus(r);
     const ultimo = r.ultimoFeito ? new Date(r.ultimoFeito).toLocaleDateString('pt-BR') : 'nunca feito';
+    const stats = calcularStatsRecorrente(r);
+    const statsTxt = stats.total
+      ? `${stats.total} concluída${stats.total!==1?'s':''} · sequência no prazo: ${stats.streak} · ${stats.pct}% no prazo`
+      : 'ainda sem histórico';
+    const googleAtivo = !!r.googleEventId;
     return `
       <div class="recur-preview-item" style="align-items:flex-start;padding:10px 0;">
         <span class="status-dot ${status}" style="margin-top:4px;"></span>
         <div style="flex:1;">
           <div class="recur-preview-name" style="font-weight:600;">${r.nome}</div>
-          <div class="recur-preview-freq">${FREQ_LABEL[r.freq]} · último: ${ultimo}</div>
+          <div class="recur-preview-freq">${FREQ_LABEL[r.freq]}${r.horario?(' às '+r.horario):''} · último: ${ultimo}</div>
+          <div class="recur-preview-freq" style="margin-top:2px;">${statsTxt}</div>
         </div>
         <div style="display:flex;gap:4px;">
+          <button class="note-icon-btn" title="${googleAtivo?'Lembrete ativo no Google Agenda — clique para atualizar':'Ativar lembrete automático no Google Agenda'}" style="opacity:${googleAtivo?1:0.45}" onclick="sincronizarRecorrenteGoogle(STATE.recorrentes.find(x=>x.id==='${r.id}'))">🔔</button>
           <button class="note-icon-btn" title="Marcar feito" onclick="marcarFeito('${r.id}')">✓</button>
           <button class="note-icon-btn" title="Adiar" onclick="adiarRecorrente('${r.id}')">⏭</button>
           <button class="note-icon-btn" title="Excluir" onclick="excluirRecorrente('${r.id}')">✕</button>
@@ -243,11 +273,19 @@ function excluirRecorrente(id){
   showToast('Recorrente removida');
 }
 
-function adicionarRecorrente(nome, freq){
-  STATE.recorrentes.push({ id:uid(), nome, freq, diaRef:1, ultimoFeito:null });
+function adicionarRecorrente(nome, freq, horario='09:00', diaRef=null){
+  const item = {
+    id: uid(), nome, freq,
+    diaRef: diaRef!==null && diaRef!==undefined ? diaRef : new Date().getDay(),
+    horario: horario || '09:00',
+    ultimoFeito: null,
+    historico: []
+  };
+  STATE.recorrentes.push(item);
   saveState();
   renderRecorrentes();
   renderSummary();
+  return item;
 }
 
 /* ============================================================
@@ -556,6 +594,78 @@ async function criarEventoGoogle(titulo, dataISO){
 }
 
 /* ============================================================
+   RECORRENTES → GOOGLE AGENDA (lembrete de verdade)
+   Cria/atualiza um evento RECORRENTE no Google Calendar pra cada
+   tarefa recorrente — assim o lembrete chega por notificação nativa
+   do Google (celular, etc.), sem depender do painel estar aberto.
+   ============================================================ */
+
+const BYDAY_CODES = ['SU','MO','TU','WE','TH','FR','SA'];
+
+function horarioParaHM(horario){
+  const partes = (horario||'09:00').split(':');
+  return { h: parseInt(partes[0],10)||9, m: parseInt(partes[1],10)||0 };
+}
+
+function proximaDataSemana(diaSemanaIdx, horario){
+  const { h, m } = horarioParaHM(horario);
+  const hoje = new Date();
+  const alvo = new Date(hoje);
+  let diff = (diaSemanaIdx - hoje.getDay() + 7) % 7;
+  const alvoHojeHorario = new Date(hoje); alvoHojeHorario.setHours(h,m,0,0);
+  if(diff===0 && hoje > alvoHojeHorario) diff = 7;
+  alvo.setDate(hoje.getDate() + diff);
+  alvo.setHours(h,m,0,0);
+  return alvo;
+}
+
+function proximaDataMensal(diaMes, horario){
+  const { h, m } = horarioParaHM(horario);
+  const hoje = new Date();
+  let alvo = new Date(hoje.getFullYear(), hoje.getMonth(), diaMes, h, m, 0, 0);
+  if(alvo <= hoje) alvo = new Date(hoje.getFullYear(), hoje.getMonth()+1, diaMes, h, m, 0, 0);
+  return alvo;
+}
+
+function montarRRule(item){
+  if(item.freq === 'quinzenal') return `RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=${BYDAY_CODES[item.diaRef]}`;
+  if(item.freq === 'mensal') return `RRULE:FREQ=MONTHLY;BYMONTHDAY=${item.diaRef}`;
+  return `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY_CODES[item.diaRef]}`;
+}
+
+function calcularDataInicialRecorrente(item){
+  if(item.freq === 'mensal') return proximaDataMensal(item.diaRef, item.horario);
+  return proximaDataSemana(item.diaRef, item.horario);
+}
+
+async function sincronizarRecorrenteGoogle(item, opts={}){
+  if(!item) return false;
+  if(!isGoogleConnected()){
+    if(!opts.silencioso){ showToast('Conecte o Google Agenda nas configurações para ativar lembretes automáticos'); }
+    return false;
+  }
+  const inicio = calcularDataInicialRecorrente(item);
+  const fim = new Date(inicio.getTime() + 30*60000);
+  const body = {
+    summary: '🔁 ' + item.nome,
+    start: { dateTime: inicio.toISOString() },
+    end: { dateTime: fim.toISOString() },
+    recurrence: [ montarRRule(item) ],
+    colorId: COR_EVENTO_PAINEL
+  };
+  const path = item.googleEventId ? `/calendars/primary/events/${item.googleEventId}` : '/calendars/primary/events';
+  const data = await googleApiFetch(path, { method: item.googleEventId ? 'PUT' : 'POST', body: JSON.stringify(body) });
+  if(data && data.id){
+    item.googleEventId = data.id;
+    saveState();
+    if(!opts.silencioso) showToast(`🔔 Lembrete ativado no Google Agenda: "${item.nome}"`);
+    return true;
+  }
+  if(!opts.silencioso) showToast('Não consegui ativar o lembrete no Google. Tente novamente.');
+  return false;
+}
+
+/* ============================================================
    PARSER DE COMANDO RÁPIDO (texto natural pt-BR → data/hora)
    ============================================================ */
 
@@ -597,6 +707,105 @@ function parseComandoRapido(texto){
 }
 
 /* ============================================================
+   ASSISTENTE RÁPIDO — uma linha de texto vira recorrente, evento
+   no Google Agenda ou demanda, sozinho. Ex:
+     "toda quinta 14h Painel de Licenças"     -> recorrente + lembrete no Google
+     "reunião sexta 10h com fornecedor"       -> evento no Google Agenda
+     "ligar pro fornecedor amanhã"            -> demanda (com data sugerida)
+   ============================================================ */
+
+const PALAVRAS_EVENTO = ['reuniao','call','encontro','compromisso','ligacao','visita'];
+const REGEX_RECORRENTE = /\btod[ao]s?\b/;
+
+function detectarFrequenciaTexto(normTexto){
+  if(/quinzenal|a cada (duas|2) semanas/.test(normTexto)) return 'quinzenal';
+  if(/mensal|todo mes/.test(normTexto)) return 'mensal';
+  return 'semanal';
+}
+
+function extrairDiaSemanaTexto(normTexto){
+  const diasNorm = DIAS_SEMANA.map(normalizarTexto);
+  for(let i=0;i<diasNorm.length;i++){
+    if(normTexto.includes(diasNorm[i])) return i;
+  }
+  return null;
+}
+
+function extrairHorarioTexto(textoOriginal){
+  const m = textoOriginal.match(/(\d{1,2})[h:](\d{2})?/);
+  if(!m) return null;
+  const h = parseInt(m[1],10), min = parseInt(m[2]||'0',10);
+  return { horario: String(h).padStart(2,'0')+':'+String(min).padStart(2,'0'), bruto: m[0] };
+}
+
+function limparTextoComando(texto, tokens){
+  let limpo = texto;
+  tokens.forEach(t=>{
+    if(!t) return;
+    limpo = limpo.replace(new RegExp(escapeRegex(t), 'ig'), '');
+    const semAcento = normalizarTexto(t);
+    if(semAcento && semAcento !== t.toLowerCase()) limpo = limpo.replace(new RegExp(escapeRegex(semAcento), 'ig'), '');
+  });
+  return limpo.replace(/\s{2,}/g,' ').replace(/^[\s,.\-:]+|[\s,.\-:]+$/g,'').trim();
+}
+
+function escapeRegex(s){
+  return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+}
+
+async function processarComandoRapido(){
+  const input = document.getElementById('quickAddInput');
+  const texto = (input.value||'').trim();
+  if(!texto) return;
+
+  const norm = normalizarTexto(texto);
+  const diaSemana = extrairDiaSemanaTexto(norm);
+  const horarioInfo = extrairHorarioTexto(texto);
+  const ehRecorrente = REGEX_RECORRENTE.test(norm) && diaSemana!==null;
+  const ehEvento = !ehRecorrente && PALAVRAS_EVENTO.some(p=>norm.includes(p));
+  const dataParsed = parseComandoRapido(texto);
+
+  if(ehRecorrente){
+    const freq = detectarFrequenciaTexto(norm);
+    const nomeLimpo = limparTextoComando(texto, ['toda','todo','todas','todos', DIAS_SEMANA[diaSemana], horarioInfo?horarioInfo.bruto:'', 'quinzenal','mensal','semanal']) || texto;
+    const item = adicionarRecorrente(nomeLimpo, freq, horarioInfo?horarioInfo.horario:'09:00', diaSemana);
+    input.value = '';
+    showToast(`Recorrente criada: "${item.nome}" (${FREQ_LABEL[freq]}, ${DIAS_SEMANA[diaSemana]} às ${item.horario})`);
+    if(isGoogleConnected()){
+      await sincronizarRecorrenteGoogle(item, { silencioso:true });
+      renderRecorrentes();
+      showToast(`🔔 Lembrete automático ativado no Google Agenda para "${item.nome}"`);
+    }
+    return;
+  }
+
+  if(ehEvento && dataParsed){
+    const palavraEncontrada = PALAVRAS_EVENTO.find(p=>norm.includes(p));
+    const nomeLimpo = limparTextoComando(texto, [palavraEncontrada, horarioInfo?horarioInfo.bruto:'']) || texto;
+    input.value = '';
+    if(!isGoogleConnected()){
+      showToast('Conecte o Google Agenda nas configurações para criar eventos');
+      openConfigDrawer();
+      return;
+    }
+    await criarEventoGoogle(nomeLimpo, dataParsed.toISOString());
+    return;
+  }
+
+  // fallback: demanda (com data sugerida se detectada no texto)
+  STATE.demandas.push({
+    id: uid(), titulo: texto, prioridade: 'media', concluida: false,
+    criadoEm: new Date().toISOString(),
+    dataSugerida: dataParsed ? dataParsed.toISOString() : null
+  });
+  saveState();
+  renderDemands();
+  renderSummary();
+  input.value = '';
+  showToast(dataParsed ? `Demanda criada: "${texto}" (use "agendar" pra confirmar a data)` : `Demanda criada: "${texto}"`);
+}
+
+/* ============================================================
    JSONBIN — sincronização em nuvem (debounced)
    ============================================================ */
 
@@ -627,9 +836,26 @@ function syncToCloudDebounced(){
   syncTimer = setTimeout(syncToCloud, 1500);
 }
 
+// Sincronização com checagem de conflito: antes de sobrescrever a nuvem,
+// confere se outro dispositivo já gravou uma versão mais nova desde a
+// última vez que lemos daqui. Se sim, não sobrescreve às cegas — puxa a
+// versão mais nova primeiro, pra não perder dado editado em outro aparelho.
 async function syncToCloud(){
   if(!CONFIG.binId || !CONFIG.binKey) return;
   try{
+    if(CONFIG.lastKnownRemoteActivity){
+      try{
+        const check = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}/latest`, { headers:{ 'X-Master-Key': CONFIG.binKey } });
+        const checkData = await check.json();
+        const remoteActivity = checkData && checkData.record ? checkData.record.lastActivity : null;
+        if(remoteActivity && remoteActivity !== CONFIG.lastKnownRemoteActivity){
+          showToast('⚠️ Havia uma versão mais nova salva de outro dispositivo — atualizando aqui antes de continuar.');
+          await loadFromCloud({ forcar:true, silencioso:true });
+          return;
+        }
+      }catch(e){ /* checagem falhou — segue com o push normal */ }
+    }
+
     await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}`, {
       method:'PUT',
       headers:{
@@ -638,13 +864,15 @@ async function syncToCloud(){
       },
       body: JSON.stringify(STATE)
     });
+    CONFIG.lastKnownRemoteActivity = STATE.lastActivity || null;
+    saveConfig();
     document.getElementById('lastSyncLine').textContent = `último sync: ${new Date().toLocaleTimeString('pt-BR')}`;
   }catch(e){
     console.error('Erro ao sincronizar JSONBin', e);
   }
 }
 
-async function loadFromCloud(){
+async function loadFromCloud(opts={}){
   if(!CONFIG.binId || !CONFIG.binKey) return;
   try{
     const resp = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}/latest`, {
@@ -652,10 +880,16 @@ async function loadFromCloud(){
     });
     const data = await resp.json();
     if(data && data.record){
-      STATE = Object.assign(defaultState(), data.record);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
-      renderAll();
-      showToast('Dados sincronizados da nuvem');
+      const remoteActivity = data.record.lastActivity ? new Date(data.record.lastActivity).getTime() : 0;
+      const localActivity = STATE.lastActivity ? new Date(STATE.lastActivity).getTime() : 0;
+      if(opts.forcar || remoteActivity >= localActivity){
+        STATE = Object.assign(defaultState(), data.record);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+        renderAll();
+        if(!opts.silencioso) showToast('Dados sincronizados da nuvem');
+      }
+      CONFIG.lastKnownRemoteActivity = data.record.lastActivity || null;
+      saveConfig();
     }
   }catch(e){
     console.error('Erro ao carregar do JSONBin', e);
@@ -780,6 +1014,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // logo — 5 cliques
   document.getElementById('logoMark').addEventListener('click', handleLogoClick);
 
+  // assistente rápido
+  document.getElementById('btnQuickAdd').addEventListener('click', processarComandoRapido);
+  document.getElementById('quickAddInput').addEventListener('keydown', (e)=>{
+    if(e.key==='Enter') processarComandoRapido();
+  });
+
   // notas
   document.getElementById('noteInput').addEventListener('keydown', (e)=>{
     if(e.ctrlKey && e.key==='Enter') salvarNota();
@@ -795,12 +1035,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // recorrentes
   document.getElementById('btnViewAllRecur').addEventListener('click', ()=>openModal('modalRecur'));
-  document.getElementById('btnAddRecur').addEventListener('click', ()=>{
+  document.getElementById('btnAddRecur').addEventListener('click', async ()=>{
     const nome = prompt('Nome da nova recorrente:');
     if(!nome) return;
     const freq = prompt('Frequência (semanal / quinzenal / mensal):','semanal');
     if(!['semanal','quinzenal','mensal'].includes(freq)) return;
-    adicionarRecorrente(nome, freq);
+    let diaRef;
+    if(freq==='mensal'){
+      diaRef = parseInt(prompt('Dia do mês (1-31):','1'),10);
+      if(!diaRef || diaRef<1 || diaRef>31) diaRef = 1;
+    }else{
+      const diaTxt = normalizarTexto((prompt('Dia da semana (domingo, segunda, terça, quarta, quinta, sexta, sábado):', DIAS_SEMANA[new Date().getDay()])||''));
+      const idx = DIAS_SEMANA.map(normalizarTexto).indexOf(diaTxt);
+      diaRef = idx!==-1 ? idx : new Date().getDay();
+    }
+    const horario = prompt('Horário do lembrete (HH:MM):','09:00') || '09:00';
+    const item = adicionarRecorrente(nome, freq, horario, diaRef);
+    if(isGoogleConnected() && confirm('Ativar lembrete automático no Google Agenda para essa recorrente?')){
+      await sincronizarRecorrenteGoogle(item);
+      renderRecorrentes();
+    }
   });
 
   // demandas

@@ -93,6 +93,41 @@
   }
   .summary-bar .dot{width:6px;height:6px;border-radius:50%;background:var(--azul-royal);flex-shrink:0;}
 
+  /* ===== ASSISTENTE RÁPIDO ===== */
+  .quickadd-bar{
+    max-width:1400px;
+    margin:0 auto;
+    padding:12px 16px 0;
+    display:flex;
+    gap:8px;
+  }
+  .quickadd-bar input{
+    flex:1;
+    border:1.5px solid var(--azul-claro);
+    border-radius:20px;
+    padding:10px 16px;
+    font-size:13px;
+    font-family:inherit;
+    background:var(--branco);
+    box-shadow:var(--sombra);
+  }
+  .quickadd-bar input:focus{outline:none;border-color:var(--azul-royal);}
+  .btn-quickadd{
+    background:var(--azul-royal);
+    color:var(--branco);
+    border:none;
+    padding:0 20px;
+    border-radius:20px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-quickadd:hover{background:var(--azul-escuro);}
+  @media(max-width:600px){
+    .quickadd-bar{flex-direction:column;}
+  }
+
   /* ===== LAYOUT ===== */
   .main-grid{
     display:grid;
@@ -432,6 +467,11 @@
   <span id="summaryText">Carregando resumo...</span>
 </div>
 
+<div class="quickadd-bar">
+  <input type="text" id="quickAddInput" placeholder="⚡ Diga o que precisa (ex: &quot;toda quinta 14h Painel de Licenças&quot;, &quot;reunião sexta 10h com fornecedor&quot;, &quot;ligar pro fornecedor amanhã&quot;)">
+  <button class="btn-quickadd" id="btnQuickAdd">Criar</button>
+</div>
+
 <div class="main-grid">
 
   <!-- COLUNA HOJE -->
@@ -607,7 +647,7 @@
 
   <div class="drawer-section" style="border-bottom:none;">
     <h4>Info</h4>
-    <div class="status-line">Painel JVM · v1.0</div>
+    <div class="status-line">Painel JVM · v1.1</div>
     <div class="status-line" id="lastSyncLine">último sync: nunca</div>
   </div>
 </div>
