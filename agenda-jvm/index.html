@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Painel JVM</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0D47A1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --azul-royal:#0D47A1;
+    --azul-escuro:#002B5B;
+    --azul-claro:#64B5F6;
+    --preto:#000000;
+    --cinza-escuro:#333333;
+    --cinza-claro:#E6E6E6;
+    --branco:#FFFFFF;
+    --verde-ok:#2E7D32;
+    --amarelo-alerta:#F9A825;
+    --vermelho-atraso:#C62828;
+    --bg-app:#F4F6F9;
+    --sombra:0 2px 8px rgba(0,43,91,0.08);
+    --sombra-forte:0 8px 32px rgba(0,43,91,0.18);
+    --radius:10px;
+    --radius-sm:6px;
+    --font-ui:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:var(--font-ui);
+    background:var(--bg-app);
+    color:var(--cinza-escuro);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  /* ===== HEADER ===== */
+  .header{
+    background:linear-gradient(135deg,var(--azul-escuro),var(--azul-royal));
+    color:var(--branco);
+    padding:14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    z-index:100;
+    box-shadow:var(--sombra);
+  }
+  .header-left{display:flex;align-items:center;gap:12px;}
+  .logo-mark{
+    width:40px;height:40px;
+    border-radius:8px;
+    background:var(--branco);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    user-select:none;
+    transition:transform .15s ease;
+    padding:4px;
+    flex-shrink:0;
+  }
+  .logo-mark:active{transform:scale(0.92);}
+  .logo-mark img{width:100%;height:100%;object-fit:contain;pointer-events:none;}
+  .header-title{font-size:16px;font-weight:600;letter-spacing:0.2px;}
+  .header-title small{display:block;font-size:11px;font-weight:400;opacity:0.75;margin-top:1px;}
+  .header-right{display:flex;align-items:center;gap:16px;}
+  .clock-live{font-size:13px;font-variant-numeric:tabular-nums;opacity:0.9;}
+  .pending-badge{
+    background:var(--vermelho-atraso);
+    color:var(--branco);
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:20px;
+    display:none;
+  }
+  .pending-badge.show{display:inline-block;}
+
+  /* ===== SUMMARY BAR ===== */
+  .summary-bar{
+    background:var(--branco);
+    padding:10px 20px;
+    font-size:13.5px;
+    color:var(--azul-escuro);
+    border-bottom:1px solid var(--cinza-claro);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .summary-bar .dot{width:6px;height:6px;border-radius:50%;background:var(--azul-royal);flex-shrink:0;}
+
+  /* ===== LAYOUT ===== */
+  .main-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:14px;
+    padding:16px;
+    max-width:1400px;
+    margin:0 auto;
+  }
+  @media(max-width:960px){
+    .main-grid{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--branco);
+    border-radius:var(--radius);
+    box-shadow:var(--sombra);
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    min-height:280px;
+  }
+  .panel-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .panel-title{
+    font-size:14px;
+    font-weight:700;
+    color:var(--azul-escuro);
+  }
+  .panel-action{
+    font-size:12px;
+    color:var(--azul-royal);
+    cursor:pointer;
+    font-weight:600;
+    background:none;
+    border:none;
+    padding:4px 8px;
+    border-radius:var(--radius-sm);
+  }
+  .panel-action:hover{background:var(--cinza-claro);}
+
+  /* ===== AGENDA (HOJE) ===== */
+  .event-item{
+    display:flex;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid var(--cinza-claro);
+    font-size:13px;
+  }
+  .event-item:last-child{border-bottom:none;}
+  .event-time{
+    font-weight:700;
+    color:var(--azul-royal);
+    min-width:44px;
+    font-variant-numeric:tabular-nums;
+  }
+  .event-title{flex:1;}
+  .event-source-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+  .empty-state{
+    color:#9AA5B1;
+    font-size:13px;
+    text-align:center;
+    padding:30px 10px;
+    font-style:normal;
+  }
+
+  .btn-primary{
+    background:var(--azul-royal);
+    color:var(--branco);
+    border:none;
+    padding:9px 14px;
+    border-radius:var(--radius-sm);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    width:100%;
+    margin-top:10px;
+    transition:background .15s;
+  }
+  .btn-primary:hover{background:var(--azul-escuro);}
+
+  /* ===== RECORRENTES ===== */
+  .recur-count-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .count-chip{
+    flex:1;
+    background:var(--cinza-claro);
+    border-radius:var(--radius-sm);
+    padding:8px 6px;
+    text-align:center;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .count-chip:hover{background:#d8dee5;}
+  .count-chip .num{display:block;font-size:18px;font-weight:800;color:var(--azul-escuro);}
+  .count-chip .lbl{font-size:10.5px;color:var(--cinza-escuro);}
+
+  .recur-preview-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 0;
+    font-size:12.5px;
+    border-bottom:1px solid var(--cinza-claro);
+  }
+  .recur-preview-item:last-child{border-bottom:none;}
+  .status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .status-dot.ok{background:var(--verde-ok);}
+  .status-dot.proximo{background:var(--amarelo-alerta);}
+  .status-dot.atrasado{background:var(--vermelho-atraso);animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  .recur-preview-name{flex:1;}
+  .recur-preview-freq{font-size:10.5px;color:#9AA5B1;}
+
+  /* ===== ANOTAÇÕES ===== */
+  .note-input-wrap{margin-bottom:10px;}
+  .note-textarea{
+    width:100%;
+    border:1.5px solid var(--cinza-claro);
+    border-radius:var(--radius-sm);
+    padding:9px;
+    font-family:inherit;
+    font-size:13px;
+    resize:none;
+    min-height:60px;
+    transition:border-color .15s;
+  }
+  .note-textarea:focus{outline:none;border-color:var(--azul-claro);}
+  .note-hint{font-size:10.5px;color:#9AA5B1;margin-top:4px;}
+  .note-search{
+    width:100%;
+    border:1px solid var(--cinza-claro);
+    border-radius:20px;
+    padding:6px 12px;
+    font-size:12px;
+    margin-bottom:8px;
+  }
+  .note-search:focus{outline:none;border-color:var(--azul-claro);}
+  .note-item{
+    background:var(--bg-app);
+    border-radius:var(--radius-sm);
+    padding:8px 10px;
+    margin-bottom:6px;
+    font-size:12.5px;
+    position:relative;
+  }
+  .note-item .note-text{margin-bottom:4px;word-break:break-word;}
+  .note-item .note-meta{display:flex;justify-content:space-between;align-items:center;}
+  .note-tags{display:flex;gap:4px;flex-wrap:wrap;}
+  .note-tag{
+    background:var(--azul-claro);
+    color:var(--azul-escuro);
+    font-size:10px;
+    font-weight:600;
+    padding:1px 6px;
+    border-radius:10px;
+  }
+  .note-actions{display:flex;gap:4px;}
+  .note-icon-btn{
+    background:none;border:none;cursor:pointer;
+    font-size:13px;padding:2px 4px;opacity:0.6;
+    transition:opacity .15s;
+  }
+  .note-icon-btn:hover{opacity:1;}
+  .notes-list{flex:1;overflow-y:auto;max-height:220px;}
+  .notes-footer{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-top:8px;padding-top:8px;border-top:1px solid var(--cinza-claro);
+  }
+  .link-muted{
+    font-size:11px;color:#9AA5B1;background:none;border:none;cursor:pointer;
+    text-decoration:underline;
+  }
+
+  /* ===== DEMANDAS (faixa inferior) ===== */
+  .demands-panel{
+    max-width:1400px;
+    margin:0 auto 20px;
+    padding:0 16px;
+  }
+  .demands-inner{
+    background:var(--branco);
+    border-radius:var(--radius);
+    box-shadow:var(--sombra);
+    padding:16px;
+  }
+  .demands-header{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:12px;flex-wrap:wrap;gap:8px;
+  }
+  .demands-filters{display:flex;gap:6px;}
+  .filter-chip{
+    font-size:11px;
+    padding:4px 10px;
+    border-radius:20px;
+    border:1px solid var(--cinza-claro);
+    background:var(--branco);
+    cursor:pointer;
+    font-weight:600;
+  }
+  .filter-chip.active{background:var(--azul-royal);color:var(--branco);border-color:var(--azul-royal);}
+  .demands-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:10px;
+  }
+  .demand-card{
+    border:1px solid var(--cinza-claro);
+    border-radius:var(--radius-sm);
+    padding:10px;
+    font-size:12.5px;
+    border-left:4px solid var(--cinza-claro);
+  }
+  .demand-card.alta{border-left-color:var(--vermelho-atraso);}
+  .demand-card.media{border-left-color:var(--amarelo-alerta);}
+  .demand-card.baixa{border-left-color:var(--verde-ok);}
+  .demand-title{font-weight:600;margin-bottom:6px;}
+  .demand-meta{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:#9AA5B1;}
+  .demand-actions{display:flex;gap:6px;margin-top:8px;}
+  .demand-actions button{
+    flex:1;font-size:11px;padding:5px;border-radius:var(--radius-sm);
+    border:1px solid var(--cinza-claro);background:var(--bg-app);cursor:pointer;font-weight:600;
+  }
+
+  /* ===== MODAL / POPUP GENÉRICO ===== */
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,43,91,0.45);
+    display:none;
+    align-items:center;justify-content:center;
+    z-index:1000;
+    padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--branco);
+    border-radius:var(--radius);
+    box-shadow:var(--sombra-forte);
+    max-width:520px;
+    width:100%;
+    max-height:85vh;
+    overflow-y:auto;
+    padding:20px;
+  }
+  .modal-box.wide{max-width:640px;}
+  .modal-header{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:14px;
+  }
+  .modal-title{font-size:16px;font-weight:700;color:var(--azul-escuro);}
+  .modal-close{
+    background:none;border:none;font-size:20px;cursor:pointer;color:var(--cinza-escuro);
+    line-height:1;padding:4px;
+  }
+  .modal-close:hover{color:var(--vermelho-atraso);}
+  .field-group{margin-bottom:12px;}
+  .field-group label{
+    display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--azul-escuro);
+  }
+  .field-group input,.field-group select,.field-group textarea{
+    width:100%;padding:8px 10px;border:1.5px solid var(--cinza-claro);
+    border-radius:var(--radius-sm);font-family:inherit;font-size:13px;
+  }
+  .field-group input:focus,.field-group select:focus,.field-group textarea:focus{
+    outline:none;border-color:var(--azul-claro);
+  }
+  .field-row{display:flex;gap:10px;}
+  .field-row .field-group{flex:1;}
+
+  /* ===== TOAST ===== */
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--azul-escuro);color:var(--branco);
+    padding:10px 18px;border-radius:20px;font-size:13px;
+    box-shadow:var(--sombra-forte);
+    opacity:0;pointer-events:none;
+    transition:all .25s ease;
+    z-index:2000;
+    max-width:90vw;
+    text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ===== CONFIG DRAWER ===== */
+  .drawer-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.4);
+    display:none;z-index:1500;
+  }
+  .drawer-overlay.show{display:block;}
+  .drawer{
+    position:fixed;top:0;right:-380px;width:360px;max-width:90vw;height:100%;
+    background:var(--branco);box-shadow:-8px 0 30px rgba(0,0,0,0.2);
+    z-index:1501;transition:right .25s ease;
+    overflow-y:auto;padding:20px;
+  }
+  .drawer.show{right:0;}
+  .drawer-section{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--cinza-claro);}
+  .drawer-section h4{font-size:12px;color:var(--azul-royal);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+  .btn-secondary{
+    background:var(--cinza-claro);color:var(--cinza-escuro);border:none;
+    padding:8px 12px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;width:100%;margin-top:6px;
+  }
+  .btn-danger{background:#fde8e8;color:var(--vermelho-atraso);}
+  .btn-danger:hover{background:#fbd5d5;}
+  .status-line{font-size:11px;color:#9AA5B1;margin-top:4px;}
+  .status-line.connected{color:var(--verde-ok);font-weight:600;}
+
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-thumb{background:#c4ccd6;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark" id="logoMark"><img src="icon-192.png" alt="Agroquima"></div>
+    <div class="header-title">
+      Painel JVM
+      <small id="dateLine">—</small>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="pending-badge" id="pendingBadge">0</span>
+    <span class="clock-live" id="clockLive">--:--:--</span>
+  </div>
+</div>
+
+<div class="summary-bar" id="summaryBar">
+  <span class="dot"></span>
+  <span id="summaryText">Carregando resumo...</span>
+</div>
+
+<div class="main-grid">
+
+  <!-- COLUNA HOJE -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Hoje &amp; próximos dias</span>
+      <button class="panel-action" id="btnConnectGoogle">conectar</button>
+    </div>
+    <div id="eventsList">
+      <div class="empty-state">Conecte o Google Agenda para ver seus eventos aqui.</div>
+    </div>
+    <button class="btn-primary" id="btnNewEvent">+ novo evento</button>
+  </div>
+
+  <!-- COLUNA RECORRENTES -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Recorrentes</span>
+      <button class="panel-action" id="btnViewAllRecur">ver todas ↗</button>
+    </div>
+    <div class="recur-count-row">
+      <div class="count-chip" data-freq="semanal">
+        <span class="num" id="countSemanal">0</span>
+        <span class="lbl">semanal</span>
+      </div>
+      <div class="count-chip" data-freq="quinzenal">
+        <span class="num" id="countQuinzenal">0</span>
+        <span class="lbl">quinzenal</span>
+      </div>
+      <div class="count-chip" data-freq="mensal">
+        <span class="num" id="countMensal">0</span>
+        <span class="lbl">mensal</span>
+      </div>
+    </div>
+    <div id="recurPreviewList"></div>
+  </div>
+
+  <!-- COLUNA ANOTAÇÕES -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Anotações</span>
+    </div>
+    <div class="note-input-wrap">
+      <textarea class="note-textarea" id="noteInput" placeholder="Escreva e pressione Ctrl+Enter para salvar..."></textarea>
+      <div class="note-hint">Ctrl+Enter salva · #tag para marcar</div>
+    </div>
+    <input type="text" class="note-search" id="noteSearch" placeholder="Buscar no histórico...">
+    <div class="notes-list" id="notesList"></div>
+    <div class="notes-footer">
+      <span style="font-size:11px;color:#9AA5B1;" id="notesCount">0 notas</span>
+      <button class="link-muted" id="btnClearNotes">limpar histórico</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- FAIXA DEMANDAS -->
+<div class="demands-panel">
+  <div class="demands-inner">
+    <div class="demands-header">
+      <span class="panel-title">Demandas &amp; Pendências</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="demands-filters" id="demandFilters">
+          <button class="filter-chip active" data-filter="todas">todas</button>
+          <button class="filter-chip" data-filter="alta">alta</button>
+          <button class="filter-chip" data-filter="media">média</button>
+          <button class="filter-chip" data-filter="baixa">baixa</button>
+        </div>
+        <button class="panel-action" id="btnNewDemand">+ nova</button>
+      </div>
+    </div>
+    <div class="demands-grid" id="demandsGrid"></div>
+  </div>
+</div>
+
+<!-- MODAL: recorrentes completo -->
+<div class="modal-overlay" id="modalRecur">
+  <div class="modal-box wide">
+    <div class="modal-header">
+      <span class="modal-title">Tarefas recorrentes</span>
+      <button class="modal-close" data-close="modalRecur">&times;</button>
+    </div>
+    <div id="recurFullList"></div>
+    <button class="btn-primary" id="btnAddRecur">+ nova recorrente</button>
+  </div>
+</div>
+
+<!-- MODAL: novo evento -->
+<div class="modal-overlay" id="modalEvent">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Novo evento</span>
+      <button class="modal-close" data-close="modalEvent">&times;</button>
+    </div>
+    <div class="field-group">
+      <label>Título</label>
+      <input type="text" id="eventTitleInput" placeholder="Ex: reunião com Kataki">
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Data</label>
+        <input type="date" id="eventDateInput">
+      </div>
+      <div class="field-group">
+        <label>Hora</label>
+        <input type="time" id="eventTimeInput">
+      </div>
+    </div>
+    <button class="btn-primary" id="btnSaveEvent">Salvar no Google Agenda</button>
+  </div>
+</div>
+
+<!-- MODAL: nova demanda -->
+<div class="modal-overlay" id="modalDemand">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Nova demanda</span>
+      <button class="modal-close" data-close="modalDemand">&times;</button>
+    </div>
+    <div class="field-group">
+      <label>Descrição</label>
+      <input type="text" id="demandTitleInput" placeholder="O que precisa ser feito?">
+    </div>
+    <div class="field-group">
+      <label>Prioridade</label>
+      <select id="demandPriorityInput">
+        <option value="alta">Alta</option>
+        <option value="media" selected>Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+    </div>
+    <button class="btn-primary" id="btnSaveDemand">Adicionar</button>
+  </div>
+</div>
+
+<!-- DRAWER: configurações (5 cliques no logo) -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="configDrawer">
+  <div class="modal-header">
+    <span class="modal-title">Configurações</span>
+    <button class="modal-close" id="btnCloseDrawer">&times;</button>
+  </div>
+
+  <div class="drawer-section">
+    <h4>Google Calendar</h4>
+    <div class="field-group">
+      <label>Client ID (OAuth)</label>
+      <input type="text" id="cfgGoogleClientId" placeholder="xxxx.apps.googleusercontent.com">
+    </div>
+    <button class="btn-secondary" id="btnGoogleAuth">Conectar Google Agenda</button>
+    <div class="status-line" id="googleStatus">desconectado</div>
+  </div>
+
+  <div class="drawer-section">
+    <h4>JSONBin (sincronização)</h4>
+    <div class="field-group">
+      <label>Bin ID</label>
+      <input type="text" id="cfgBinId" placeholder="65f...">
+    </div>
+    <div class="field-group">
+      <label>API Key</label>
+      <input type="text" id="cfgBinKey" placeholder="$2a$...">
+    </div>
+    <button class="btn-secondary" id="btnSaveSync">Salvar configuração</button>
+    <div class="status-line" id="syncStatus">não configurado</div>
+  </div>
+
+  <div class="drawer-section">
+    <h4>Dados</h4>
+    <button class="btn-secondary" id="btnExportData">Exportar tudo (.json)</button>
+    <button class="btn-secondary btn-danger" id="btnWipeData">Limpar todos os dados</button>
+  </div>
+
+  <div class="drawer-section" style="border-bottom:none;">
+    <h4>Info</h4>
+    <div class="status-line">Painel JVM · v1.0</div>
+    <div class="status-line" id="lastSyncLine">último sync: nunca</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
