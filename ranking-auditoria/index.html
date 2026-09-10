@@ -755,6 +755,8 @@ let CRONO_AUDITORIAS = [];      // [{filial, data:'YYYY-MM-DD', dataDisplay, ano
 let CRONO_ARQUIVO_INFO = null;  // {nome, qtdReconhecidas, qtdIgnoradas, importadoEm}
 let CRONO_META = 6;             // meta de auditorias por filial no ano
 let CRONO_META_CONFIANCA = 4;   // meta reduzida para filiais de confiança da diretoria
+// Nota de corte da Nota Média desta aba: <= 70 já é ponto de atenção; > 70 é aceitável.
+const CRONO_NOTA_CORTE = 70;
 let CRONO_ANO_SEL = null;       // ano selecionado no filtro da aba
 let chartCronoEvol = null;
 // Filiais que não são auditadas — ficam fora de qualquer cálculo/registro do Cronograma
@@ -2213,6 +2215,8 @@ function renderAbaCronograma() {
   const filiaisCompletas=dados.porFilial.filter(f=>f.qtd>=f.meta).length;
   const filiaisNoRitmo=dados.porFilial.filter(f=>f.noRitmo).length;
   const filiaisAtrasadas=totalFiliais-filiaisNoRitmo;
+  const filiaisNotaAtencao=dados.porFilial.filter(f=>f.notaMedia!=null&&f.notaMedia<=CRONO_NOTA_CORTE).length;
+  const filiaisComNota=dados.porFilial.filter(f=>f.notaMedia!=null).length;
   const metaGeral=dados.porFilial.reduce((s,f)=>s+f.meta,0);
   const realizadasGeral=dados.porFilial.reduce((s,f)=>s+Math.min(f.qtd,f.meta),0);
   const totalAuditoriasAno=dados.porFilial.reduce((s,f)=>s+f.qtd,0);
@@ -2270,6 +2274,7 @@ function renderAbaCronograma() {
       <div class="kpi clicavel ${filiaisAtrasadas?'r':'g'}" onclick="_cronoAbrirDetalheKpi('atrasadas')" title="Clique para ver a lista de filiais"><div class="kl">Filiais Atrasadas</div><div class="kv">${filiaisAtrasadas}</div><div class="ks">${filiaisAtrasadas?'abaixo do ritmo esperado — priorize na agenda':'nenhuma — todas em dia 🎉'}</div></div>
       <div class="kpi clicavel" onclick="_cronoAbrirDetalheKpi('finalizadas')" title="Clique para ver a lista de auditorias finalizadas"><div class="kl">Auditorias Finalizadas</div><div class="kv">${totalAuditoriasAno}</div><div class="ks">no ano ${anoSel} · clique para ver todas</div></div>
       <div class="kpi clicavel ${emAndamento.length?'a':'g'}" onclick="_cronoAbrirDetalheKpi('andamento')" title="Clique para ver a lista"><div class="kl">🔔 Em Andamento</div><div class="kv">${emAndamento.length}</div><div class="ks">${emAndamento.length?'aguardando finalização':'nenhuma pendência'}</div></div>
+      <div class="kpi clicavel ${filiaisNotaAtencao?'r':'g'}" onclick="_cronoAbrirDetalheKpi('notaAtencao')" title="Filiais com Nota Média igual ou abaixo da nota de corte (${CRONO_NOTA_CORTE}). Clique para ver a lista."><div class="kl">⚠ Notas em Atenção</div><div class="kv">${filiaisNotaAtencao}</div><div class="ks">${filiaisComNota?`nota média ≤ ${CRONO_NOTA_CORTE} · de ${filiaisComNota} filial(is) com nota`:'nenhuma nota lançada ainda'}</div></div>
     </div>
 
     <div class="chart-card"><div class="chart-title">📈 Evolução das Auditorias Finalizadas — ${anoSel}</div><canvas id="canvas-crono-evol" height="100"></canvas></div>
@@ -2320,11 +2325,10 @@ function renderAbaCronograma() {
         <input class="busca" id="busca-crono" placeholder="Buscar filial/auditor..." oninput="renderTabelaCronograma()">
         <select class="sel-sm" id="fil-auditor-crono" onchange="renderTabelaCronograma()"><option value="">Todos os Auditores</option>${[...new Set(dados.porFilial.map(f=>f.auditor))].sort().map(a=>`<option>${a}</option>`).join('')}</select>
         <span class="ptag" id="ptag-crono-atrasadas" onclick="_cronoToggleSomenteAtrasadas()" title="Mostrar só filiais abaixo do ritmo esperado de auditorias no ano">⚠ Somente Atrasadas</span>
-        <select class="sel-sm" id="fil-nota-crono" onchange="_cronoSetFaixaNota(this.value)" title="Filtra pela Nota Média das auditorias do ano, nesta aba">
+        <select class="sel-sm" id="fil-nota-crono" onchange="_cronoSetFaixaNota(this.value)" title="Filtra pela Nota Média das auditorias do ano, nesta aba. A nota de corte é 70: até 70 (inclusive) a filial já é ponto de atenção.">
           <option value="">Nota Média: Todas</option>
-          <option value="baixa">Nota &lt; 60</option>
-          <option value="media">Nota 60 – 70</option>
-          <option value="alta">Nota &gt; 70</option>
+          <option value="atencao">⚠ Nota ≤ 70 (ponto de atenção)</option>
+          <option value="ok">Nota &gt; 70</option>
         </select>
         <span class="ptag" id="ptag-crono-limpar" onclick="_cronoLimparFiltrosDetalhe()" style="display:none;color:var(--red-dk);border-color:var(--red-dk);">✕ Limpar filtros</span>
       </div>
@@ -2339,7 +2343,7 @@ function renderAbaCronograma() {
               <th class="sortavel" data-col="faltam" style="text-align:center;" onclick="_cronoSortDetalhe('faltam')">Faltam</th>
               <th class="sortavel" data-col="progresso" style="text-align:center;" onclick="_cronoSortDetalhe('progresso')">Progresso</th>
               <th class="sortavel" data-col="ultimaISO" onclick="_cronoSortDetalhe('ultimaISO')">Última Auditoria</th>
-              <th class="sortavel" data-col="notaMedia" style="text-align:center;" onclick="_cronoSortDetalhe('notaMedia')">Nota Média</th>
+              <th class="sortavel" data-col="notaMedia" style="text-align:center;" onclick="_cronoSortDetalhe('notaMedia')" title="Nota de corte = ${CRONO_NOTA_CORTE}. Notas iguais ou abaixo de ${CRONO_NOTA_CORTE} são marcadas como ponto de atenção.">Nota Média</th>
               <th class="sortavel" data-col="noRitmo" style="text-align:center;" onclick="_cronoSortDetalhe('noRitmo')">Situação</th>
             </tr></thead>
             <tbody id="body-crono"></tbody>
@@ -2534,6 +2538,17 @@ function _cronoAbrirDetalheKpi(tipo) {
     theadHtml = `<tr><th>Filial</th><th>Auditor</th><th style="text-align:center;">Auditorias no Ano</th><th>Última Auditoria</th></tr>`;
     linhasHtml = filiais.map(f=>`<tr><td><b>${f.filial}</b> · ${f.filialNome}</td><td>${f.auditor}</td><td style="text-align:center;">${f.qtd}/${f.meta}</td><td>${f.ultima||'nunca auditada'}</td></tr>`).join('')
       || `<tr><td colspan="4" style="color:var(--text3);padding:14px 6px;">Nenhuma filial nesta condição.</td></tr>`;
+  } else if (tipo==='notaAtencao') {
+    const filiais=(window._cronoDadosFilial||[]).filter(f=>f.notaMedia!=null&&f.notaMedia<=CRONO_NOTA_CORTE)
+      .sort((a,b)=>a.notaMedia-b.notaMedia);
+    tituloTxt=`⚠ ${filiais.length} Filial(is) com Nota Média ≤ ${CRONO_NOTA_CORTE}`;
+    theadHtml=`<tr><th>Filial</th><th>Auditor</th><th>Regional</th><th style="text-align:center;">Nota Média</th><th style="text-align:center;">Auditorias no Ano</th><th>Última Auditoria</th></tr>`;
+    linhasHtml=filiais.map(f=>`<tr>
+      <td><b>${f.filial}</b> · ${f.filialNome}</td><td>${f.auditor}</td><td>${f.regional}</td>
+      <td style="text-align:center;font-weight:700;color:var(--red-dk);">${f.notaMedia}</td>
+      <td style="text-align:center;">${f.qtd}/${f.meta}</td>
+      <td>${f.ultima||'nunca auditada'}</td>
+    </tr>`).join('')||`<tr><td colspan="6" style="color:var(--text3);padding:14px 6px;">Nenhuma filial com nota média igual ou abaixo de ${CRONO_NOTA_CORTE}. 🎉</td></tr>`;
   } else if (tipo==='progresso') {
     const filiais=(window._cronoDadosFilial||[]).slice().sort((a,b)=>b.progresso-a.progresso);
     tituloTxt=`📊 Progresso por Filial — ${CRONO_ANO_SEL}`;
@@ -2602,9 +2617,8 @@ function _cronoSetFaixaNota(v) {
 function _cronoFaixaNotaCombina(nota) {
   if (!_cronoFaixaNota) return true;
   if (nota == null) return false; // sem nota lançada não pertence a nenhuma faixa
-  if (_cronoFaixaNota==='baixa') return nota<60;
-  if (_cronoFaixaNota==='media') return nota>=60 && nota<=70;
-  if (_cronoFaixaNota==='alta')  return nota>70;
+  if (_cronoFaixaNota==='atencao') return nota<=CRONO_NOTA_CORTE;
+  if (_cronoFaixaNota==='ok')      return nota>CRONO_NOTA_CORTE;
   return true;
 }
 
@@ -2644,7 +2658,9 @@ function renderTabelaCronograma() {
       <span style="font-size:9px;color:var(--text3)">${f.progresso}%</span>
     </td>
     <td style="font-size:12px;">${f.ultima?`${f.ultima} <span style="color:${f.diasUltima>60?'var(--red-dk)':f.diasUltima>30?'var(--amber-dk)':'var(--text3)'};font-size:10.5px;">(${f.diasUltima}d)</span>`:'<span style="color:var(--text3)">nunca auditada</span>'}</td>
-    <td style="text-align:center;">${f.notaMedia!=null?f.notaMedia:'—'}</td>
+    <td style="text-align:center;">${f.notaMedia!=null
+        ? `<b style="color:${f.notaMedia<=CRONO_NOTA_CORTE?'var(--red-dk)':'var(--green-dk)'}" title="${f.notaMedia<=CRONO_NOTA_CORTE?`Ponto de atenção: nota média igual ou abaixo da nota de corte (${CRONO_NOTA_CORTE})`:`Acima da nota de corte (${CRONO_NOTA_CORTE})`}">${f.notaMedia}${f.notaMedia<=CRONO_NOTA_CORTE?' ⚠':''}</b>`
+        : '<span style="color:var(--text3)">—</span>'}</td>
     <td style="text-align:center;font-size:11px;color:${f.noRitmo?'var(--green-dk)':'var(--amber-dk)'};">${f.noRitmo?'✔ no ritmo':'⚠ atrasada'}</td>
   </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">Nenhuma filial encontrada.</td></tr>';
   document.querySelectorAll('#tabela-crono-detalhe th[data-col]').forEach(th=>{
@@ -5353,10 +5369,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
           <div class="kv" style="font-size:16px;">${info.noRitmo?'✔ No Ritmo':'⚠ Atrasada'}</div>
           <div class="ks">${info.faltam>0?info.faltam+' faltam para a meta':'meta cumprida'}</div>
         </div>
-        <div class="kpi" style="padding:12px 14px;">
+        <div class="kpi ${info.notaMedia==null?'':(info.notaMedia<=CRONO_NOTA_CORTE?'r':'g')}" style="padding:12px 14px;">
           <div class="kl">Nota Média</div>
-          <div class="kv">${info.notaMedia!=null?info.notaMedia:'—'}</div>
-          <div class="ks">nas auditorias do ano</div>
+          <div class="kv">${info.notaMedia!=null?`${info.notaMedia}${info.notaMedia<=CRONO_NOTA_CORTE?' ⚠':''}`:'—'}</div>
+          <div class="ks">${info.notaMedia==null?'nas auditorias do ano':(info.notaMedia<=CRONO_NOTA_CORTE?`ponto de atenção · corte ${CRONO_NOTA_CORTE}`:`acima do corte de ${CRONO_NOTA_CORTE}`)}</div>
         </div>
       </div>
       <div style="margin-bottom:10px;font-size:12px;color:var(--text2);">
