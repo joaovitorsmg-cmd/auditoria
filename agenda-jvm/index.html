@@ -477,6 +477,23 @@
 
   ::-webkit-scrollbar{width:6px;}
   ::-webkit-scrollbar-thumb{background:#c4ccd6;border-radius:3px;}
+
+  /* ===== DITADO POR VOZ ===== */
+  .mic-btn{
+    background:var(--cinza-claro);
+    border:none;
+    border-radius:50%;
+    width:38px;height:38px;
+    flex-shrink:0;
+    font-size:15px;
+    line-height:1;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .mic-btn:hover{background:#d8dee5;}
+  .mic-btn.ouvindo{background:var(--vermelho-atraso);animation:pulse 1s infinite;}
+  .mic-btn.small{width:26px;height:26px;font-size:12px;}
+  .note-hint-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -502,6 +519,7 @@
 
 <div class="quickadd-bar">
   <input type="text" id="quickAddInput" placeholder="⚡ Diga o que precisa (ex: &quot;toda quinta 14h Painel de Licenças&quot;, &quot;reunião sexta 10h com fornecedor&quot;, &quot;ligar pro fornecedor amanhã&quot;)">
+  <button type="button" class="mic-btn" title="Ditar por voz" onclick="iniciarDitado('quickAddInput', this)">🎤</button>
   <button class="btn-quickadd" id="btnQuickAdd">Criar</button>
 </div>
 
@@ -549,7 +567,10 @@
     </div>
     <div class="note-input-wrap">
       <textarea class="note-textarea" id="noteInput" placeholder="Escreva e pressione Ctrl+Enter para salvar..."></textarea>
-      <div class="note-hint">Ctrl+Enter salva · #tag para marcar</div>
+      <div class="note-hint-row">
+        <span class="note-hint">Ctrl+Enter salva · #tag para marcar</span>
+        <button type="button" class="mic-btn small" title="Ditar por voz" onclick="iniciarDitado('noteInput', this)">🎤</button>
+      </div>
     </div>
     <input type="text" class="note-search" id="noteSearch" placeholder="Buscar no histórico...">
     <div class="notes-list" id="notesList"></div>
@@ -592,16 +613,53 @@
   </div>
 </div>
 
+<!-- MODAL: formulário de recorrente (criar/editar) -->
+<div class="modal-overlay" id="modalRecurForm">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="recurFormTitle">Nova recorrente</span>
+      <button class="modal-close" data-close="modalRecurForm">&times;</button>
+    </div>
+    <div class="field-group">
+      <label>Nome</label>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="recurNomeInput" placeholder="Ex: Envio de relatório" style="flex:1;">
+        <button type="button" class="mic-btn" title="Ditar por voz" onclick="iniciarDitado('recurNomeInput', this)">🎤</button>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Frequência</label>
+        <select id="recurFreqInput" onchange="atualizarCampoDiaRecur(this.value)">
+          <option value="semanal">Semanal</option>
+          <option value="quinzenal">Quinzenal</option>
+          <option value="mensal">Mensal</option>
+        </select>
+      </div>
+      <div class="field-group" id="recurDiaWrap"></div>
+    </div>
+    <div class="field-group">
+      <label>Horário do lembrete</label>
+      <input type="time" id="recurHorarioInput" value="09:00">
+    </div>
+    <button class="btn-primary" id="btnSalvarRecurForm" onclick="salvarRecorrenteForm()">Salvar</button>
+    <button class="btn-secondary btn-danger" id="btnDeleteRecurForm" style="display:none;" onclick="excluirRecorrenteDoForm()">Excluir esta recorrente</button>
+  </div>
+</div>
+
 <!-- MODAL: novo evento -->
 <div class="modal-overlay" id="modalEvent">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Novo evento</span>
+      <span class="modal-title" id="modalEventTitle">Novo evento</span>
       <button class="modal-close" data-close="modalEvent">&times;</button>
     </div>
     <div class="field-group">
       <label>Título</label>
-      <input type="text" id="eventTitleInput" placeholder="Ex: reunião com Kataki">
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="eventTitleInput" placeholder="Ex: reunião com Kataki" style="flex:1;">
+        <button type="button" class="mic-btn" title="Ditar por voz" onclick="iniciarDitado('eventTitleInput', this)">🎤</button>
+      </div>
     </div>
     <div class="field-row">
       <div class="field-group">
@@ -621,12 +679,15 @@
 <div class="modal-overlay" id="modalDemand">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Nova demanda</span>
+      <span class="modal-title" id="modalDemandTitle">Nova demanda</span>
       <button class="modal-close" data-close="modalDemand">&times;</button>
     </div>
     <div class="field-group">
       <label>Descrição</label>
-      <input type="text" id="demandTitleInput" placeholder="O que precisa ser feito?">
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="demandTitleInput" placeholder="O que precisa ser feito?" style="flex:1;">
+        <button type="button" class="mic-btn" title="Ditar por voz" onclick="iniciarDitado('demandTitleInput', this)">🎤</button>
+      </div>
     </div>
     <div class="field-group">
       <label>Prioridade</label>

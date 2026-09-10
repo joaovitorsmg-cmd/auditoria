@@ -260,6 +260,7 @@ function renderRecurFullList(){
           <button class="note-icon-btn" title="${googleAtivo?'Lembrete ativo no Google Agenda — clique para atualizar':'Ativar lembrete automático no Google Agenda'}" style="opacity:${googleAtivo?1:0.45}" onclick="sincronizarRecorrenteGoogle(STATE.recorrentes.find(x=>x.id==='${r.id}'))">🔔</button>
           <button class="note-icon-btn" title="Marcar feito" onclick="marcarFeito('${r.id}')">✓</button>
           <button class="note-icon-btn" title="Adiar" onclick="adiarRecorrente('${r.id}')">⏭</button>
+          <button class="note-icon-btn" title="Editar" onclick="abrirModalRecurForm('${r.id}')">✏️</button>
           <button class="note-icon-btn" title="Excluir" onclick="excluirRecorrente('${r.id}')">✕</button>
         </div>
       </div>`;
@@ -267,11 +268,18 @@ function renderRecurFullList(){
 }
 
 function excluirRecorrente(id){
+  const item = STATE.recorrentes.find(r=>r.id===id);
+  if(!item) return;
+  // Remove local na hora (não espera a rede) — o lembrete no Google, se existir,
+  // é removido em segundo plano, pra excluir continuar instantâneo.
+  if(item.googleEventId && isGoogleConnected()){
+    googleApiFetch(`/calendars/primary/events/${item.googleEventId}`, { method:'DELETE' }).catch(()=>{});
+  }
   STATE.recorrentes = STATE.recorrentes.filter(r=>r.id!==id);
   saveState();
   renderRecorrentes();
   renderSummary();
-  showToast('Recorrente removida');
+  showToast('Recorrente removida' + (item.googleEventId ? ' (lembrete no Google também removido)' : ''));
 }
 
 function adicionarRecorrente(nome, freq, horario='09:00', diaRef=null){
@@ -287,6 +295,72 @@ function adicionarRecorrente(nome, freq, horario='09:00', diaRef=null){
   renderRecorrentes();
   renderSummary();
   return item;
+}
+
+/* ============================================================
+   FORMULÁRIO DE RECORRENTE (criar/editar) — um modal de verdade
+   no lugar de prompts() encadeados, bem mais rápido de usar.
+   ============================================================ */
+
+let recurEditId = null;
+
+function abrirModalRecurForm(id=null){
+  recurEditId = id;
+  const item = id ? STATE.recorrentes.find(r=>r.id===id) : null;
+  document.getElementById('recurFormTitle').textContent = item ? 'Editar recorrente' : 'Nova recorrente';
+  document.getElementById('recurNomeInput').value = item ? item.nome : '';
+  document.getElementById('recurFreqInput').value = item ? item.freq : 'semanal';
+  document.getElementById('recurHorarioInput').value = item ? item.horario : '09:00';
+  atualizarCampoDiaRecur(item ? item.freq : 'semanal', item ? item.diaRef : new Date().getDay());
+  document.getElementById('btnDeleteRecurForm').style.display = item ? 'block' : 'none';
+  openModal('modalRecurForm');
+  setTimeout(()=>document.getElementById('recurNomeInput').focus(), 50);
+}
+
+function atualizarCampoDiaRecur(freq, diaAtual){
+  if(diaAtual===undefined || diaAtual===null) diaAtual = new Date().getDay();
+  const wrap = document.getElementById('recurDiaWrap');
+  if(freq === 'mensal'){
+    const dia = (diaAtual>=1 && diaAtual<=31) ? diaAtual : 1;
+    wrap.innerHTML = `<label>Dia do mês</label><input type="number" id="recurDiaInput" min="1" max="31" value="${dia}">`;
+  }else{
+    const opts = DIAS_SEMANA.map((d,i)=>`<option value="${i}" ${i===diaAtual?'selected':''}>${d.charAt(0).toUpperCase()+d.slice(1)}</option>`).join('');
+    wrap.innerHTML = `<label>Dia da semana</label><select id="recurDiaInput">${opts}</select>`;
+  }
+}
+
+async function salvarRecorrenteForm(){
+  const nome = document.getElementById('recurNomeInput').value.trim();
+  if(!nome){ showToast('Digite um nome para a recorrente'); return; }
+  const freq = document.getElementById('recurFreqInput').value;
+  const horario = document.getElementById('recurHorarioInput').value || '09:00';
+  const diaRef = parseInt(document.getElementById('recurDiaInput').value, 10);
+
+  let item;
+  if(recurEditId){
+    item = STATE.recorrentes.find(r=>r.id===recurEditId);
+    if(!item) return;
+    item.nome = nome; item.freq = freq; item.horario = horario; item.diaRef = diaRef;
+    saveState();
+    showToast(`"${nome}" atualizada`);
+  }else{
+    item = adicionarRecorrente(nome, freq, horario, diaRef);
+    showToast(`"${nome}" criada`);
+  }
+  renderRecorrentes();
+  closeModal('modalRecurForm');
+
+  if(isGoogleConnected() && item.googleEventId){
+    // já tinha lembrete ativo no Google — mantém sincronizado com a edição
+    await sincronizarRecorrenteGoogle(item, { silencioso:true });
+    renderRecorrentes();
+  }
+}
+
+function excluirRecorrenteDoForm(){
+  if(!recurEditId) return;
+  excluirRecorrente(recurEditId);
+  closeModal('modalRecurForm');
 }
 
 /* ============================================================
@@ -312,18 +386,65 @@ function renderNotes(filterText=''){
     return;
   }
 
-  el.innerHTML = lista.map(n=>`
+  el.innerHTML = lista.map(n=>{
+    if(n.id === notaEditId){
+      return `
+      <div class="note-item">
+        <textarea class="note-textarea" id="notaEditTextarea_${n.id}" style="min-height:50px;margin-bottom:6px;">${escapeHtml(n.texto)}</textarea>
+        <div class="note-meta">
+          <span></span>
+          <div class="note-actions">
+            <button class="note-icon-btn" title="Salvar" onclick="salvarEdicaoNota('${n.id}')">✔</button>
+            <button class="note-icon-btn" title="Cancelar" onclick="cancelarEdicaoNota()">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    return `
     <div class="note-item">
       <div class="note-text">${escapeHtml(n.texto)}</div>
       <div class="note-meta">
         <div class="note-tags">${n.tags.map(t=>`<span class="note-tag">${t}</span>`).join('')}</div>
         <div class="note-actions">
+          <button class="note-icon-btn" title="Editar" onclick="editarNotaInline('${n.id}')">✏️</button>
           <button class="note-icon-btn" title="Transformar em demanda" onclick="notaParaDemanda('${n.id}')">→</button>
           <button class="note-icon-btn" title="Agendar no Google" onclick="notaParaEvento('${n.id}')">📅</button>
           <button class="note-icon-btn" title="Excluir" onclick="excluirNota('${n.id}')">✕</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+let notaEditId = null;
+
+function editarNotaInline(id){
+  notaEditId = id;
+  renderNotes(document.getElementById('noteSearch').value);
+  setTimeout(()=>{
+    const ta = document.getElementById('notaEditTextarea_'+id);
+    if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }, 30);
+}
+
+function cancelarEdicaoNota(){
+  notaEditId = null;
+  renderNotes(document.getElementById('noteSearch').value);
+}
+
+function salvarEdicaoNota(id){
+  const textarea = document.getElementById('notaEditTextarea_'+id);
+  if(!textarea) return;
+  const novoTexto = textarea.value.trim();
+  if(!novoTexto) return;
+  const nota = STATE.notas.find(n=>n.id===id);
+  if(!nota) return;
+  nota.texto = novoTexto;
+  nota.tags = extractTags(novoTexto);
+  notaEditId = null;
+  saveState();
+  renderNotes(document.getElementById('noteSearch').value);
+  showToast('Anotação atualizada');
 }
 
 function escapeHtml(str){
@@ -397,8 +518,32 @@ function renderDemands(){
       <div class="demand-actions">
         <button onclick="concluirDemanda('${d.id}')">concluir</button>
         <button onclick="agendarDemanda('${d.id}')">agendar</button>
+        <button class="note-icon-btn" title="Editar" style="flex:0;" onclick="editarDemanda('${d.id}')">✏️</button>
+        <button class="note-icon-btn" title="Excluir" style="flex:0;" onclick="excluirDemanda('${d.id}')">✕</button>
       </div>
     </div>`).join('');
+}
+
+let demandEditId = null;
+
+function editarDemanda(id){
+  const d = STATE.demandas.find(x=>x.id===id);
+  if(!d) return;
+  demandEditId = id;
+  document.getElementById('demandTitleInput').value = d.titulo;
+  document.getElementById('demandPriorityInput').value = d.prioridade;
+  document.getElementById('modalDemandTitle').textContent = 'Editar demanda';
+  document.getElementById('btnSaveDemand').textContent = 'Salvar alterações';
+  openModal('modalDemand');
+  setTimeout(()=>document.getElementById('demandTitleInput').focus(), 50);
+}
+
+function excluirDemanda(id){
+  STATE.demandas = STATE.demandas.filter(d=>d.id!==id);
+  saveState();
+  renderDemands();
+  renderSummary();
+  showToast('Demanda removida');
 }
 
 function concluirDemanda(id){
@@ -508,7 +653,17 @@ async function googleApiFetch(path, options={}){
     showToast('Sessão do Google expirou, reconecte');
     return null;
   }
-  return resp.json();
+  // DELETE bem-sucedido no Google volta 204 sem corpo — chamar .json() nesse caso
+  // lançaria uma exceção (corpo vazio não é JSON válido). Sem esse tratamento,
+  // qualquer exclusão de evento quebraria silenciosamente.
+  if(resp.status===204) return { ok:true };
+  if(!resp.ok){
+    let msg = 'Erro ao falar com o Google Agenda';
+    try{ const errBody = await resp.json(); msg = (errBody && errBody.error && errBody.error.message) || msg; }catch(e){}
+    showToast(msg);
+    return null;
+  }
+  try{ return await resp.json(); }catch(e){ return null; }
 }
 
 async function carregarEventosGoogle(){
@@ -581,11 +736,24 @@ async function importarRecorrentesDoGoogle(opts={}){
   if(!STATE.googleImportedIds) STATE.googleImportedIds = [];
   const mestres = data.items.filter(ev => ev.recurrence && ev.recurrence.length && ev.status !== 'cancelled');
   const importadas = [];
+  const atualizadas = [];
 
   mestres.forEach(ev=>{
-    const jaTemLocal = STATE.recorrentes.some(r=>r.googleEventId===ev.id);
+    const local = STATE.recorrentes.find(r=>r.googleEventId===ev.id);
+    if(local){
+      // Já vinculada — se alguém mudou dia/horário/frequência direto no Google
+      // (sem passar pelo painel), reflete essa mudança aqui também. Sem isso,
+      // só entrava recorrente NOVA do Google; editar uma já vinculada nunca
+      // voltava pro painel.
+      const parsed = parseRRuleParaRecorrente(ev);
+      if(parsed && (parsed.freq!==local.freq || parsed.diaRef!==local.diaRef || parsed.horario!==local.horario)){
+        local.freq = parsed.freq; local.diaRef = parsed.diaRef; local.horario = parsed.horario;
+        atualizadas.push(local);
+      }
+      return;
+    }
     const jaImportadoAntes = STATE.googleImportedIds.includes(ev.id);
-    if(jaTemLocal || jaImportadoAntes) return;
+    if(jaImportadoAntes) return;
 
     const parsed = parseRRuleParaRecorrente(ev);
     STATE.googleImportedIds.push(ev.id);
@@ -600,7 +768,7 @@ async function importarRecorrentesDoGoogle(opts={}){
     importadas.push(item);
   });
 
-  if(importadas.length || mestres.length){
+  if(importadas.length || atualizadas.length || mestres.length){
     saveState();
     renderRecorrentes();
     renderSummary();
@@ -608,6 +776,10 @@ async function importarRecorrentesDoGoogle(opts={}){
   if(importadas.length && !opts.silencioso){
     const nomes = importadas.map(i=>`"${i.nome}"`).join(', ');
     showToast(`🔄 ${importadas.length} recorrente${importadas.length>1?'s':''} importada${importadas.length>1?'s':''} do Google Agenda: ${nomes}`, 4200);
+  }
+  if(atualizadas.length && !opts.silencioso){
+    const nomes = atualizadas.map(i=>`"${i.nome}"`).join(', ');
+    showToast(`🔄 Atualizado a partir do Google Agenda: ${nomes}`, 4200);
   }
 }
 
@@ -629,8 +801,16 @@ function renderEventos(){
         <span class="event-time">${hora}</span>
         <span class="event-source-dot" style="background:${ev.fromPainel?'var(--azul-royal)':'var(--cinza-claro)'}"></span>
         <span class="event-title">${escapeHtml(ev.titulo)}</span>
+        <div style="display:flex;gap:2px;flex-shrink:0;">
+          <button class="note-icon-btn" title="Editar" onclick="editarEventoGoogle('${ev.id}')">✏️</button>
+          <button class="note-icon-btn" title="Excluir" onclick="excluirEventoGoogle('${ev.id}')">✕</button>
+        </div>
       </div>`;
   }).join('');
+}
+
+function fusoHorarioLocal(){
+  try{ return Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){ return undefined; }
 }
 
 async function criarEventoGoogle(titulo, dataISO){
@@ -650,11 +830,12 @@ async function criarEventoGoogle(titulo, dataISO){
 
   const start = new Date(dataISO);
   const end = new Date(start.getTime() + 60*60000); // +1h padrão
+  const timeZone = fusoHorarioLocal();
 
   const body = {
     summary: titulo,
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() },
+    start: { dateTime: start.toISOString(), timeZone },
+    end: { dateTime: end.toISOString(), timeZone },
     colorId: COR_EVENTO_PAINEL
   };
 
@@ -667,6 +848,41 @@ async function criarEventoGoogle(titulo, dataISO){
     showToast('Evento criado no Google Agenda');
     carregarEventosGoogle();
   }
+}
+
+async function atualizarEventoGoogle(id, titulo, dataISO){
+  if(!isGoogleConnected()){
+    showToast('Conecte o Google Agenda nas configurações primeiro');
+    return;
+  }
+  const start = new Date(dataISO);
+  const end = new Date(start.getTime() + 60*60000);
+  const timeZone = fusoHorarioLocal();
+  const body = {
+    summary: titulo,
+    start: { dateTime: start.toISOString(), timeZone },
+    end: { dateTime: end.toISOString(), timeZone }
+  };
+  const data = await googleApiFetch(`/calendars/primary/events/${id}`, {
+    method:'PUT',
+    body: JSON.stringify(body)
+  });
+  if(data){
+    showToast('Evento atualizado no Google Agenda');
+    carregarEventosGoogle();
+  }
+}
+
+async function excluirEventoGoogle(id){
+  const ev = STATE.eventosLocais.find(e=>e.id===id);
+  if(!ev) return;
+  const data = await googleApiFetch(`/calendars/primary/events/${id}`, { method:'DELETE' });
+  if(!data) return; // erro já mostrado pelo googleApiFetch
+  STATE.eventosLocais = STATE.eventosLocais.filter(e=>e.id!==id);
+  saveState();
+  renderEventos();
+  renderSummary();
+  showToast(`"${ev.titulo}" excluído do Google Agenda`);
 }
 
 /* ============================================================
@@ -722,10 +938,11 @@ async function sincronizarRecorrenteGoogle(item, opts={}){
   }
   const inicio = calcularDataInicialRecorrente(item);
   const fim = new Date(inicio.getTime() + 30*60000);
+  const timeZone = fusoHorarioLocal();
   const body = {
     summary: '🔁 ' + item.nome,
-    start: { dateTime: inicio.toISOString() },
-    end: { dateTime: fim.toISOString() },
+    start: { dateTime: inicio.toISOString(), timeZone },
+    end: { dateTime: fim.toISOString(), timeZone },
     recurrence: [ montarRRule(item) ],
     colorId: COR_EVENTO_PAINEL
   };
@@ -748,13 +965,16 @@ async function sincronizarRecorrenteGoogle(item, opts={}){
 const DIAS_SEMANA = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 
 function parseComandoRapido(texto){
-  const lower = texto.toLowerCase();
+  // Normaliza acentos antes de comparar — sem isso, "terca"/"sabado" (sem
+  // acento, comum ao digitar rápido ou ditar por voz) nunca batiam com
+  // "terça"/"sábado" em DIAS_SEMANA, e a data ficava sem reconhecer.
+  const lower = normalizarTexto(texto);
   const hoje = new Date();
   let dataAlvo = null;
 
   // dia da semana
   for(let i=0;i<DIAS_SEMANA.length;i++){
-    if(lower.includes(DIAS_SEMANA[i])){
+    if(lower.includes(normalizarTexto(DIAS_SEMANA[i]))){
       dataAlvo = new Date(hoje);
       let diff = (i - hoje.getDay() + 7) % 7;
       if(diff===0) diff = 7;
@@ -762,7 +982,7 @@ function parseComandoRapido(texto){
       break;
     }
   }
-  if(!dataAlvo && lower.includes('amanhã')){
+  if(!dataAlvo && lower.includes('amanha')){
     dataAlvo = new Date(hoje);
     dataAlvo.setDate(hoje.getDate()+1);
   }
@@ -984,8 +1204,12 @@ function closeModal(id){
 }
 
 let eventoContextoNota = null;
+let eventEditId = null;
 
 function openEventModal(tituloSugerido=''){
+  eventEditId = null;
+  document.getElementById('modalEventTitle').textContent = 'Novo evento';
+  document.getElementById('btnSaveEvent').textContent = 'Salvar no Google Agenda';
   document.getElementById('eventTitleInput').value = tituloSugerido;
 
   // tenta interpretar comando rápido embutido no texto sugerido
@@ -995,6 +1219,19 @@ function openEventModal(tituloSugerido=''){
   document.getElementById('eventTimeInput').value = alvo.toTimeString().slice(0,5);
 
   openModal('modalEvent');
+}
+
+function editarEventoGoogle(id){
+  const ev = STATE.eventosLocais.find(e=>e.id===id);
+  if(!ev) return;
+  eventEditId = id;
+  document.getElementById('modalEventTitle').textContent = 'Editar evento';
+  document.getElementById('btnSaveEvent').textContent = 'Salvar alterações';
+  document.getElementById('eventTitleInput').value = ev.titulo;
+  document.getElementById('eventDateInput').value = ev.start.slice(0,10);
+  document.getElementById('eventTimeInput').value = ev.start.includes('T') ? ev.start.slice(11,16) : '09:00';
+  openModal('modalEvent');
+  setTimeout(()=>document.getElementById('eventTitleInput').focus(), 50);
 }
 
 /* ============================================================
@@ -1071,6 +1308,61 @@ function salvarUltimoEstado(){
 function restaurarUltimoEstado(){
   if(STATE.lastOpenState && STATE.lastOpenState.noteDraft){
     document.getElementById('noteInput').value = STATE.lastOpenState.noteDraft;
+  }
+}
+
+/* ============================================================
+   DITADO POR VOZ (Web Speech API)
+   Botão de microfone dedicado nos campos de texto livre — não
+   depende do usuário lembrar/achar o microfone do próprio teclado
+   (Gboard já tem isso nativamente em qualquer campo de texto, sem
+   precisar de nada aqui, mas nem todo mundo sabe que já pode usar).
+   Em navegadores sem suporte (ex: Safari no iPhone), os botões ficam
+   ocultos — lá, o microfone do teclado continua sendo o caminho.
+   ============================================================ */
+
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+let reconhecimentoAtivo = null;
+
+function suportaDitado(){
+  return !!SpeechRecognitionAPI;
+}
+
+function iniciarDitado(inputId, btnEl){
+  if(!suportaDitado()) return;
+  // Clicar de novo enquanto já está ouvindo cancela o ditado em vez de abrir outro.
+  if(reconhecimentoAtivo){
+    reconhecimentoAtivo.stop();
+    return;
+  }
+  const campo = document.getElementById(inputId);
+  if(!campo) return;
+  const rec = new SpeechRecognitionAPI();
+  rec.lang = 'pt-BR';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  reconhecimentoAtivo = rec;
+  btnEl.classList.add('ouvindo');
+
+  rec.onresult = (e)=>{
+    const texto = e.results[0][0].transcript;
+    const atual = campo.value.trim();
+    campo.value = atual ? atual + ' ' + texto : texto;
+    campo.dispatchEvent(new Event('input'));
+    campo.focus();
+  };
+  rec.onerror = (e)=>{
+    if(e.error !== 'aborted' && e.error !== 'no-speech') showToast('Não consegui entender. Tente de novo.');
+  };
+  rec.onend = ()=>{
+    btnEl.classList.remove('ouvindo');
+    reconhecimentoAtivo = null;
+  };
+  try{
+    rec.start();
+  }catch(e){
+    btnEl.classList.remove('ouvindo');
+    reconhecimentoAtivo = null;
   }
 }
 
@@ -1199,35 +1491,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // recorrentes
   document.getElementById('btnViewAllRecur').addEventListener('click', ()=>openModal('modalRecur'));
-  document.getElementById('btnAddRecur').addEventListener('click', async ()=>{
-    const nome = prompt('Nome da nova recorrente:');
-    if(!nome) return;
-    const freq = prompt('Frequência (semanal / quinzenal / mensal):','semanal');
-    if(!['semanal','quinzenal','mensal'].includes(freq)) return;
-    let diaRef;
-    if(freq==='mensal'){
-      diaRef = parseInt(prompt('Dia do mês (1-31):','1'),10);
-      if(!diaRef || diaRef<1 || diaRef>31) diaRef = 1;
-    }else{
-      const diaTxt = normalizarTexto((prompt('Dia da semana (domingo, segunda, terça, quarta, quinta, sexta, sábado):', DIAS_SEMANA[new Date().getDay()])||''));
-      const idx = DIAS_SEMANA.map(normalizarTexto).indexOf(diaTxt);
-      diaRef = idx!==-1 ? idx : new Date().getDay();
-    }
-    const horario = prompt('Horário do lembrete (HH:MM):','09:00') || '09:00';
-    const item = adicionarRecorrente(nome, freq, horario, diaRef);
-    if(isGoogleConnected() && confirm('Ativar lembrete automático no Google Agenda para essa recorrente?')){
-      await sincronizarRecorrenteGoogle(item);
-      renderRecorrentes();
-    }
-  });
+  document.getElementById('btnAddRecur').addEventListener('click', ()=>abrirModalRecurForm());
 
   // demandas
-  document.getElementById('btnNewDemand').addEventListener('click', ()=>openModal('modalDemand'));
+  document.getElementById('btnNewDemand').addEventListener('click', ()=>{
+    demandEditId = null;
+    document.getElementById('demandTitleInput').value = '';
+    document.getElementById('demandPriorityInput').value = 'media';
+    document.getElementById('modalDemandTitle').textContent = 'Nova demanda';
+    document.getElementById('btnSaveDemand').textContent = 'Adicionar';
+    openModal('modalDemand');
+  });
   document.getElementById('btnSaveDemand').addEventListener('click', ()=>{
     const titulo = document.getElementById('demandTitleInput').value.trim();
     const prioridade = document.getElementById('demandPriorityInput').value;
     if(!titulo) return;
-    STATE.demandas.push({ id:uid(), titulo, prioridade, concluida:false, criadoEm:new Date().toISOString() });
+    if(demandEditId){
+      const d = STATE.demandas.find(x=>x.id===demandEditId);
+      if(d){ d.titulo = titulo; d.prioridade = prioridade; }
+      showToast('Demanda atualizada');
+    }else{
+      STATE.demandas.push({ id:uid(), titulo, prioridade, concluida:false, criadoEm:new Date().toISOString() });
+      showToast('Demanda criada');
+    }
+    demandEditId = null;
     saveState();
     renderDemands();
     renderSummary();
@@ -1258,9 +1545,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const data = document.getElementById('eventDateInput').value;
     const hora = document.getElementById('eventTimeInput').value || '09:00';
     if(!titulo || !data) return;
-    criarEventoGoogle(titulo, `${data}T${hora}:00`);
+    if(eventEditId){
+      atualizarEventoGoogle(eventEditId, titulo, `${data}T${hora}:00`);
+    }else{
+      criarEventoGoogle(titulo, `${data}T${hora}:00`);
+    }
     closeModal('modalEvent');
   });
+
+  // ditado por voz: some com os botões de microfone se o navegador não suportar
+  if(!suportaDitado()){
+    document.querySelectorAll('.mic-btn').forEach(b=>b.style.display='none');
+  }
 
   // config drawer
   document.getElementById('btnCloseDrawer').addEventListener('click', closeConfigDrawer);
