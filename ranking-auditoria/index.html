@@ -1187,7 +1187,18 @@ function onDropCrono(e){
 // ============================================================
 // SCORE
 // ============================================================
+// Faixas conferidas contra REGRAS_DE_PONTUACAO.md em 2026-09: o documento
+// resume como "até 0,5% = pontuação máxima", mas na prática só 0% exato dá
+// os 100 pontos cheios — a partir de qualquer % positivo a nota já desce em
+// degraus (95/85/70/55/35/15/0). Os dois documentos foram alinhados para
+// descrever esses mesmos degraus; se a política mudar, atualize os dois.
 function calcScoreVenc(valorVencidos, faturamento) {
+  // Sem faturamento carregado para o período: não há como calcular o %, então
+  // assume-se nota máxima (mesma decisão de calcScoreBase abaixo). Isso é
+  // reportado como aviso na Central de Qualidade, mas conta normalmente no
+  // score — uma filial sem faturamento importado não é penalizada nem
+  // favorecida por engano, mas também não é sinalizada como "vencidos = 0"
+  // de fato comprovado.
   if (!faturamento || faturamento<=0) return 100;
   const pct = (valorVencidos/faturamento)*100;
   if (pct===0) return 100;
@@ -1203,8 +1214,13 @@ function calcScoreVenc(valorVencidos, faturamento) {
 // Score base + componentes
 function calcScoreBase(r) {
   const sSem  = r.temPed ? ((r.semPend===0)?40:0) : 0;
-  // Tudo ou nada: só soma pontuação de Pedido/Canhoto se a filial atingir ≥95% (sem crédito parcial)
+  // Tudo ou nada: só soma pontuação de Pedido/Canhoto se a filial atingir ≥95% (sem crédito parcial).
+  // O "pedConf>0"/"canConf>0" é uma trava extra (não documentada em REGRAS_DE_PONTUACAO.md) para
+  // não dar pontuação cheia num período de volume zero (0/0 tecnicamente seria ">=95%"). Efeito
+  // colateral: um período de atividade legitimamente muito baixa também zera Pedido/Canhoto.
   const sPed  = (r.temPed && r.pedConf>0 && r.pctPed>=95) ? 30 : 0;
+  // Sem arquivo de vencidos para o período mas com pedido presente: assume 20/20 (equivalente a
+  // "vencidos = 0% comprovadamente"), em vez de deixar o critério indefinido.
   const sVenc = r.temVenc ? (calcScoreVenc(r.valorVencidos, r.faturamento||0)/100)*20 : (r.temPed?20:0);
   const sCan  = (r.temPed && r.canConf>0 && r.pctCan>=95) ? 10 : 0;
   return {
@@ -1220,9 +1236,15 @@ function calcScoreBase(r) {
 // PROCESSAR: MESCLAR PED + VENC POR FILIAL+PERIODO
 // ============================================================
 function _regVazio(sigla, periodo) {
-  const info = infoFilial(sigla) || {};
+  // Normaliza a sigla (maiúscula/trim) antes de guardar — evita que a mesma
+  // filial vire dois grupos diferentes em consolidarAnual()/vencPorFilial()
+  // só porque um arquivo trouxe a sigla em caixa diferente do outro (a chave
+  // de mesclagem ped+venc já era uppercased, mas o campo `filial` do registro
+  // em si não era).
+  const filial = String(sigla||'').trim().toUpperCase();
+  const info = infoFilial(filial) || {};
   return {
-    filial: sigla, filialNome: info.loja||sigla, gerente: info.gerente||'',
+    filial, filialNome: info.loja||filial, gerente: info.gerente||'',
     regional: info.regional||'—', auditor: info.auditor||'—', coordenador: info.coordenador||'—',
     supervisor: info.supervisor||'—', estado: info.estado||'', regiao: info.regiao||'', periodo,
     temPed:false, temVenc:false,
@@ -1626,7 +1648,7 @@ function renderTabelaAnual() {
       <td style="font-size:12px;color:var(--text2);font-weight:600;">${r.supervisor||'—'}</td>
       <td style="font-size:12px;color:var(--text2)">${r.regional}</td>
       <td style="font-size:12px;color:var(--text2)">${r.auditor}</td>
-      <td style="text-align:center;"><span class="score-pill ${scClass(r.mediaScore)}">${r.mediaScore}</span><div class="bar-wrap"><div class="bar-fill" style="width:${r.mediaScore}%;background:${barColor(r.mediaScore)}"></div></div></td>
+      <td style="text-align:center;"><span class="score-pill ${scClass(r.mediaScore)}">${r.mediaScore}</span><div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(r.mediaScore,100)}%;background:${barColor(r.mediaScore)}"></div></div></td>
       <td style="text-align:center;">${r.auditorias}<span style="color:var(--text3);font-size:10px;">/${_rodadasFilial(r.filial)}</span></td>
       <td style="text-align:center;"><span class="comp-val ${regCor[r.regularidade]}">${r.regularidade}</span><br><span style="font-size:9px;color:var(--text3)">σ ${r.desvio}</span></td>
       <td style="text-align:center;color:var(--green-dk)">${r.maxScore}</td>
@@ -2210,7 +2232,7 @@ function renderAbaCronograma() {
         <span style="font-size:12px;color:var(--text2);">✔ <strong>${CRONO_ARQUIVO_INFO.nome}</strong> · ${CRONO_ARQUIVO_INFO.qtdReconhecidas} auditoria(s)${CRONO_ARQUIVO_INFO.qtdAndamento?(' · '+CRONO_ARQUIVO_INFO.qtdAndamento+' em andamento'):''}${CRONO_ARQUIVO_INFO.qtdDesconsideradas?(' · '+CRONO_ARQUIVO_INFO.qtdDesconsideradas+' de filial não auditada desconsiderada(s)'):''}${CRONO_ARQUIVO_INFO.qtdIgnoradas?(' · '+CRONO_ARQUIVO_INFO.qtdIgnoradas+' linha(s) ignorada(s)'):''} · importado em ${CRONO_ARQUIVO_INFO.importadoEm}</span>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           ${anos.length>1 ? `<select class="sel-sm" onchange="CRONO_ANO_SEL=parseInt(this.value);renderAbaCronograma();">${anos.map(a=>`<option value="${a}" ${a===anoSel?'selected':''}>Ano ${a}</option>`).join('')}</select>` : ''}
-          <span style="font-size:12px;color:var(--text2);">Meta/ano:</span>
+          <span style="font-size:12px;color:var(--text2);" title="Usado só nesta aba Cronograma, para calcular o ritmo esperado de VISITAS e marcar filiais atrasadas. É uma configuração separada de 'Rodadas por Filial' (⚙ Configurações), que controla quantas rodadas entram na média de pontuação do Ranking Anual.">Meta/ano:</span>
           <input id="crono-meta-input" type="number" min="1" max="24" value="${CRONO_META}" style="width:56px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
           <span style="font-size:12px;color:var(--text2);" title="Cristalina, Jataí, Uberlândia e Cuiabá">🤝 Confiança:</span>
           <input id="crono-meta-confianca-input" type="number" min="1" max="24" value="${CRONO_META_CONFIANCA}" title="Meta reduzida para Cristalina, Jataí, Uberlândia e Cuiabá" style="width:56px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
@@ -2233,7 +2255,7 @@ function renderAbaCronograma() {
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         ${anos.length>1 ? `<select class="sel-sm" onchange="CRONO_ANO_SEL=parseInt(this.value);renderAbaCronograma();">${anos.map(a=>`<option value="${a}" ${a===anoSel?'selected':''}>Ano ${a}</option>`).join('')}</select>` : ''}
-        <span style="font-size:12px;color:var(--text2);margin-left:auto;">Meta auditorias/ano por filial:</span>
+        <span style="font-size:12px;color:var(--text2);margin-left:auto;" title="Usado só nesta aba Cronograma, para calcular o ritmo esperado de VISITAS e marcar filiais atrasadas. É uma configuração separada de 'Rodadas por Filial' (⚙ Configurações), que controla quantas rodadas entram na média de pontuação do Ranking Anual.">Meta auditorias/ano por filial:</span>
         <input id="crono-meta-input" type="number" min="1" max="24" value="${CRONO_META}" style="width:64px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
         <span style="font-size:12px;color:var(--text2);" title="Cristalina, Jataí, Uberlândia e Cuiabá">🤝 Confiança:</span>
         <input id="crono-meta-confianca-input" type="number" min="1" max="24" value="${CRONO_META_CONFIANCA}" title="Meta reduzida para Cristalina, Jataí, Uberlândia e Cuiabá" style="width:64px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;">
@@ -4867,7 +4889,7 @@ function renderAbaConfig(){
           <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:13px;">Data da Premiação</span><input id="cfg-data-premio" type="text" placeholder="15/12/2026" value="${CONFIG.dataPremio||''}" style="width:130px;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;"></div>
           <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:13px;">Ano de Referência</span><input id="cfg-ano" type="number" value="${CONFIG.ano}" style="width:130px;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;"></div>
           <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:13px;">Teto do Bônus de Volume</span><input id="cfg-bonus" type="number" step="0.5" value="${CONFIG.tetoBonus}" style="width:130px;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;"></div>
-          <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:13px;" title="Auditorias esperadas por filial no ano">Rodadas por Filial</span><input id="cfg-rodadas" type="number" min="1" max="12" value="${CONFIG.totalRodadas||4}" style="width:130px;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;"></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:13px;" title="Usado só no Ranking Anual/Por Auditor/Guia (ex: '3/4 rodadas'). É uma configuração separada da 'Meta/ano' da aba Cronograma — aquela controla o ritmo esperado de VISITAS, esta controla quantas RODADAS entram na média de pontuação. Ajuste as duas se quiser que representem o mesmo número.">Rodadas por Filial <span style="opacity:.6">(Ranking)</span></span><input id="cfg-rodadas" type="number" min="1" max="12" value="${CONFIG.totalRodadas||4}" style="width:130px;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;"></div>
           <div style="display:flex;align-items:center;gap:8px;"><span style="flex:1;font-size:13px;" title="Cristalina, Jataí, Uberlândia e Cuiabá">🤝 Rodadas Filiais de Confiança</span><input id="cfg-rodadas-confianca" type="number" min="1" max="12" value="${CONFIG.rodadasConfianca||2}" style="width:130px;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;"></div>
           <button class="btn-az" style="font-size:12px;padding:8px 14px;margin:0;margin-top:4px;" onclick="salvarConfigParams()">Salvar Parâmetros</button>
         </div>
@@ -5406,10 +5428,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
           numerosVistos[r.numero] = r.filial;
         }
 
-        // 7. Filial não está na base
-        if (!BASE_FILIAIS[r.filial]) {
-          erros.push({ tipo:'crono', msg: `<strong>${r.filial}</strong> — <span>Filial não encontrada na base de dados</span>` });
-        }
+        // (checagem "filial não está na base" removida: processarCronogramaArquivo()
+        // já descarta, na importação, qualquer linha cuja filial não resolva contra
+        // BASE_FILIAIS — nenhuma linha chega até aqui sem uma filial válida, então
+        // essa checagem nunca disparava.)
       });
 
       // 8. Filiais ativas sem nenhuma auditoria no ano corrente
@@ -5443,12 +5465,13 @@ window.addEventListener('DOMContentLoaded', ()=>{
           }
         }
 
-        // 11. Score anormal
-        if (r.mediaScore != null) {
-          if (r.mediaScore === 0) {
+        // 11. Score anormal (campo correto é scoreFinal — mediaScore só existe nos
+        // objetos agregados de consolidarAnual(), nunca em um registro individual)
+        if (r.scoreFinal != null) {
+          if (r.scoreFinal === 0) {
             avisos.push({ tipo:'ranking', msg: `${id} — <span>Score zero (possível dado incompleto)</span>` });
-          } else if (r.mediaScore === 100) {
-            infos.push({ tipo:'ranking', msg: `${id} — <span>Score perfeito 100 — verificar se os dados estão completos</span>` });
+          } else if (r.scoreFinal >= 100) {
+            infos.push({ tipo:'ranking', msg: `${id} — <span>Score perfeito (${r.scoreFinal}) — verificar se os dados estão completos</span>` });
           }
         }
 
