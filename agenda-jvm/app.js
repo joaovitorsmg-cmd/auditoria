@@ -999,6 +999,94 @@ function restaurarUltimoEstado(){
 }
 
 /* ============================================================
+   INSTALAÇÃO NA TELA INICIAL (PWA)
+   Registra o service worker (exigido pelo Chrome/Android pra
+   considerar o app "instalável") e mostra um banner próprio
+   convidando a instalar, em vez de depender só do aviso escondido
+   do navegador. No iOS (Safari não tem esse evento), mostra uma
+   instrução de como adicionar manualmente à Tela de Início.
+   ============================================================ */
+
+const INSTALL_DISMISSED_KEY = 'painel_jvm_install_dismissed';
+let deferredInstallPrompt = null;
+
+function registrarServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(e=>console.error('Erro ao registrar service worker', e));
+  });
+}
+
+function estaRodandoInstalado(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function ehIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+
+function mostrarInstallBanner(texto){
+  if(localStorage.getItem(INSTALL_DISMISSED_KEY)) return;
+  if(estaRodandoInstalado()) return;
+  document.getElementById('installBannerText').textContent = texto;
+  document.getElementById('installBanner').classList.add('show');
+}
+
+function esconderInstallBanner(){
+  document.getElementById('installBanner').classList.remove('show');
+}
+
+function dispensarInstallBanner(){
+  localStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+  esconderInstallBanner();
+}
+
+function configurarInstalacao(){
+  registrarServiceWorker();
+
+  if(estaRodandoInstalado()) return;
+
+  // Android/Chrome/Edge — captura o prompt nativo e mostra nosso próprio botão
+  window.addEventListener('beforeinstallprompt', (e)=>{
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    mostrarInstallBanner('Instale o Painel JVM na tela inicial para acesso rápido');
+  });
+
+  window.addEventListener('appinstalled', ()=>{
+    deferredInstallPrompt = null;
+    esconderInstallBanner();
+    localStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+    showToast('Painel JVM instalado!');
+  });
+
+  // iOS Safari não dispara beforeinstallprompt — orienta a adicionar manualmente
+  if(ehIOS()){
+    mostrarInstallBanner('Para instalar: toque em 📤 Compartilhar e depois em "Adicionar à Tela de Início"');
+  }
+
+  document.getElementById('btnInstallAgora').addEventListener('click', async ()=>{
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      esconderInstallBanner();
+      if(outcome === 'accepted') localStorage.setItem(INSTALL_DISMISSED_KEY, '1');
+    }else{
+      // iOS ou navegador sem suporte a beforeinstallprompt: já mostra a instrução no texto do banner
+      esconderInstallBanner();
+    }
+  });
+  document.getElementById('btnInstallDepois').addEventListener('click', dispensarInstallBanner);
+}
+
+// Roda assim que o script carrega (app.js fica no fim do <body>, então os
+// elementos do banner já existem) — não espera o DOMContentLoaded, porque
+// o Chrome pode disparar "beforeinstallprompt" bem cedo, e perder esse
+// evento faz o app nunca ficar "instalável" via nosso próprio botão.
+configurarInstalacao();
+
+/* ============================================================
    EVENT LISTENERS
    ============================================================ */
 

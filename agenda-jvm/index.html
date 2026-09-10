@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Painel JVM</title>
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 <meta name="theme-color" content="#0D47A1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel JVM">
 <style>
   :root{
     --azul-royal:#0D47A1;
@@ -418,6 +421,36 @@
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
+  /* ===== BANNER: INSTALAR NA TELA INICIAL ===== */
+  .install-banner{
+    position:fixed;left:0;right:0;bottom:0;
+    background:var(--azul-escuro);color:var(--branco);
+    padding:12px 16px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom));
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    box-shadow:0 -4px 20px rgba(0,0,0,0.25);
+    z-index:1900;
+    transform:translateY(100%);
+    transition:transform .3s ease;
+  }
+  .install-banner.show{transform:translateY(0);}
+  .install-banner-icon{font-size:20px;flex-shrink:0;}
+  .install-banner-text{flex:1;font-size:12.5px;min-width:160px;}
+  .install-banner-actions{display:flex;gap:8px;flex-shrink:0;margin-left:auto;}
+  .install-banner-btn{
+    border:1px solid rgba(255,255,255,0.4);
+    background:transparent;color:var(--branco);
+    padding:7px 14px;border-radius:16px;
+    font-size:12px;font-weight:600;cursor:pointer;
+    white-space:nowrap;
+  }
+  .install-banner-btn.primary{background:var(--branco);color:var(--azul-escuro);border-color:var(--branco);}
+  @media(max-width:480px){
+    .install-banner{flex-direction:column;align-items:flex-start;}
+    .install-banner-actions{width:100%;}
+    .install-banner-btn{flex:1;}
+  }
+
   /* ===== CONFIG DRAWER ===== */
   .drawer-overlay{
     position:fixed;inset:0;background:rgba(0,0,0,0.4);
@@ -653,6 +686,16 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- BANNER: instalar na tela inicial (Android/Chrome via beforeinstallprompt, iOS via instrução) -->
+<div class="install-banner" id="installBanner">
+  <span class="install-banner-icon">📲</span>
+  <span class="install-banner-text" id="installBannerText">Instale o Painel JVM na tela inicial para acesso rápido</span>
+  <div class="install-banner-actions">
+    <button class="install-banner-btn primary" id="btnInstallAgora">Instalar</button>
+    <button class="install-banner-btn" id="btnInstallDepois">Agora não</button>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
