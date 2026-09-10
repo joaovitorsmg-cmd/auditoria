@@ -654,6 +654,25 @@ html[data-theme="dark"] .obrig-badge{background:#3A1E00;color:#FFB74D;border-col
         <span class="hint">Chave de acesso da API JSONBin — pré-configurada se gerada pela equipe</span>
       </div>
       <div id="cfgTestResult" style="margin-top:10px;font-size:13px;min-height:20px"></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:18px 0"/>
+      <p style="color:var(--text2);font-size:12px;margin-bottom:10px;line-height:1.6">
+        <strong>Publicação da semana (GitHub)</strong><br>
+        <span style="opacity:.8">Ao importar ou zerar o painel, publica os dados para que todos vejam a mesma semana — sem limite de tamanho (diferente do JSONBin acima).</span>
+      </p>
+      <div class="form-row">
+        <label>Token do GitHub (fine-grained)</label>
+        <div style="display:flex;gap:6px">
+          <input type="password" id="cfgGhToken" placeholder="github_pat_…"
+                 style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:13px"/>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleGhTokenVisibility()" title="Mostrar/ocultar">👁</button>
+        </div>
+        <span class="hint">Gerado em github.com/settings/tokens (Fine-grained) com permissão <strong>Contents: Read and write</strong> somente no repositório Alvaras-e-Licencas. Fica salvo só neste navegador — nunca é publicado.</span>
+      </div>
+      <div id="ghPublishStatus" style="margin-top:8px;font-size:12px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-secondary btn-sm" onclick="handleTestGithubLic()">🔗 Testar GitHub</button>
+        <button class="btn btn-secondary btn-sm" onclick="handleSaveGithubToken()">💾 Salvar Token</button>
+      </div>
     </div>
     <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-secondary" onclick="closeCfgModal()">Cancelar</button>
@@ -1688,6 +1707,7 @@ function confirmImport(){
   switchTab('geral', document.querySelector('[data-tab="geral"]'));
   renderAll();
   queueSync();
+  syncPushGithub();
   toast(`Planilha importada — ${activeDados.registros.length} registros, ${activeDados.filiais.length} filiais`,'success');
   renderImportHist();
 }
@@ -1714,12 +1734,12 @@ async function removerPlanilha(){
   renderImportHist();
   safeStorage.set('painelLic_activeDados', activeDados);
   queueSync();
+  syncPushGithub();
   toast('Planilha removida — carregue uma nova planilha para usar o painel','success');
 }
 
 async function zerarPainel(){
-  if(!confirm('ZERAR O PAINEL?\n\nIsso apagará:\n• Todos os overrides (datas, justificativas)\n• Todo o histórico de auditoria\n• A planilha importada\n\nEsta ação não pode ser desfeita.')) return;
-  if(!confirm('Confirmar: zerar TUDO — overrides, histórico e planilha?')) return;
+  if(!confirm('ZERAR O PAINEL PARA TODOS?\n\nIsso apaga permanentemente:\n• Toda a planilha importada (visão atual da semana)\n• Todos os overrides (datas, justificativas)\n• Todo o histórico de auditoria\n\nTodos que abrirem o painel depois verão vazio. Esta ação não pode ser desfeita.')) return;
   overrides={};
   auditLog=[];
   activeDados={filiais:[],registros:[],catalogo:DADOS.catalogo,geradoEm:new Date().toISOString(),_empty:true};
@@ -1732,6 +1752,7 @@ async function zerarPainel(){
   renderAll();
   closeCfgModal();
   queueSync();
+  syncPushGithub();
   toast('Painel zerado — todos os dados foram apagados','success');
 }
 
@@ -1779,6 +1800,136 @@ function exportAuditCsv(){
   if(fUser)   entries=entries.filter(e=>e.userName===fUser);
   if(fAction) entries=entries.filter(e=>e.action===fAction);
   downloadCsv('auditoria.csv',auditToCsvRows(entries));
+}
+
+/* ─── PUBLICAÇÃO SEMANAL VIA GITHUB (compartilhada para todos) ──────────────
+   O JSONBin (abaixo) só guarda overrides/auditoria — são pequenos. A planilha
+   importada inteira (activeDados) não cabe no plano gratuito do JSONBin,
+   então ela é publicada como arquivo no próprio repositório do painel via
+   API do GitHub, sem limite de tamanho relevante. Assim, quem importa (ou
+   zera) a planilha da semana define o que todo mundo vê a partir daí, até a
+   próxima importação.
+   SEGURANÇA: o token dá acesso de ESCRITA ao repositório. Fica salvo só no
+   localStorage de quem o configurou — nunca é embutido nem comitado no
+   index.html publicado (diferente da Master Key do JSONBin acima).
+   ============================================================ */
+const GH_OWNER='joaovitorsmg-cmd';
+const GH_REPO='Alvaras-e-Licencas';
+const GH_BASE_BRANCH='main';
+const GH_DATA_FILE='data/alvaras.json';
+const GH_CFG_KEY='painelLic_gh_cfg';
+let ghPublishing=false;
+
+function getGhCfg(){try{return JSON.parse(localStorage.getItem(GH_CFG_KEY)||'{}');}catch(e){return {};}}
+function saveGhCfg(cfg){localStorage.setItem(GH_CFG_KEY,JSON.stringify({...getGhCfg(),...cfg}));}
+function getGhToken(){return getGhCfg().ghToken||'';}
+function saveGhToken(tok){saveGhCfg({ghToken:tok});}
+
+async function ghReq(path,opts){
+  const token=getGhToken();
+  if(!token) throw new Error('Token do GitHub não configurado');
+  const o=opts||{};
+  const r=await fetch('https://api.github.com'+path,{
+    method:o.method||'GET',
+    headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body:o.body?JSON.stringify(o.body):undefined
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error((d&&d.message)||('Erro HTTP '+r.status));
+  return d;
+}
+
+function utf8ToBase64(str){
+  const bytes=new TextEncoder().encode(str);
+  let bin='';
+  for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+// Todo mundo que abre o painel puxa esse arquivo primeiro — ele decide qual
+// "semana" está em exibição, independente do que cada um importou localmente
+// antes. Leitura não precisa de token (é um caminho público do próprio site).
+async function syncPullGithub(){
+  try{
+    const url=`./${GH_DATA_FILE}?t=${Date.now()}`;
+    const r=await fetch(url);
+    if(!r.ok) return false; // 404 = ninguém publicou ainda; mantém o que já tinha localmente
+    const remote=await r.json();
+    if(remote && remote.activeDados && remote.activeDados.registros){
+      activeDados=remote.activeDados;
+      safeStorage.set('painelLic_activeDados', activeDados);
+      return true;
+    }
+  }catch(e){ console.warn('syncPullGithub falhou',e); }
+  return false;
+}
+
+// Chamado após importar planilha, remover planilha ou zerar o painel —
+// publica o estado atual pra que todo mundo passe a ver a mesma coisa.
+async function syncPushGithub(){
+  const token=getGhToken();
+  if(!token){ setGhPublishStatus('nokey'); return; }
+  if(ghPublishing) return;
+  ghPublishing=true;
+  setGhPublishStatus('syncing');
+  try{
+    const payload={activeDados, lastUpdate:new Date().toISOString(), app:'agroquima-alvaras'};
+    const content=utf8ToBase64(JSON.stringify(payload));
+    let sha;
+    try{const info=await ghReq(`/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_FILE}`);sha=info.sha;}catch(e){}
+    const body={message:'Atualiza planilha da semana — '+new Date().toLocaleString('pt-BR'),content,branch:GH_BASE_BRANCH};
+    if(sha) body.sha=sha;
+    await ghReq(`/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_FILE}`,{method:'PUT',body});
+    saveGhCfg({lastPush:new Date().toLocaleString('pt-BR')});
+    setGhPublishStatus('ok');
+    toast('☁ Planilha publicada — todos verão em ~2 minutos','success');
+  }catch(e){
+    setGhPublishStatus('error',e.message);
+    toast('Erro ao publicar para todos: '+e.message,'error');
+  }finally{ ghPublishing=false; }
+}
+
+function setGhPublishStatus(status,detail){
+  const el=document.getElementById('ghPublishStatus'); if(!el) return;
+  const m={
+    ok:      ['#1e8449','✔ Publicado — todos verão a mesma semana'],
+    saved:   ['#2563eb','💾 Token salvo — será usado na próxima importação/zerar'],
+    syncing: ['#d68910','⟳ Publicando...'],
+    error:   ['#c0392b','✗ Erro ao publicar'+(detail?': '+detail:'')],
+    nokey:   ['#94a3b8','○ Sem token — cada um vê só a própria importação local'],
+  };
+  const[color,label]=m[status]||m['nokey'];
+  el.style.color=color;
+  el.textContent=label;
+}
+
+function toggleGhTokenVisibility(){
+  const inp=document.getElementById('cfgGhToken');
+  if(!inp) return;
+  inp.type = inp.type==='password' ? 'text' : 'password';
+}
+
+async function handleTestGithubLic(){
+  const token=document.getElementById('cfgGhToken').value.trim()||getGhToken();
+  if(!token){ setGhPublishStatus('error','cole o token primeiro'); return; }
+  setGhPublishStatus('syncing');
+  try{
+    saveGhToken(token);
+    await ghReq(`/repos/${GH_OWNER}/${GH_REPO}/git/ref/heads/${GH_BASE_BRANCH}`);
+    setGhPublishStatus('ok');
+    toast('Conexão com o GitHub OK','success');
+  }catch(e){
+    setGhPublishStatus('error',e.message);
+    toast('Falha: '+e.message,'error');
+  }
+}
+
+function handleSaveGithubToken(){
+  const token=document.getElementById('cfgGhToken').value.trim();
+  if(!token){ toast('Cole o token antes de salvar','error'); return; }
+  saveGhToken(token);
+  toast('Token salvo neste navegador','success');
+  setGhPublishStatus('saved');
 }
 
 /* ─── JSONBIN SYNC ────────────────────────────────────────────────────────*/
@@ -1935,6 +2086,7 @@ async function init(){
   });
   rebuildIndices();
   await loadOverrides();
+  await syncPullGithub(); // fonte da verdade da planilha da semana — sobrescreve o local se houver publicação mais nova
   rebuildIndices(); // rebuild after activeDados might have changed
   populateFilters();
   renderAll();
@@ -1958,6 +2110,8 @@ function openCfgModal(){
   document.getElementById('cfgBinId').value=CONFIG.JSONBIN_BIN_ID||safeStorage.get('painelLic_binId','')||'';
   document.getElementById('cfgApiKey').value=CONFIG.JSONBIN_API_KEY||'';
   document.getElementById('cfgTestResult').innerHTML='';
+  document.getElementById('cfgGhToken').value=getGhToken();
+  setGhPublishStatus(getGhToken()?'saved':'nokey');
   document.getElementById('cfgModal').classList.add('open');
 }
 function closeCfgModal(){document.getElementById('cfgModal').classList.remove('open');}
