@@ -516,7 +516,7 @@ html[data-theme="dark"] .obrig-badge{background:#3A1E00;color:#FFB74D;border-col
          ondrop="handleDrop(event)"
          style="cursor:pointer">
       <div style="font-size:36px;margin-bottom:8px;opacity:.4">📂</div>
-      <p style="color:var(--text2);font-size:14px">Arraste o arquivo JSON aqui ou</p>
+      <p style="color:var(--text2);font-size:14px">Arraste o arquivo (XLS ou JSON) aqui ou</p>
       <label class="btn btn-primary btn-sm" style="margin-top:10px;cursor:pointer">
         Selecionar arquivo
         <input type="file" id="importFileInput" accept=".xlsx,.xls,.json" onchange="handleFileSelect(event)" style="display:none"/>
@@ -1849,16 +1849,29 @@ function utf8ToBase64(str){
 // Todo mundo que abre o painel puxa esse arquivo primeiro — ele decide qual
 // "semana" está em exibição, independente do que cada um importou localmente
 // antes. Leitura não precisa de token (é um caminho público do próprio site).
+// Chave que guarda QUANDO foi a última publicação já aplicada neste navegador.
+// Sem isso, um arquivo de placeholder/vazio (nunca publicado de verdade, sem
+// lastUpdate) sobrescreveria dados reais importados localmente a cada
+// carregamento da página — foi exatamente esse bug que apagou o catálogo de
+// documentos e quebrou a importação. Só aplicamos a publicação remota se ela
+// tiver de fato um "lastUpdate" (ou seja, alguém publicou de verdade) E for
+// mais nova do que a última publicação que este navegador já aplicou.
+const GH_LOCAL_TS_KEY='painelLic_ghLastAppliedUpdate';
+
 async function syncPullGithub(){
   try{
     const url=`./${GH_DATA_FILE}?t=${Date.now()}`;
     const r=await fetch(url);
     if(!r.ok) return false; // 404 = ninguém publicou ainda; mantém o que já tinha localmente
     const remote=await r.json();
-    if(remote && remote.activeDados && remote.activeDados.registros){
-      activeDados=remote.activeDados;
-      safeStorage.set('painelLic_activeDados', activeDados);
-      return true;
+    if(remote && remote.lastUpdate && remote.activeDados && remote.activeDados.registros){
+      const localTs=safeStorage.get(GH_LOCAL_TS_KEY,'');
+      if(!localTs || remote.lastUpdate>localTs){
+        activeDados=remote.activeDados;
+        safeStorage.set('painelLic_activeDados', activeDados);
+        safeStorage.set(GH_LOCAL_TS_KEY, remote.lastUpdate);
+        return true;
+      }
     }
   }catch(e){ console.warn('syncPullGithub falhou',e); }
   return false;
@@ -1881,6 +1894,7 @@ async function syncPushGithub(){
     if(sha) body.sha=sha;
     await ghReq(`/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_FILE}`,{method:'PUT',body});
     saveGhCfg({lastPush:new Date().toLocaleString('pt-BR')});
+    safeStorage.set(GH_LOCAL_TS_KEY, payload.lastUpdate);
     setGhPublishStatus('ok');
     toast('☁ Planilha publicada — todos verão em ~2 minutos','success');
   }catch(e){

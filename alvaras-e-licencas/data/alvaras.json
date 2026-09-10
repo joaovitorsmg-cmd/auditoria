@@ -1,5 +1,234 @@
 {
-  "activeDados": {"filiais":[],"registros":[],"catalogo":[],"geradoEm":"","_empty":true},
+  "activeDados": {
+    "filiais": [],
+    "registros": [],
+    "catalogo": [
+      {
+        "key": "ALVARA MUNICIPAL (PREFEITURA)",
+        "nome": "ALVARÁ MUNICIPAL (PREFEITURA)",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "ALVARA DO CORPO DE BOMBEIROS",
+        "nome": "ALVARÁ DO CORPO DE BOMBEIROS",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 90,
+        "observacao": null
+      },
+      {
+        "key": "LICENCA SECRETARIA DE MEIO AMBIENTE",
+        "nome": "LICENÇA SECRETARIA DE MEIO AMBIENTE",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 120,
+        "observacao": null
+      },
+      {
+        "key": "REGISTROS CREA/RT",
+        "nome": "REGISTROS CREA/RT",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "REGISTROS CRMV/RT",
+        "nome": "REGISTROS CRMV/RT",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "LICENCA ESTADUAL PARA HERBICIDAS",
+        "nome": "LICENÇA ESTADUAL PARA HERBICIDAS",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 90,
+        "observacao": null
+      },
+      {
+        "key": "LICENCA ESTADUAL PARA VACINAS",
+        "nome": "LICENÇA ESTADUAL PARA VACINAS",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 60,
+        "observacao": null
+      },
+      {
+        "key": "MAPA - SIPEAGRO",
+        "nome": "MAPA - SIPEAGRO",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "LICENCA IBAMA",
+        "nome": "LICENÇA IBAMA",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "T",
+        "diasAntes": 10,
+        "observacao": null
+      },
+      {
+        "key": "REGISTRO CREA/PJ",
+        "nome": "REGISTRO CREA/PJ",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "REGISTRO CRMV/PJ",
+        "nome": "REGISTRO CRMV/PJ",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "FILIACAO COLETA DE EMBALAGEM",
+        "nome": "FILIAÇÃO COLETA DE EMBALAGEM",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "LICENCA RENASEM",
+        "nome": "LICENÇA RENASEM",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 90,
+        "observacao": null
+      },
+      {
+        "key": "ALVARA SANITARIO",
+        "nome": "ALVARÁ SANITÁRIO",
+        "obrigatorioGeral": true,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "CERTIFICADO BRIGADA DE INCENDIO",
+        "nome": "CERTIFICADO BRIGADA DE INCÊNDIO",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": null
+      },
+      {
+        "key": "MEMORIAL DESCRITIVO BOMBEIROS",
+        "nome": "MEMORIAL DESCRITIVO BOMBEIROS",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "observacao": "SOMENTE SE HOUVER EXIGENCIA DO CORPO DE BOMBEIROS"
+      },
+      {
+        "key": "PROJETO ARQUITETONICO BOMBEIROS",
+        "nome": "PROJETO ARQUITETÔNICO BOMBEIROS",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "observacao": "SOMENTE SE HOUVER EXIGENCIA DO CORPO DE BOMBEIROS"
+      },
+      {
+        "key": "ART OU RRT BOMBEIROS",
+        "nome": "ART OU RRT BOMBEIROS",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "observacao": "SOMENTE SE HOUVER EXIGENCIA DO CORPO DE BOMBEIROS"
+      },
+      {
+        "key": "OUTORGA DE AGUA",
+        "nome": "OUTORGA DE ÁGUA",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "O",
+        "diasAntes": 90,
+        "observacao": null
+      },
+      {
+        "key": "CERTIDAO DE USO DO SOLO",
+        "nome": "CERTIDÃO DE USO DO SOLO",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": "VERIFICAR A OBRIGATORIEDADE EM CADA MUNICIPIO"
+      },
+      {
+        "key": "CERTIFICADO DE APROVACAO DO PROJETO DOS BOMBEIROS",
+        "nome": "CERTIFICADO DE APROVAÇÃO DO PROJETO DOS BOMBEIROS",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "observacao": "SOMENTE SE HOUVER EXIGENCIA DO CORPO DE BOMBEIROS"
+      },
+      {
+        "key": "ART DO PREDIO",
+        "nome": "ART DO PRÉDIO",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "observacao": "CASO SEJA EXIGIDO PELA PREFEITURA"
+      },
+      {
+        "key": "LICENCA ESTADUAL PARA SEMENTES",
+        "nome": "LICENÇA ESTADUAL PARA SEMENTES",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": [
+          "PA"
+        ],
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": "FOI SUBSTITUIDA PELO RENASEM"
+      },
+      {
+        "key": "NUMERO OFICIAL DO IMOVEL",
+        "nome": "NÚMERO OFICIAL DO IMÓVEL",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": "A",
+        "diasAntes": 30,
+        "observacao": "VERIFICAR A OBRIGATORIEDADE EM CADA MUNICIPIO"
+      },
+      {
+        "key": "MONITORAMENTO E VERIFICACAO PREDIAL",
+        "nome": "MONITORAMENTO E VERIFICAÇÃO PREDIAL",
+        "obrigatorioGeral": false,
+        "obrigatorioEstados": null,
+        "periodicidade": null,
+        "diasAntes": 30,
+        "observacao": null
+      }
+    ],
+    "geradoEm": "",
+    "_empty": true
+  },
   "lastUpdate": null,
   "app": "agroquima-alvaras"
 }
