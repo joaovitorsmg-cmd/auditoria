@@ -64,8 +64,9 @@ jobs:
 
       - name: Baixar Alvarás e Licenças
         run: |
-          mkdir -p alvaras-e-licencas
+          mkdir -p alvaras-e-licencas/data
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Alvaras-e-Licencas/main/index.html" -o alvaras-e-licencas/index.html
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Alvaras-e-Licencas/main/data/alvaras.json" -o alvaras-e-licencas/data/alvaras.json || echo '{"activeDados":{"filiais":[],"registros":[],"catalogo":[],"geradoEm":"","_empty":true},"lastUpdate":null,"app":"agroquima-alvaras"}' > alvaras-e-licencas/data/alvaras.json
 
       - name: Baixar Contagem Agroquima
         run: |
