@@ -23,7 +23,8 @@ function defaultState(){
     demandas: [],
     eventosLocais: [],
     lastOpenState: null,
-    lastActivity: null
+    lastActivity: null,
+    googleImportedIds: []
   };
 }
 
@@ -522,17 +523,92 @@ async function carregarEventosGoogle(){
     `/calendars/primary/events?timeMin=${agora.toISOString()}&timeMax=${em7dias.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=30`
   );
 
+  if(data && data.items){
+    STATE.eventosLocais = data.items.map(ev=>({
+      id: ev.id,
+      titulo: ev.summary || '(sem título)',
+      start: ev.start.dateTime || ev.start.date,
+      fromPainel: ev.colorId === COR_EVENTO_PAINEL
+    }));
+    saveState();
+    renderEventos();
+    renderSummary();
+  }
+
+  await importarRecorrentesDoGoogle();
+}
+
+const BYDAY_TO_IDX = { SU:0, MO:1, TU:2, WE:3, TH:4, FR:5, SA:6 };
+
+function parseRRuleParaRecorrente(ev){
+  const rrule = (ev.recurrence||[]).find(r=>r.startsWith('RRULE:'));
+  if(!rrule) return null;
+  const params = {};
+  rrule.replace('RRULE:','').split(';').forEach(p=>{
+    const [k,v] = p.split('=');
+    if(k) params[k] = v;
+  });
+  const freqRaw = params.FREQ;
+  const interval = parseInt(params.INTERVAL||'1',10);
+  const startStr = ev.start && (ev.start.dateTime || ev.start.date);
+  const startDate = startStr ? new Date(startStr) : new Date();
+  const horario = (ev.start && ev.start.dateTime) ? startStr.slice(11,16) : '09:00';
+
+  if(freqRaw === 'WEEKLY'){
+    let diaRef = startDate.getDay();
+    if(params.BYDAY){
+      const primeiro = params.BYDAY.split(',')[0].trim();
+      if(BYDAY_TO_IDX[primeiro] !== undefined) diaRef = BYDAY_TO_IDX[primeiro];
+    }
+    return { freq: interval>=2 ? 'quinzenal' : 'semanal', diaRef, horario };
+  }
+  if(freqRaw === 'MONTHLY'){
+    let diaRef = params.BYMONTHDAY ? parseInt(params.BYMONTHDAY,10) : startDate.getDate();
+    return { freq:'mensal', diaRef, horario };
+  }
+  return null; // DAILY, YEARLY, etc. — fora do nosso modelo de recorrente
+}
+
+async function importarRecorrentesDoGoogle(opts={}){
+  if(!isGoogleConnected()) return;
+  const timeMin = new Date(); timeMin.setFullYear(timeMin.getFullYear()-2);
+  const timeMax = new Date(); timeMax.setDate(timeMax.getDate()+90);
+  const data = await googleApiFetch(
+    `/calendars/primary/events?timeMin=${timeMin.toISOString()}&timeMax=${timeMax.toISOString()}&singleEvents=false&maxResults=250`
+  );
   if(!data || !data.items) return;
 
-  STATE.eventosLocais = data.items.map(ev=>({
-    id: ev.id,
-    titulo: ev.summary || '(sem título)',
-    start: ev.start.dateTime || ev.start.date,
-    fromPainel: ev.colorId === COR_EVENTO_PAINEL
-  }));
-  saveState();
-  renderEventos();
-  renderSummary();
+  if(!STATE.googleImportedIds) STATE.googleImportedIds = [];
+  const mestres = data.items.filter(ev => ev.recurrence && ev.recurrence.length && ev.status !== 'cancelled');
+  const importadas = [];
+
+  mestres.forEach(ev=>{
+    const jaTemLocal = STATE.recorrentes.some(r=>r.googleEventId===ev.id);
+    const jaImportadoAntes = STATE.googleImportedIds.includes(ev.id);
+    if(jaTemLocal || jaImportadoAntes) return;
+
+    const parsed = parseRRuleParaRecorrente(ev);
+    STATE.googleImportedIds.push(ev.id);
+    if(!parsed) return;
+
+    const nome = (ev.summary||'Sem título').replace(/^🔁\s*/, '');
+    const item = {
+      id: uid(), nome, freq: parsed.freq, diaRef: parsed.diaRef, horario: parsed.horario,
+      ultimoFeito: null, historico: [], googleEventId: ev.id
+    };
+    STATE.recorrentes.push(item);
+    importadas.push(item);
+  });
+
+  if(importadas.length || mestres.length){
+    saveState();
+    renderRecorrentes();
+    renderSummary();
+  }
+  if(importadas.length && !opts.silencioso){
+    const nomes = importadas.map(i=>`"${i.nome}"`).join(', ');
+    showToast(`🔄 ${importadas.length} recorrente${importadas.length>1?'s':''} importada${importadas.length>1?'s':''} do Google Agenda: ${nomes}`, 4200);
+  }
 }
 
 function renderEventos(){
