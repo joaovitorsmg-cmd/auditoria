@@ -2297,6 +2297,14 @@ function renderAbaCronograma() {
       <div class="filtros-bar">
         <input class="busca" id="busca-crono" placeholder="Buscar filial/auditor..." oninput="renderTabelaCronograma()">
         <select class="sel-sm" id="fil-auditor-crono" onchange="renderTabelaCronograma()"><option value="">Todos os Auditores</option>${[...new Set(dados.porFilial.map(f=>f.auditor))].sort().map(a=>`<option>${a}</option>`).join('')}</select>
+        <span class="ptag" id="ptag-crono-atrasadas" onclick="_cronoToggleSomenteAtrasadas()" title="Mostrar só filiais abaixo do ritmo esperado de auditorias no ano">⚠ Somente Atrasadas</span>
+        <select class="sel-sm" id="fil-nota-crono" onchange="_cronoSetFaixaNota(this.value)" title="Filtra pela Nota Média das auditorias do ano, nesta aba">
+          <option value="">Nota Média: Todas</option>
+          <option value="baixa">Nota &lt; 60</option>
+          <option value="media">Nota 60 – 70</option>
+          <option value="alta">Nota &gt; 70</option>
+        </select>
+        <span class="ptag" id="ptag-crono-limpar" onclick="_cronoLimparFiltrosDetalhe()" style="display:none;color:var(--red-dk);border-color:var(--red-dk);">✕ Limpar filtros</span>
       </div>
       <div class="rank-wrap">
         <div style="overflow-x:auto;">
@@ -2551,6 +2559,43 @@ function _cronoSortDetalhe(col) {
   renderTabelaCronograma();
 }
 
+// Filtros da tabela "Detalhe por Filial" — "somente atrasadas" reaproveita o
+// mesmo cálculo de ritmo (noRitmo) já usado na coluna "Situação"; a faixa de
+// Nota Média usa o campo notaMedia já exibido nesta mesma aba (não mexe em
+// nada do Ranking Anual).
+let _cronoSomenteAtrasadas = false;
+let _cronoFaixaNota = '';
+
+function _cronoToggleSomenteAtrasadas() {
+  _cronoSomenteAtrasadas = !_cronoSomenteAtrasadas;
+  document.getElementById('ptag-crono-atrasadas')?.classList.toggle('ativo', _cronoSomenteAtrasadas);
+  renderTabelaCronograma();
+}
+
+function _cronoSetFaixaNota(v) {
+  _cronoFaixaNota = v || '';
+  renderTabelaCronograma();
+}
+
+function _cronoFaixaNotaCombina(nota) {
+  if (!_cronoFaixaNota) return true;
+  if (nota == null) return false; // sem nota lançada não pertence a nenhuma faixa
+  if (_cronoFaixaNota==='baixa') return nota<60;
+  if (_cronoFaixaNota==='media') return nota>=60 && nota<=70;
+  if (_cronoFaixaNota==='alta')  return nota>70;
+  return true;
+}
+
+function _cronoLimparFiltrosDetalhe() {
+  _cronoSomenteAtrasadas = false;
+  _cronoFaixaNota = '';
+  document.getElementById('ptag-crono-atrasadas')?.classList.remove('ativo');
+  const selNota=document.getElementById('fil-nota-crono'); if (selNota) selNota.value='';
+  const busca=document.getElementById('busca-crono'); if (busca) busca.value='';
+  const filAud=document.getElementById('fil-auditor-crono'); if (filAud) filAud.value='';
+  renderTabelaCronograma();
+}
+
 function renderTabelaCronograma() {
   const body=document.getElementById('body-crono');
   if (!body) return;
@@ -2560,8 +2605,13 @@ function renderTabelaCronograma() {
   let lista=(window._cronoDadosFilial||[]).filter(f=>{
     if (filAud && f.auditor!==filAud) return false;
     if (busca && !(f.filial.includes(busca) || f.filialNome.toUpperCase().includes(busca) || f.auditor.toUpperCase().includes(busca))) return false;
+    if (_cronoSomenteAtrasadas && f.noRitmo) return false;
+    if (!_cronoFaixaNotaCombina(f.notaMedia)) return false;
     return true;
   }).sort((a,b)=>_cronoCompareDetalhe(a,b,col,dir));
+  const filtroAtivo=_cronoSomenteAtrasadas||_cronoFaixaNota||busca||filAud;
+  const btnLimpar=document.getElementById('ptag-crono-limpar');
+  if (btnLimpar) btnLimpar.style.display=filtroAtivo?'inline-block':'none';
   body.innerHTML = lista.map(f=>`<tr class="crono-row-click" onclick="_cronoAbrirDetalheFilial('${f.filial}')" title="Ver histórico de auditorias de ${f.filialNome}">
     <td><b style="font-size:13px;">${f.filialNome}</b>${f.confianca?' <span title="Filial de confiança da diretoria — meta reduzida">🤝</span>':''}<br><span style="font-size:11px;color:var(--text3)">${f.filial} · Nº ${f.numero}</span></td>
     <td>${f.auditor}</td><td>${f.regional}</td>
