@@ -7981,6 +7981,7 @@ function _shuffle(arr) {
 function _checklistAssinatura() {
   return JSON.stringify([
     (APP.emRisco || []).length,
+    (APP.lotes || []).length,
     APP.checklistExcluidos || [],
     APP.checklistLinhasExcluidas || [],
     APP.checklistLinhasForcadas || [],
@@ -7998,8 +7999,15 @@ function getChecklistSelecao() {
 }
 
 function _calcChecklistSelecao() {
-  // Agrupa lotes em risco por linha e, dentro dela, por produto
+  // Agrupa lotes em risco por linha e, dentro dela, por produto.
+  // TODA linha presente na importação entra aqui, mesmo sem nenhum lote em
+  // risco: o passo 3 completa essas linhas com lotes normais. Antes porLinha
+  // saía só de APP.emRisco, então uma importação sem risco algum (por exemplo
+  // a conferência de uma única linha) devolvia checklist vazio.
   const porLinha = {};
+  for (const l of (APP.lotes || [])) {
+    if (l && l.linha && !porLinha[l.linha]) porLinha[l.linha] = {};
+  }
   for (const l of APP.emRisco) {
     if (!porLinha[l.linha]) porLinha[l.linha] = {};
     if (!porLinha[l.linha][l.codProduto]) porLinha[l.linha][l.codProduto] = [];
@@ -8089,7 +8097,9 @@ function _calcChecklistSelecao() {
     }
     const arr = _shuffle(Object.values(porProduto));
     arr.forEach(p => _shuffle(p.lotes));
-    resultado[linha] = arr;
+    // Linha sem nada a conferir (ex.: todos os lotes excluídos pelo auditor) não
+    // vira uma seção vazia na tela.
+    if (arr.length) resultado[linha] = arr;
   }
 
   // Incorpora lotes adicionados manualmente (sempre incluídos, mesmo fora dos top 5)
