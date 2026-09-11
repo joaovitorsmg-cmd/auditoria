@@ -572,10 +572,16 @@ function render(){
   if(view==='mes') renderMes();
   else renderSemanaDia(view==='dia'?1:7);
 }
+// Semana de domingo a sábado. Sempre a semana de HOJE — é o que o contador do
+// card "Esta semana" mostra; usar o cursor (mês que o usuário está navegando)
+// faria o número do card e a lista aberta por ele discordarem.
+function inicioSemana(d){ const r=new Date(d); r.setHours(0,0,0,0); r.setDate(r.getDate()-r.getDay()); return r; }
+function fimSemana(d){ const r=inicioSemana(d); r.setDate(r.getDate()+6); return r; }
+
 function atualizarStats(){
   const h=hoje();
-  const ini=new Date(); ini.setDate(ini.getDate()-ini.getDay());
-  const fim=new Date(ini); fim.setDate(fim.getDate()+6);
+  const ini=inicioSemana(new Date());
+  const fim=fimSemana(new Date());
   $('stHoje').textContent = DB.appointments.filter(a=>a.date===h && a.status!=='cancelado').length;
   $('stSemana').textContent = DB.appointments.filter(a=>a.date>=iso(ini)&&a.date<=iso(fim)&&a.status!=='cancelado').length;
   $('stPend').textContent = DB.appointments.filter(a=>a.status==='pendente' && a.date<=h).length;
@@ -685,12 +691,14 @@ async function salvarForm(){
     log('editou', t+' '+d);
   } else {
     const rep=parseInt($('fRep').value);
-    for(let k=0;k<=rep;k+=(rep?1:1)){
+    // "Por N semanas" tem que gerar N compromissos. O k<=rep antigo gerava N+1
+    // (o próprio log dizia "repete 5x" para a opção "Por 4 semanas").
+    const qtd = rep || 1;
+    for(let k=0;k<qtd;k++){
       const dd=new Date(d+'T12:00'); dd.setDate(dd.getDate()+7*k);
       DB.appointments.push({...base, id:uid(), date:iso(dd), status:'pendente', createdBy:usuario, createdAt:new Date().toISOString()});
-      if(!rep) break;
     }
-    log('criou', t+' '+d+(rep?` (repete ${rep+1}x)`:''));
+    log('criou', t+' '+d+(rep?` (repete ${rep}x)`:''));
   }
   await salvar(); fechar('ovForm'); render(); toast('Compromisso salvo ✓');
 }
@@ -729,7 +737,7 @@ function baixarICS(id){
 /* ---------- SOLICITAÇÕES ---------- */
 function abrirResumo(tipo){
   const h=hoje();
-  const ini=iso(inicioSemana(cursor)), fim=iso(fimSemana(cursor));
+  const ini=iso(inicioSemana(new Date())), fim=iso(fimSemana(new Date()));
   let lista=[], titulo='';
   if(tipo==='hoje'){
     const d=new Date(); const ds=iso(d);

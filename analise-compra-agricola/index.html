@@ -575,7 +575,10 @@ function cardFiltro(el){
 function limpar(){
   flt={r:new Set(['SUL','MT','NORTE']),s:new Set(['COMPRAR','PARCIAL','ATENCAO','ATENDE']),f:''};
   document.getElementById('sel-filial').value='';
-  document.querySelectorAll('[data-v]').forEach(p=>{const v=p.dataset.v;p.className='pill'+(v?(' on-'+v):'');});
+  // Só as pills. Os cards de resumo também têm data-v e, sem o '.pill' aqui,
+  // perdiam as classes card/c-c/c-p/c-a/c-v e viravam pills — quebrando o
+  // visual e fazendo o render() deixar de encontrá-los para acender/apagar.
+  document.querySelectorAll('.pill[data-v]').forEach(p=>{const v=p.dataset.v;p.className='pill'+(v?(' on-'+v):'');});
   prodIgnore.clear();
   document.querySelectorAll('#gav-list input').forEach(cb=>cb.checked=true);
   updGpill(); render();

@@ -614,6 +614,19 @@ function sortArr(arr, col, asc){
   });
 }
 
+// Nome de cliente/promotor entra dentro de uma string JS que por sua vez está
+// dentro de um atributo HTML. Sem escapar, um nome com apóstrofo (SANT'ANA,
+// D'AVILA) fecha a string no meio e o onclick inteiro vira erro de sintaxe —
+// o clique simplesmente não faz nada. O & precisa ser escapado antes do " e do <.
+function escJsAttr(s){
+  return String(s==null?'':s)
+    .replace(/\\/g,'\\\\')
+    .replace(/'/g,"\\'")
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;');
+}
+
 function buildTh(label, tbl, col, align){
   const s=SORT[tbl], active=s.col===col;
   const arrow=active?(s.asc?'↑':'↓'):'↕';
@@ -1040,7 +1053,7 @@ function renderClientes(){
   else rows.sort((a,b)=>a.nome.localeCompare(b.nome));
 
   document.getElementById('cliGrid').innerHTML=rows.map(c=>`
-    <div class="cli-card${c.vencido?' vencido':''}" onclick="showTab('pendentes',null);document.getElementById('fPendSearch').value='${c.nome.replace(/'/g,"'").substring(0,20)}';renderPendentes()">
+    <div class="cli-card${c.vencido?' vencido':''}" onclick="showTab('pendentes',null);document.getElementById('fPendSearch').value='${escJsAttr(c.nome.substring(0,20))}';renderPendentes()">
       <div class="cli-card-header">
         <div>
           <div class="cli-name">${c.nome.substring(0,40)}</div>
@@ -1148,13 +1161,13 @@ function renderPromotores(){
     ${buildTh('% do Total','prom','pct')}</tr>`;
 
   document.getElementById('promList').innerHTML=rows.map(r=>`
-    <div class="prom-item" onclick="showTab('pendentes',null);document.getElementById('fPendProm').value='${r.nome.replace(/'/g,"'")}';renderPendentes()">
+    <div class="prom-item" onclick="showTab('pendentes',null);document.getElementById('fPendProm').value='${escJsAttr(r.nome)}';renderPendentes()">
       <div style="min-width:180px"><div class="prom-name">${r.nome.substring(0,38)}</div><div style="font-size:.68rem;color:var(--txt2)">${r.cliCount} clientes · ${r.venc} vencidos</div></div>
       <div class="prom-bar-wrap"><div class="prom-bar-bg"><div class="prom-bar-fg" style="width:${r.pct}%"></div></div><div class="prom-pct">${r.pct}% do total</div></div>
       <div class="prom-count">${r.pend}</div>
     </div>`).join('');
 
-  document.getElementById('tbodyProm').innerHTML=rows.map(r=>`<tr onclick="showTab('pendentes',null);document.getElementById('fPendProm').value='${r.nome.replace(/'/g,"'")}';renderPendentes()" style="cursor:pointer">
+  document.getElementById('tbodyProm').innerHTML=rows.map(r=>`<tr onclick="showTab('pendentes',null);document.getElementById('fPendProm').value='${escJsAttr(r.nome)}';renderPendentes()" style="cursor:pointer">
     <td><strong>${r.nome.substring(0,40)}</strong></td>
     <td style="font-weight:800;color:var(--alert)">${r.pend}</td>
     <td>${r.cliCount}</td>

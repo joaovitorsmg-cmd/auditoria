@@ -744,6 +744,10 @@ let FAT_ACUM = {};        // { sigla: {valor, chaves:Set, periodoInicio, periodo
 // para saber o que apagar quando o arquivo é removido, e o valor antigo
 // continuaria valendo no score.
 let FAT_SIGLAS_CFOP = new Set();
+// Média mensal estimada do CFOP = acumulado / nº de meses cobertos pelo arquivo.
+// O acumulado cobre vários meses; usá-lo como faturamento de UM mês inflava o
+// denominador, derrubava artificialmente o % de vencidos e elevava a nota.
+let FAT_MENSAL_EST = {};  // { sigla: valor médio por mês }
 let OBSERVACOES = {};     // { chave: texto }
 let REGISTROS = [];       // todos os registros período a período (mesclados)
 let CONFIG = { dataPremio:'', ano: new Date().getFullYear(), tetoBonus: 5, totalRodadas: 4, rodadasConfianca: 2, registrosManuais: [] };
@@ -1271,6 +1275,7 @@ function acumularFaturamento() {
   // digitados à mão (sem CFOP) não são tocados.
   FAT_SIGLAS_CFOP.forEach(f => { delete FATURAMENTOS[f]; });
   FAT_SIGLAS_CFOP = new Set();
+  FAT_MENSAL_EST = {};
   ARQUIVOS.filter(a => a.tipo === 'fat' && a.linhas).forEach(arq => {
     arq.linhas.forEach(ln => {
       const f = ln.filial;
@@ -1295,8 +1300,21 @@ function acumularFaturamento() {
   });
   // Joga para FATURAMENTOS (valor final por filial) — só se houver dado de faturamento
   Object.entries(FAT_ACUM).forEach(([f, acc]) => {
-    if (acc.valor > 0) { FATURAMENTOS[f] = Math.round(acc.valor*100)/100; FAT_SIGLAS_CFOP.add(f); }
+    if (acc.valor > 0) {
+      FATURAMENTOS[f] = Math.round(acc.valor*100)/100;
+      FAT_SIGLAS_CFOP.add(f);
+      acc.meses = Math.max(1, _mesesEntre(acc.periodoInicio, acc.periodoFim));
+      FAT_MENSAL_EST[f] = Math.round(acc.valor/acc.meses*100)/100;
+    }
   });
+}
+
+// Quantos meses o arquivo CFOP cobre (inclusive nas duas pontas). Datas em DD/MM/AAAA.
+function _mesesEntre(ini, fim){
+  const a=String(ini||'').split('/'), b=String(fim||'').split('/');
+  if (a.length!==3 || b.length!==3) return 0;
+  const n = (+b[2]-+a[2])*12 + (+b[1]-+a[1]) + 1;
+  return Number.isFinite(n) && n>0 ? n : 0;
 }
 
 function _dataMenor(a,b){ return _toDate(a) < _toDate(b); }
@@ -1381,8 +1399,18 @@ function processarERenderizar() {
 
   // Aplicar faturamento manual + calcular scores base
   Object.values(map).forEach(r => {
-    const _fatP = (FAT_HISTORICO[r.filial.toUpperCase()]||{})[r.periodo];
-    if (!r.faturamento) r.faturamento = _fatP || FATURAMENTOS[r.filial.toUpperCase()] || 0;
+    const _sig = r.filial.toUpperCase();
+    const _fatP = (FAT_HISTORICO[_sig]||{})[r.periodo];
+    // Sem faturamento do próprio mês: usar a MÉDIA MENSAL do arquivo CFOP, nunca
+    // o acumulado inteiro. O acumulado cobre vários meses e, como denominador de
+    // um mês só, inflava o faturamento, derrubava o % de vencidos e elevava a
+    // nota de Vencidos sem base real. Valores digitados à mão (filial sem CFOP)
+    // já são informados como valor do período e seguem valendo direto.
+    if (!r.faturamento) {
+      r.faturamento = _fatP
+        || (FAT_SIGLAS_CFOP.has(_sig) ? (FAT_MENSAL_EST[_sig]||0) : (FATURAMENTOS[_sig]||0));
+      r._fatEstimado = !_fatP && FAT_SIGLAS_CFOP.has(_sig) && r.faturamento>0;
+    }
     if (r.temVenc) r.pctVencFat = r.faturamento>0 ? (r.valorVencidos/r.faturamento)*100 : null;
     const sc = calcScoreBase(r);
     Object.assign(r, sc);
@@ -1581,10 +1609,55 @@ function scClass(s){ return s>=90?'sp-ouro':s>=70?'sp-verde':s>=40?'sp-amar':'sp
 function barColor(s){ return s>=90?'var(--ouro)':s>=70?'var(--green)':s>=40?'var(--amber)':'var(--red)'; }
 function fmt(v){ return 'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
+// ============================================================
+// ANO DE REFERÊNCIA DO RANKING ANUAL
+// O rótulo sempre disse "consolida a média de todas as auditorias de cada
+// filial no ano", mas nada filtrava: auditorias de anos anteriores entravam
+// na média que define a premiação. O ano agora é aplicado de verdade e ficou
+// visível e selecionável no topo da aba, em vez de escondido em Configurações.
+// ============================================================
+let ANUAL_ANO_SEL = null; // null = segue o Ano de Referência de ⚙ Configurações
+
+function _anoDoPeriodo(p){
+  const m = String(p||'').match(/(\d{4})/);
+  return m ? +m[1] : null;
+}
+
+function anosDisponiveisRanking(){
+  const s = new Set();
+  REGISTROS.forEach(r => { const a = _anoDoPeriodo(r.periodo); if (a) s.add(a); });
+  return [...s].sort((a,b)=>b-a);
+}
+
+function anoRefRanking(){
+  const anos = anosDisponiveisRanking();
+  if (ANUAL_ANO_SEL && anos.includes(ANUAL_ANO_SEL)) return ANUAL_ANO_SEL;
+  if (anos.includes(CONFIG.ano)) return CONFIG.ano;
+  return anos.length ? anos[0] : CONFIG.ano;
+}
+
+function registrosDoAnoRef(){
+  const ano = anoRefRanking();
+  // Registro sem período reconhecível continua entrando em qualquer ano:
+  // descartá-lo sumiria com a filial do ranking da premiação sem explicar nada.
+  return REGISTROS.filter(r => {
+    const a = _anoDoPeriodo(r.periodo);
+    return a === null || a === ano;
+  });
+}
+
+function setAnualAno(v){
+  ANUAL_ANO_SEL = parseInt(v) || null;
+  renderAbaAnual();
+}
+
 // ---------- ABA RANKING ANUAL ----------
 function renderAbaAnual() {
-  const anual = ordenarComDesempate(consolidarAnual(REGISTROS), 'mediaScore');
+  const anual = ordenarComDesempate(consolidarAnual(registrosDoAnoRef()), 'mediaScore');
   const c = document.getElementById('conteudo-abas');
+  const anoSel = anoRefRanking();
+  const anosDisp = anosDisponiveisRanking();
+  const foraDoAno = REGISTROS.length - registrosDoAnoRef().length;
 
   const totalFil = anual.length;
   const mediaGeral = totalFil ? (anual.reduce((s,r)=>s+r.mediaScore,0)/totalFil).toFixed(1) : '—';
@@ -1596,7 +1669,16 @@ function renderAbaAnual() {
   const cores=[['var(--ouro)','rgba(242,196,81,.2)','rgba(242,196,81,.4)'],['var(--prata)','rgba(184,196,208,.15)','rgba(184,196,208,.3)'],['var(--bronze)','rgba(205,127,50,.15)','rgba(205,127,50,.3)']];
 
   c.innerHTML = `
-    <div class="info-bar">🏆 <strong>Ranking Anual ${CONFIG.ano}</strong> — consolida a média de todas as auditorias de cada filial no ano. Este é o ranking oficial da premiação${CONFIG.dataPremio?' — Convenção em <strong>'+CONFIG.dataPremio+'</strong>':''}.</div>
+    <div class="info-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span>🏆 <strong>Ranking Anual</strong> — consolida a média das auditorias de cada filial <strong>no ano selecionado</strong>. Este é o ranking oficial da premiação${CONFIG.dataPremio?' — Convenção em <strong>'+CONFIG.dataPremio+'</strong>':''}.</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
+        <label for="sel-ano-anual" style="font-size:12px;color:var(--text2);">Ano:</label>
+        <select class="sel-sm" id="sel-ano-anual" onchange="setAnualAno(this.value)" title="Só as auditorias deste ano entram na média do Ranking Anual.">
+          ${(anosDisp.length?anosDisp:[anoSel]).map(a=>`<option value="${a}"${a===anoSel?' selected':''}>${a}</option>`).join('')}
+        </select>
+      </span>
+      ${foraDoAno>0?`<span style="width:100%;font-size:11.5px;color:var(--amber-dk);">⚠ ${foraDoAno} auditoria(s) de outros anos estão carregadas e <strong>ficaram de fora</strong> desta média. Troque o ano acima para vê-las.</span>`:''}
+    </div>
 
     <div class="secao"><div class="secao-titulo">Resumo</div>
       <div class="kpi-grid">
@@ -1660,7 +1742,7 @@ function renderAbaAnual() {
 }
 
 function renderTabelaAnual() {
-  let anual = ordenarComDesempate(consolidarAnual(REGISTROS), 'mediaScore');
+  let anual = ordenarComDesempate(consolidarAnual(registrosDoAnoRef()), 'mediaScore');
   const busca=(document.getElementById('busca-anual')?.value||'').toLowerCase();
   const fReg=document.getElementById('fil-regional-anual')?.value||'';
   const fAud=document.getElementById('fil-auditor-anual')?.value||'';
@@ -1912,7 +1994,7 @@ function salvarObs(chave, val){ OBSERVACOES[chave]=val; const r=REGISTROS.find(x
 // ---------- ABA REGIONAL ----------
 function renderAbaRegional() {
   const c=document.getElementById('conteudo-abas');
-  const anual=consolidarAnual(REGISTROS);
+  const anual=consolidarAnual(registrosDoAnoRef());
   const porReg={};
   anual.forEach(r=>{ (porReg[r.regional]=porReg[r.regional]||[]).push(r); });
   const ranking=Object.entries(porReg).map(([regional,fils])=>{
@@ -4508,7 +4590,7 @@ function exportarGuiaPDF() {
 // CERTIFICADO
 // ============================================================
 function gerarCertificado(sigla, posicao) {
-  const anual=consolidarAnual(REGISTROS).find(f=>f.filial===sigla);
+  const anual=consolidarAnual(registrosDoAnoRef()).find(f=>f.filial===sigla);
   if(!anual){ alert('Sem dados para esta filial.'); return; }
   const titulos={1:'1º LUGAR',2:'2º LUGAR',3:'3º LUGAR'};
   const tituloTxt=titulos[posicao]||`${posicao}º Lugar`;
@@ -4568,7 +4650,8 @@ function abrirModalFaturamento() {
     const fat = (acc && acc.valor>0) ? Math.round(acc.valor*100)/100 : (FATURAMENTOS[s]||'');
     const nome=BASE_FILIAIS[s]?.loja||s;
     const origem = acc && acc.valor>0
-      ? `<div style="font-size:10px;color:var(--green-dk);margin-top:2px;">📊 CFOP: ${acc.periodoInicio||'?'} a ${acc.periodoFim||'?'} · ${acc.linhas} vendas · atualizado ${acc.importadoEm||'—'}</div>`
+      ? `<div style="font-size:10px;color:var(--green-dk);margin-top:2px;">📊 CFOP: ${acc.periodoInicio||'?'} a ${acc.periodoFim||'?'} · ${acc.linhas} vendas · atualizado ${acc.importadoEm||'—'}</div>
+         <div style="font-size:10px;color:var(--text3);margin-top:2px;">Cobre ${acc.meses||1} mês(es). Quando um período não tem faturamento próprio, o cálculo do % de vencidos usa a <strong>média mensal</strong> de ${fmt((acc.valor||0)/(acc.meses||1))}, não o acumulado.</div>`
       : `<div style="font-size:10px;color:var(--text3);margin-top:2px;">digite manualmente ou importe o relatório CFOP</div>`;
     return `<div class="fat-row" style="flex-direction:column;align-items:stretch;gap:6px;">
       <div style="display:flex;align-items:center;gap:10px;">
@@ -4606,7 +4689,7 @@ function exportarRankingXLS() {
   const fRegAnual=document.getElementById('fil-regional-anual')?.value||'';
   const fAudAnual=document.getElementById('fil-auditor-anual')?.value||'';
   const fRegiaoAnual=document.getElementById('fil-regiao-anual')?.value||'';
-  let anual=ordenarComDesempate(consolidarAnual(REGISTROS),'mediaScore').filter(r=>{
+  let anual=ordenarComDesempate(consolidarAnual(registrosDoAnoRef()),'mediaScore').filter(r=>{
     if(buscaAnual && !r.filial.toLowerCase().includes(buscaAnual)&&!r.filialNome.toLowerCase().includes(buscaAnual)&&!(r.supervisor||'').toLowerCase().includes(buscaAnual)) return false;
     if(fRegAnual && r.regional!==fRegAnual) return false;
     if(fAudAnual && r.auditor!==fAudAnual) return false;
@@ -4640,7 +4723,7 @@ function exportarRankingXLS() {
   XLSX.utils.book_append_sheet(wb,ws2,'Por Período');
 
   // Aba Regional
-  const anualR=consolidarAnual(REGISTROS);
+  const anualR=consolidarAnual(registrosDoAnoRef());
   const porReg={};
   anualR.forEach(r=>{(porReg[r.regional]=porReg[r.regional]||[]).push(r);});
   const rankReg=Object.entries(porReg).map(([reg,fils])=>[reg,fils.length,Math.round(fils.reduce((a,f)=>a+f.mediaScore,0)/fils.length*10)/10]).sort((a,b)=>b[2]-a[2]);
