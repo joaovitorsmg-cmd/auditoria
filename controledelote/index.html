@@ -3141,6 +3141,7 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
             <button class="btn-exp small" onclick="PED_expHistoricoXLS()" title="Exporta o acumulador de pedidos/canhoto para Excel (.xlsx)">📥 .xlsx</button>
             <button class="btn-exp small" onclick="exportarHistoricoUnificado()" title="Exporta o histórico unificado (vencidos + pedidos) como um único arquivo .json">💾 Salvar (.json)</button>
             <button class="btn-exp small" onclick="importarHistoricoUnificado()" title="Carrega um histórico unificado (.json) exportado anteriormente">📂 Carregar</button>
+            <input type="file" id="inp-hist-unif" accept=".json,application/json" style="display:none" onchange="lerArquivoHistUnificado(this)">
             <button class="btn-exp small" onclick="limparHistoricoUnificado()" title="Remove todo o histórico unificado (vencidos + pedidos) desta sessão">🗑</button>
           </div>
         </div>
@@ -4035,6 +4036,7 @@ function processarDados() {
       APP.checklistObs = {};
       APP.checklistLinhasExcluidas = [];
       APP.checklistLinhasForcadas = [];
+      APP._checklistSel = null; APP._checklistSig = null; // novo processamento, novo sorteio
 
       // Meses futuros contados a partir de hoje
       for (const lote of APP.lotes) {
@@ -7386,8 +7388,10 @@ function restaurarRascunho() {
     Object.keys(s.manual || {}).forEach(function(i) {
       var idx = parseInt(i);
       if (divState[idx]) divState[idx].manual = true;
-      var btn = document.getElementById('btn-manual-' + idx);
-      if (btn) btn.classList.add('ativo');
+      // o botão é criado com id bdiv-btn-<idx>; 'btn-manual-' nunca existiu,
+      // então a marcação de divergente não voltava ao reabrir a folha.
+      var btn = document.getElementById('bdiv-btn-' + idx);
+      if (btn) { btn.classList.add('ativo'); btn.textContent = '✓ Divergente marcado — toque para desfazer'; }
     });
     // Nomes de assinatura
     var sigEls = document.querySelectorAll('.sig-nome');
@@ -7969,7 +7973,31 @@ function _shuffle(arr) {
 // Seleção do checklist: 5 PRODUTOS por linha (aleatorios) com TODOS os lotes
 // respectivos de cada produto, mais os lotes adicionados manualmente pelo auditor.
 // Retorna { linha: [ { cod, nome, maxScore, extra, lotes:[...] } ] }
+// A seleção do checklist é SORTEADA (_shuffle). Sem cache, cada consumidor
+// (tela, folha de contagem, Excel, versão celular) chamava esta função de novo
+// e recebia um conjunto de lotes diferente do que o auditor viu na tela.
+// O sorteio agora acontece uma vez e só é refeito quando os dados ou as
+// escolhas do auditor realmente mudam.
+function _checklistAssinatura() {
+  return JSON.stringify([
+    (APP.emRisco || []).length,
+    APP.checklistExcluidos || [],
+    APP.checklistLinhasExcluidas || [],
+    APP.checklistLinhasForcadas || [],
+    APP.checklistExtras || [],
+  ]);
+}
+
 function getChecklistSelecao() {
+  const assinatura = _checklistAssinatura();
+  if (APP._checklistSel && APP._checklistSig === assinatura) return APP._checklistSel;
+  const sel = _calcChecklistSelecao();
+  APP._checklistSel = sel;
+  APP._checklistSig = assinatura;
+  return sel;
+}
+
+function _calcChecklistSelecao() {
   // Agrupa lotes em risco por linha e, dentro dela, por produto
   const porLinha = {};
   for (const l of APP.emRisco) {
@@ -9210,7 +9238,7 @@ async function PED_handleFiles(files){
   // Resetar dados antes de carregar novo conjunto (evita misturar importações)
   Object.values(_charts).forEach(c=>{try{c.destroy();}catch(e){}});
   _charts={};
-  S={pedidos:[],canhoto:[],semIds:new Set(),copiaIds:new Set(),semValor:{},semFilial:null,filialManual:null,filialIncerta:false,fi:null,periodo:''};
+  APP_PED={pedidos:[],canhoto:[],semIds:new Set(),copiaIds:new Set(),semValor:{},semFilial:null,filialManual:null,filialIncerta:false,fi:null,periodo:''};
 
   // Ler todos os arquivos. A detecção inicial pelo nome serve só para enfileirar;
   // o tipo DEFINITIVO vem de PED_lerArq (que reconfirma pelas colunas do conteúdo).
