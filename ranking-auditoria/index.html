@@ -426,7 +426,7 @@ body,#topo,.kpi,.chart-card,.rank-wrap,.modal-box,.arq-card,.drop-zone,.btn-topo
     <button class="btn-topo btn-tema" id="btn-tema" onclick="toggleThema()" title="Alternar entre tema claro e escuro"><span id="icone-tema">☀</span><span class="btn-topo-txt" id="label-tema"> Claro</span></button>
     <button class="btn-topo primary" onclick="triggerImport()" title="Importar arquivos de auditoria (.json) ou relatório de faturamento CFOP (.xls/.xlsx). O tipo do arquivo é detectado automaticamente.">📥<span class="btn-topo-txt"> Importar</span></button>
     <button class="btn-topo" onclick="abrirModalFaturamento()" title="Base de faturamento — usada para calcular o % Vencidos/Faturamento. Permite ajuste manual ou importação de arquivo JSON com histórico mensal por filial.">💰<span class="btn-topo-txt"> Faturamento</span></button>
-    <button class="btn-topo" onclick="syncPush()" title="Publicar dados na nuvem (JSONBin) para que todos os usuários com o link vejam o painel atualizado. Requer Master Key configurada em ⚙ Config.">☁<span class="btn-topo-txt"> Publicar</span></button>
+    <button class="btn-topo" onclick="syncPush(true)" title="Publicar dados na nuvem (JSONBin) para que todos os usuários com o link vejam o painel atualizado. Requer Master Key configurada em ⚙ Config.">☁<span class="btn-topo-txt"> Publicar</span></button>
     <button class="btn-topo" onclick="exportarRankingXLS()" title="Exportar ranking completo em planilha Excel (.xlsx) com 5 abas: Anual, Por Período, Por Regional, Por Auditor e Cobertura.">📤<span class="btn-topo-txt"> Exportar XLS</span></button>
   </div>
   </div><!-- /topo-btns-wrap -->
@@ -740,6 +740,10 @@ let FAT_BASE_INFO = null;
 let AUDITORIA_NOTAS = {}; // sigla(uppercase) -> { media, qtd }
 let AUDITORIA_NOTAS_INFO = null; // { arquivo, geradoEm, periodoIniDisplay, periodoFimDisplay, qtdFiliais, qtdPeriodos, importadoEm }
 let FAT_ACUM = {};        // { sigla: {valor, chaves:Set, periodoInicio, periodoFim, importadoEm, linhas} }
+// Siglas cujo valor em FATURAMENTOS veio de um arquivo CFOP. Sem isso não dá
+// para saber o que apagar quando o arquivo é removido, e o valor antigo
+// continuaria valendo no score.
+let FAT_SIGLAS_CFOP = new Set();
 let OBSERVACOES = {};     // { chave: texto }
 let REGISTROS = [];       // todos os registros período a período (mesclados)
 let CONFIG = { dataPremio:'', ano: new Date().getFullYear(), tetoBonus: 5, totalRodadas: 4, rodadasConfianca: 2, registrosManuais: [] };
@@ -1262,6 +1266,11 @@ function _regVazio(sigla, periodo) {
 function acumularFaturamento() {
   // Reconstrói FAT_ACUM a partir de todos os arquivos tipo 'fat' (com dedup por chave)
   FAT_ACUM = {};
+  // Tira da base os valores que vieram de CFOP antes de recalcular: se o
+  // arquivo foi removido, o faturamento dele precisa sair junto. Valores
+  // digitados à mão (sem CFOP) não são tocados.
+  FAT_SIGLAS_CFOP.forEach(f => { delete FATURAMENTOS[f]; });
+  FAT_SIGLAS_CFOP = new Set();
   ARQUIVOS.filter(a => a.tipo === 'fat' && a.linhas).forEach(arq => {
     arq.linhas.forEach(ln => {
       const f = ln.filial;
@@ -1286,13 +1295,23 @@ function acumularFaturamento() {
   });
   // Joga para FATURAMENTOS (valor final por filial) — só se houver dado de faturamento
   Object.entries(FAT_ACUM).forEach(([f, acc]) => {
-    if (acc.valor > 0) FATURAMENTOS[f] = Math.round(acc.valor*100)/100;
+    if (acc.valor > 0) { FATURAMENTOS[f] = Math.round(acc.valor*100)/100; FAT_SIGLAS_CFOP.add(f); }
   });
 }
 
 function _dataMenor(a,b){ return _toDate(a) < _toDate(b); }
 function _dataMaior(a,b){ return _toDate(a) > _toDate(b); }
 function _toDate(s){ const p=String(s).split('/'); return new Date(+p[2],+p[1]-1,+p[0]); }
+// DD/MM/AAAA -> AAAAMMDD, para poder comparar datas como texto sem inverter a ordem.
+function _dataOrdenavel(s){
+  const p=String(s).split('/');
+  return p.length===3 ? `${p[2]}${String(p[1]).padStart(2,'0')}${String(p[0]).padStart(2,'0')}` : String(s);
+}
+function _dataMaisDe12Meses(s){
+  const p=String(s).split('/');
+  if (p.length!==3) return false;
+  return (new Date() - new Date(+p[2],+p[1]-1,+p[0])) / (1000*60*60*24*30.4) > 12;
+}
 
 function processarERenderizar() {
   acumularFaturamento();
@@ -1430,8 +1449,18 @@ function consolidarAnual(registros) {
     const desvio = Math.sqrt(variancia);
     const info = regs[0];
     const vencidosCount = regs.filter(r=>r.temVenc&&r.valorVencidos>0).length;
-    const pctVencMed = regs.filter(r=>r.pctVencFat!=null).reduce((a,r,_,arr)=>a+r.pctVencFat/arr.length,0);
+    // null = não há medição de vencidos no ano; 0 = medido e comprovadamente zero.
+    // Os dois precisam ser distinguidos: no desempate, "sem dado" vale 999 e
+    // 0% tem que ser o melhor resultado possível, não o pior.
+    const regsComPctVenc = regs.filter(r=>r.pctVencFat!=null);
+    const pctVencMed = regsComPctVenc.length
+      ? regsComPctVenc.reduce((a,r)=>a+r.pctVencFat,0)/regsComPctVenc.length
+      : null;
     const volTotal = regs.reduce((a,r)=>a+r.canConf+r.pedConf,0);
+    // As datas vêm em DD/MM/AAAA; ordenar como texto devolveria a de maior DIA
+    // do mês, não a mais recente.
+    const ultimaData = regs.map(r=>r.dataAuditoria).filter(Boolean)
+      .sort((a,b)=>_dataOrdenavel(a).localeCompare(_dataOrdenavel(b))).pop()||'';
 
     // Nota Média de Auditoria (planilha anual, peso igual à Semente) — só recompõe
     // o score anual da filial quando há nota carregada para ela; sem nota, mantém a fórmula original.
@@ -1462,10 +1491,13 @@ function consolidarAnual(registros) {
       regularidade: desvio<=5?'Alta':desvio<=12?'Média':'Baixa',
       reincidente: vencidosCount>=2,
       vencidosCount,
-      pctVencMed: pctVencMed||null,
+      pctVencMed,
       volTotal,
-      ultimaData: regs.map(r=>r.dataAuditoria).filter(Boolean).sort().pop()||'',
-      velho: regs.every(r=>r.velho),
+      ultimaData,
+      // Selo 12M+ = a ÚLTIMA auditoria passou de 12 meses (é o que a regra
+      // documentada diz). O every() antigo exigia que TODAS fossem velhas e
+      // qualquer registro sem data já derrubava o selo.
+      velho: ultimaData ? _dataMaisDe12Meses(ultimaData) : false,
       regs,
     };
   });
@@ -4683,6 +4715,10 @@ function limparTudo() {
 // ============================================================
 const JBIN_CFG_KEY = 'agroquima_ranking_jbin_cfg';
 let jbinSyncing = false;
+// Esta sessão já conseguiu LER a base remota? Publicar sobrescreve o bin
+// inteiro, então publicar sem ter lido antes pode apagar o dado de todo mundo
+// só porque a leitura falhou por rede e o estado local ficou vazio.
+let jbinPullOk = false;
 const HARDCODED_BIN_ID = '6a3292bfda38895dfed005ec';
 const HARDCODED_READ_KEY = '$2a$10$NhmXfS0QZiXUxosdImwfGuw6SSpu/ofmat/2kSNj9YKW8I4beCIpq';
 
@@ -4761,6 +4797,7 @@ async function syncPull(){
   setSyncStatus('syncing','Carregando...');
   try{
     const remote=await jbinRead(binId, getReadKey());
+    jbinPullOk = true; // leitura ok (inclusive bin vazio): publicar agora é seguro
     const temRanking = remote && (Array.isArray(remote.registros)&&remote.registros.length || (remote.arquivos&&remote.arquivos.length) || (remote.fatHistorico&&Object.keys(remote.fatHistorico).length));
     const temCrono = remote && Array.isArray(remote.cronoAuditorias) && remote.cronoAuditorias.length;
     if(remote && (temRanking || temCrono)){
@@ -4803,10 +4840,21 @@ async function syncPull(){
   }
 }
 
-async function syncPush(){
+async function syncPush(explicito=false){
   const binId=getBinId(), masterKey=getMasterKey();
   if(!binId||!masterKey){ alert('Configure a Master Key e o Bin ID na aba ⚙ Configurações antes de publicar.'); return; }
   if(jbinSyncing) return;
+  // Publicar substitui a base inteira pelo estado deste navegador. Se a leitura
+  // da nuvem falhou nesta sessão, o estado local pode estar vazio por causa da
+  // falha — e não porque não há dados. Publicar aí apagaria a base de todos.
+  if(!jbinPullOk){
+    if(!explicito){
+      setSyncStatus('error','sem leitura');
+      console.warn('Publicação automática bloqueada: esta sessão ainda não leu a base na nuvem.');
+      return;
+    }
+    if(!confirm('Esta sessão ainda não conseguiu LER a base na nuvem.\n\nPublicar agora vai SOBRESCREVER a base de todos com o que está neste navegador. Se a leitura falhou por problema de rede, isso apaga o trabalho dos outros.\n\nPublicar mesmo assim?')) return;
+  }
   jbinSyncing=true;
   setSyncStatus('syncing','Publicando...');
   try{
@@ -4989,7 +5037,7 @@ function handlePublicar(){
   const binId=getBinId(), masterKey=getMasterKey();
   if(!binId){ showConfigStatus('error','Crie/configure um Bin primeiro.'); return; }
   // syncPush antes de publicar para garantir dados na nuvem
-  if(masterKey) syncPush();
+  if(masterKey) syncPush(true);
   let html=document.documentElement.outerHTML;
   const inject=`<scr`+`ipt>var PUBLISHED_BIN_ID='${binId}';${masterKey?`var PUBLISHED_READ_KEY='${masterKey}';`:''}<\/scr`+`ipt>`;
   // injeta logo após a tag de comentário de credenciais
