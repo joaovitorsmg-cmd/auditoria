@@ -1515,6 +1515,20 @@ darkModeQuery.addEventListener('change', ()=>{
 // TABELAS — ordenação por coluna clicável
 // =========================================================
 let _sortState = {};
+// Converte o texto da célula de volta para número, para ordenar. Os formatos que
+// aparecem aqui são ambíguos entre si: "R$ 1.234" (ponto = milhar), "R$ 456.789,35"
+// (vírgula = decimal) e "R$ 1.2 Bi" (abreviado por fmtM, ponto = decimal). Sem
+// tratar a escala do Mi/Bi, 1,2 Bi era comparado como 1,2 e ordenava abaixo de
+// 999.999.
+function _parseNumPt(s){
+  s=String(s||'').trim();
+  const escala = /\d\s*Bi$/i.test(s) ? 1e9 : /\d\s*Mi$/i.test(s) ? 1e6 : 1;
+  let n=s.replace(/[^\d,.\-]/g,'');
+  if(n.indexOf(',')>-1) n=n.replace(/\./g,'').replace(',','.');
+  else if(/^-?\d{1,3}(\.\d{3})+$/.test(n)) n=n.replace(/\./g,''); // só separador de milhar
+  const v=parseFloat(n);
+  return isNaN(v) ? NaN : v*escala;
+}
 function sortTbl(th, tableId){
   const allTh=[...th.closest('thead').querySelectorAll('th')];
   const col=allTh.indexOf(th);
@@ -1534,8 +1548,8 @@ function sortTbl(th, tableId){
     let va=(ca.textContent||'').trim();
     let vb=(cb.textContent||'').trim();
     // tenta parse numérico (remove símbolos de moeda, espaços, troca , por .)
-    const na=parseFloat(va.replace(/[^\d,.\-]/g,'').replace(/\.(?=.*\.)/g,'').replace(',','.'));
-    const nb=parseFloat(vb.replace(/[^\d,.\-]/g,'').replace(/\.(?=.*\.)/g,'').replace(',','.'));
+    const na=_parseNumPt(va);
+    const nb=_parseNumPt(vb);
     if(!isNaN(na)&&!isNaN(nb)) return asc?na-nb:nb-na;
     return asc?va.localeCompare(vb,'pt-BR'):vb.localeCompare(va,'pt-BR');
   });
@@ -2073,7 +2087,7 @@ function renderTabFiliais(filiais){
       <td class="num ${clP(dd,true)}">${fmtP(dd)}</td>
       <td class="num ${pctClass(f.PERC_DESP)}">${fmtP(f.PERC_DESP)}</td>
       <td style="padding:4px 8px"><canvas class="spk" data-fid="${f.ID_FILIAL}" width="80" height="26" style="display:block"></canvas></td>
-      <td><button class="ico-mini" onclick="event.stopPropagation();exportFilialCardPNG('${f.SIGLA}')" title="Exportar card desta filial"><span class="tooltip">Exportar card desta filial</span>🖼️</button></td>
+      <td><button class="ico-mini" onclick="event.stopPropagation();exportFilialCardPNG('${(f.SIGLA||'').replace(/'/g,"\\'")}')" title="Exportar card desta filial"><span class="tooltip">Exportar card desta filial</span>🖼️</button></td>
     </tr>`;
   }).join('');
   _drawFilialSparklines();
@@ -2188,9 +2202,9 @@ function renderTabMensal(){
   }
 
   // ---- visão por filial ----
+  // usa só DATA.filiais (já sem especiais/excluídas) — ranking mensal segue a mesma regra de _filiaisComparaveis()
   const filMap=new Map();
   (DATA.filiais||[]).forEach(f=>filMap.set(+f.ID_FILIAL,f));
-  (DATA.filiais_especiais||[]).forEach(f=>filMap.set(+f.ID_FILIAL,f));
 
   const rows=DATA.filiais_mes
     .filter(r=>r.MES===mes&&filMap.has(+r.ID_FILIAL)&&r.FAT_REAL>0)

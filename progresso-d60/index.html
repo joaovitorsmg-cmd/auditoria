@@ -1260,11 +1260,19 @@ async function carregarNuvem() {
     if (r.ok) {
       const d = await r.json();
       const nuvem = d.record.auditorias || {};
-      // Mescla: mantém registros mais recentes entre local e nuvem
+      // Mescla REGISTRO A REGISTRO. Antes trocava o array inteiro da loja pelo
+      // "maior": com o mesmo tamanho o da nuvem sempre vencia, então a auditoria
+      // que esta pessoa acabou de lançar sumia sem aviso; e uma exclusão feita
+      // offline voltava na carga seguinte. A lista de excluídas evita o retorno.
+      const excl = mergeAudExcluidas(d.record.excluidas);
       Object.keys(nuvem).forEach(lj => {
-        if (!auditorias[lj] || nuvem[lj].length >= auditorias[lj].length) {
-          auditorias[lj] = nuvem[lj];
-        }
+        const locais = (auditorias[lj] || []).filter(a => !excl.includes(audKey(a)));
+        const vistos = new Set(locais.map(audKey));
+        const juntos = locais.concat(
+          (nuvem[lj] || []).filter(a => !vistos.has(audKey(a)) && !excl.includes(audKey(a)))
+        );
+        juntos.sort((a, b) => String(a.ts || '').localeCompare(String(b.ts || '')));
+        if (juntos.length) auditorias[lj] = juntos; else delete auditorias[lj];
       });
       localStorage.setItem('auditorias_local', JSON.stringify(auditorias));
       renderTabela();
@@ -1282,7 +1290,7 @@ async function salvarNuvem() {
     const r = await fetch('https://api.jsonbin.io/v3/b/' + JSONBIN_ID, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
-      body: JSON.stringify({ auditorias })
+      body: JSON.stringify({ auditorias, excluidas: getAudExcluidas() })
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => r.status);
@@ -2279,7 +2287,8 @@ function calcularPreviewAuditoria(lj) {
 
 function excluirAuditoria(lj, idx) {
   if (!confirm('Excluir esta auditoria?')) return;
-  auditorias[lj].splice(idx, 1);
+  const removido = auditorias[lj].splice(idx, 1)[0];
+  addAudExcluida(audKey(removido)); // senão a mescla traria o registro de volta
   if (auditorias[lj].length === 0) delete auditorias[lj];
   salvarNuvem();
   renderTabela();
@@ -2415,7 +2424,30 @@ function formatarDataCurta(s) {
   return p.length === 3 ? p[2] + '/' + p[1] : s;
 }
 function hoje() {
-  return new Date().toISOString().slice(0,10);
+  // Data LOCAL. toISOString() devolve a data em UTC: entre 21h e 23h59 de
+  // Brasília lá já é o dia seguinte, e a auditoria era gravada com data de amanhã.
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// Identidade de um registro de auditoria (ts é gerado no push e é único).
+function audKey(a) {
+  return a && a.ts ? String(a.ts) : [a && a.auditor, a && a.data, a && a.semana_ref].join('|');
+}
+// Auditorias excluídas de propósito — sem isso a mescla por registro traria de
+// volta o que alguém apagou (inclusive uma exclusão feita offline).
+function getAudExcluidas(){ try { return JSON.parse(localStorage.getItem('auditorias_excluidas') || '[]'); } catch(e) { return []; } }
+function addAudExcluida(k){
+  if (!k) return;
+  const l = getAudExcluidas();
+  if (!l.includes(k)) { l.push(k); localStorage.setItem('auditorias_excluidas', JSON.stringify(l)); }
+}
+function mergeAudExcluidas(remotas){
+  const l = getAudExcluidas();
+  let mudou = false;
+  (remotas || []).forEach(k => { if (k && !l.includes(k)) { l.push(k); mudou = true; } });
+  if (mudou) localStorage.setItem('auditorias_excluidas', JSON.stringify(l));
+  return l;
 }
 function toast(msg) {
   const el = document.getElementById('toast');

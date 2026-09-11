@@ -857,7 +857,7 @@ function sortDerived(list){
       case 'filialId':        return mul*(a.filialId - b.filialId);
       case 'filial':         return mul*a.branch.sigla.localeCompare(b.branch.sigla,'pt-BR',{sensitivity:'base'});
       case 'docNome':        return mul*a.docNome.localeCompare(b.docNome,'pt-BR',{sensitivity:'base'});
-      case 'urgencia':       return mul*(URGENCY_META[b.urgencia].order - URGENCY_META[a.urgencia].order);
+      case 'urgencia':       return mul*(URGENCY_META[a.urgencia].order - URGENCY_META[b.urgencia].order);
       case 'dataVencimento': return mul*((a.dataVencimento||'9999').localeCompare(b.dataVencimento||'9999'));
       case 'diasParaVencer': return mul*((a.diasParaVencer==null?999999:a.diasParaVencer)-(b.diasParaVencer==null?999999:b.diasParaVencer));
       case 'regional':       return mul*(a.branch.regional||'').localeCompare(b.branch.regional||'','pt-BR',{sensitivity:'base'});

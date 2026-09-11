@@ -1,4 +1,4 @@
-const CACHE_NAME = 'auditoria-semanal-v1';
+const CACHE_NAME = 'auditoria-semanal-v2';
 const CORE_ASSETS = [
   './index.html',
   './manifest.json',
@@ -25,6 +25,21 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Navegação: rede primeiro, senão cache-first nunca entregaria correções publicadas.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        // Offline: a URL de navegação pode ser a pasta ("/auditoria-semanal/"),
+        // que não bate com a chave './index.html' do pré-cache — daí o segundo match.
+        .catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

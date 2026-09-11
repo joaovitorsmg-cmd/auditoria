@@ -897,18 +897,30 @@ function histKey(){
 function salvarHistorico(tipo, nome, dataUrl, meta){
   if(!filialAtual){ toast('Selecione a filial primeiro', 'err'); return; }
   const key = histKey();
-  const lista = JSON.parse(localStorage.getItem(key) || '[]');
+  const listaOriginal = JSON.parse(localStorage.getItem(key) || '[]');
+  const lista = listaOriginal.slice();
   lista.unshift({
     id: Date.now(),
     tipo, nome, dataUrl, meta,
     data: new Date().toISOString()
   });
-  try{
-    localStorage.setItem(key, JSON.stringify(lista));
-  }catch(e){
-    toast('Armazenamento cheio — exclua itens antigos', 'err');
-    lista.shift();
-    localStorage.setItem(key, JSON.stringify(lista));
+  let salvo = false;
+  // Descarta do fim (mais antigos) para abrir espaço — o item novo (índice 0) nunca é sacrificado.
+  while(lista.length > 0){
+    try{
+      localStorage.setItem(key, JSON.stringify(lista));
+      salvo = true;
+      break;
+    }catch(e){
+      if(lista.length === 1) break;
+      lista.pop();
+    }
+  }
+  if(!salvo){
+    toast('Item grande demais para o armazenamento disponível — não foi salvo', 'err');
+    try{ localStorage.setItem(key, JSON.stringify(listaOriginal)); }catch(e){}
+  }else if(lista.length < listaOriginal.length + 1){
+    toast('Armazenamento cheio — itens antigos foram removidos para abrir espaço', 'err');
   }
   if(document.getElementById('panel-hist').classList.contains('active')) renderHistorico();
 }
