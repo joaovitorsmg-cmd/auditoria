@@ -49,9 +49,11 @@ async def baixar_relatorios(cfg):
     dt_ini   = f"01/01/{hoje.year}"
     dt_fim   = hoje.strftime("%d/%m/%Y")
 
-    tmpdir = Path(tempfile.mkdtemp())
+    tmpdir = Path(__file__).parent / "downloads"
+    tmpdir.mkdir(exist_ok=True)
     arq_est = None
     arq_cef = None
+    print(f"[INFO] Arquivos baixados serão salvos em: {tmpdir}")
 
     print(f"[INFO] Iniciando navegador... período CEF: {dt_ini} → {dt_fim}")
 
@@ -256,6 +258,7 @@ def processar_cef(caminho):
 
 def processar_estoque(caminho):
     rows = ler_xls(caminho)
+    print(f"   [DEBUG EST] total de linhas lidas: {len(rows)}")
     if rows:
         print(f"   [DEBUG EST] colunas: {list(rows[0].keys())}")
         for i, r in enumerate(rows[:8]):
