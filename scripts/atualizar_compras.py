@@ -13,6 +13,7 @@ import base64
 import configparser
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -123,44 +124,72 @@ async def baixar_relatorios(cfg):
             "http://intra.agroquima.com.br/agr/estoqueJSP/controleEntregaFuturaApp.jsf",
             wait_until="networkidle"
         )
+        print("   CEF: página carregada")
+
         # Selecionar todas as filiais
         try:
             await page.locator("#formPrincipal\\:checkFilial_label").click()
-            await page.wait_for_timeout(300)
+            await page.wait_for_timeout(500)
             await page.locator("div.ui-widget-header > div.ui-chkbox span").click()
-            await page.wait_for_timeout(300)
-        except Exception:
-            pass
+            await page.wait_for_timeout(500)
+            print("   CEF: filiais selecionadas")
+        except Exception as e:
+            print(f"   CEF: aviso filiais — {e}")
 
-        # Data início
-        campo_ini = page.locator("#formPrincipal\\:j_idt224_input")
-        await campo_ini.triple_click()
-        await campo_ini.fill(dt_ini)
-
-        # Data fim
-        campo_fim = page.locator("#formPrincipal\\:j_idt226_input")
-        await campo_fim.click()
-        await page.wait_for_timeout(300)
-
-        # Formato XLS
+        # Data início — usa os inputs de data (busca por input de calendário)
         try:
-            await page.locator("#formPrincipal\\:j_idt238_label").click()
-            await page.wait_for_timeout(300)
-            await page.locator("#formPrincipal\\:j_idt238_1").click()
-            await page.wait_for_timeout(300)
-        except Exception:
-            pass
+            inputs_data = page.locator("input.ui-inputfield[id$='_input']")
+            count = await inputs_data.count()
+            print(f"   CEF: {count} campos de data encontrados")
+            if count >= 1:
+                ini = inputs_data.nth(0)
+                await ini.triple_click()
+                await ini.fill(dt_ini)
+                await page.keyboard.press("Tab")
+                await page.wait_for_timeout(300)
+            if count >= 2:
+                fim = inputs_data.nth(1)
+                await fim.triple_click()
+                await fim.fill(dt_fim)
+                await page.keyboard.press("Tab")
+                await page.wait_for_timeout(300)
+            print(f"   CEF: datas preenchidas ({dt_ini} → {dt_fim})")
+        except Exception as e:
+            print(f"   CEF: aviso datas — {e}")
+
+        # Formato XLS — busca pelo label do dropdown de formato
+        try:
+            fmt_label = page.locator(".ui-selectonemenu-label").filter(has_text=re.compile(r"PDF|XLS|CSV", re.I))
+            if await fmt_label.count() > 0:
+                await fmt_label.first.click()
+                await page.wait_for_timeout(400)
+                xls_opt = page.locator(".ui-selectonemenu-item").filter(has_text="XLS")
+                if await xls_opt.count() > 0:
+                    await xls_opt.first.click()
+                    await page.wait_for_timeout(300)
+                    print("   CEF: formato XLS selecionado")
+        except Exception as e:
+            print(f"   CEF: aviso formato — {e}")
 
         # Linha Produto = 5
-        campo_cef = page.locator("#formPrincipal\\:LinhaProduto\\:LinhaProdutoInput")
-        await campo_cef.click()
-        await campo_cef.fill(linha)
-        await page.keyboard.press("Tab")
-        await page.wait_for_timeout(800)
+        try:
+            campo_cef = page.locator("input[id*='LinhaProduto'][id$='Input']")
+            await campo_cef.click()
+            await campo_cef.fill(linha)
+            await page.keyboard.press("Tab")
+            await page.wait_for_timeout(1000)
+            print("   CEF: linha produto preenchida")
+        except Exception as e:
+            print(f"   CEF: aviso linha produto — {e}")
 
-        # Gerar Relatório
-        async with page.expect_download(timeout=120000) as dl_info2:
-            await page.locator("#formPrincipal\\:j_idt296").click()
+        # Fecha modal antes de gerar
+        await fechar_modal(page)
+
+        # Gerar Relatório — busca pelo texto do botão
+        print("   CEF: clicando em Gerar Relatório...")
+        btn_gerar = page.locator("button, span, a").filter(has_text=re.compile(r"Gerar Relat", re.I)).first
+        async with page.expect_download(timeout=180000) as dl_info2:
+            await btn_gerar.click()
         dl2 = await dl_info2.value
         arq_cef = tmpdir / "cef.xls"
         await dl2.save_as(str(arq_cef))
@@ -319,4 +348,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"\n[ERRO FATAL] {e}")
+    input("\nPressione Enter para fechar...")
