@@ -55,23 +55,19 @@ async def baixar_relatorios(cfg):
     print(f"[INFO] Iniciando navegador... período CEF: {dt_ini} → {dt_fim}")
 
     async def fechar_modal(page):
-        """Fecha qualquer modal PrimeFaces que esteja bloqueando a tela."""
-        try:
-            modal = page.locator("#primefacesmessagedlg")
-            if await modal.is_visible(timeout=1000):
-                # Tenta botão de fechar do dialog
-                try:
-                    await page.locator("#primefacesmessagedlg .ui-dialog-titlebar-close").click(timeout=2000)
-                except Exception:
-                    await page.keyboard.press("Escape")
-                await page.wait_for_timeout(400)
-        except Exception:
-            pass
-        # Garante que o overlay sumiu
-        try:
-            await page.locator("#primefacesmessagedlg_modal").wait_for(state="hidden", timeout=3000)
-        except Exception:
-            pass
+        """Força remoção de qualquer overlay/modal PrimeFaces via JavaScript."""
+        await page.evaluate("""
+            () => {
+                document.querySelectorAll('.ui-dialog-mask, .ui-widget-overlay').forEach(el => {
+                    el.style.display = 'none';
+                    el.remove();
+                });
+                document.querySelectorAll('.ui-dialog').forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+        """)
+        await page.wait_for_timeout(300)
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
