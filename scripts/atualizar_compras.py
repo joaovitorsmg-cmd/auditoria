@@ -258,7 +258,11 @@ def processar_estoque(caminho):
     rows = ler_xls(caminho)
     if rows:
         print(f"   [DEBUG EST] colunas: {list(rows[0].keys())}")
-        print(f"   [DEBUG EST] 1ª linha: {dict(list(rows[0].items())[:5])}")
+        for i, r in enumerate(rows[:8]):
+            fil = r.get("Filial", "")
+            cod = r.get("Código") or r.get("Codigo", "")
+            qtd = r.get("Qtde. Estoque") or r.get("Qtde Estoque", "")
+            print(f"   [DEBUG EST] row{i}: Filial={repr(fil)} | Cod={repr(cod)} | Qtde={repr(qtd)}")
     resultado = {}
     for r in rows:
         fil_str = str(r.get("Filial") or "")
