@@ -16,9 +16,26 @@ const DEFAULT_RECURRENTES = [
   { id: 'r7', nome: 'Revisão robo_auditoria.py logs', freq: 'quinzenal', diaRef: 3, horario: '09:00', ultimoFeito: null, historico: [] }
 ];
 
+// Um evento de dia inteiro do Google vem como 'AAAA-MM-DD' puro, e o new Date
+// interpreta isso como UTC — no fuso do Brasil, volta um dia. Parseia local.
+function parseDataEvento(v){
+  const t = String(v || '');
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3]) : new Date(t);
+}
+// Data local em AAAA-MM-DD. toISOString devolve a data em UTC e, depois das
+// 21h de Brasília, já é o dia seguinte lá.
+function dataLocalISO(d){
+  const x = d || new Date();
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+}
+
 function defaultState(){
   return {
-    recorrentes: DEFAULT_RECURRENTES,
+    // Cópia: devolver DEFAULT_RECURRENTES por referência fazia toda edição de
+    // recorrente mutar a própria constante, e "Limpar todos os dados" então
+    // restaurava a lista já suja em vez da original.
+    recorrentes: JSON.parse(JSON.stringify(DEFAULT_RECURRENTES)),
     notas: [],
     demandas: [],
     eventosLocais: [],
@@ -178,7 +195,7 @@ function adiarRecorrente(id){
 
 function renderSummary(){
   const atrasadas = STATE.recorrentes.filter(r=>getRecurStatus(r)==='atrasado').length;
-  const eventosHoje = STATE.eventosLocais.filter(e=>isSameDay(new Date(e.start), new Date())).length;
+  const eventosHoje = STATE.eventosLocais.filter(e=>isSameDay(parseDataEvento(e.start), new Date())).length;
   const demandasAbertas = STATE.demandas.filter(d=>!d.concluida).length;
 
   const partes = [];
@@ -794,7 +811,7 @@ function renderEventos(){
     return;
   }
   el.innerHTML = STATE.eventosLocais.map(ev=>{
-    const d = new Date(ev.start);
+    const d = parseDataEvento(ev.start);
     const hora = ev.start.includes('T') ? d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : 'dia todo';
     return `
       <div class="event-item">
@@ -821,7 +838,7 @@ async function criarEventoGoogle(titulo, dataISO){
 
   // checagem simples de conflito
   const conflito = STATE.eventosLocais.find(ev=>{
-    const diff = Math.abs(new Date(ev.start) - new Date(dataISO));
+    const diff = Math.abs(parseDataEvento(ev.start) - new Date(dataISO));
     return diff < 30*60000; // 30 min de tolerância
   });
   if(conflito && !confirm(`Já existe "${conflito.titulo}" próximo desse horário. Criar mesmo assim?`)){
@@ -864,7 +881,10 @@ async function atualizarEventoGoogle(id, titulo, dataISO){
     end: { dateTime: end.toISOString(), timeZone }
   };
   const data = await googleApiFetch(`/calendars/primary/events/${id}`, {
-    method:'PUT',
+    // PATCH, nunca PUT. O PUT (events.update) SUBSTITUI o evento inteiro: como
+    // o body só leva título e horário, descrição, local, convidados, lembretes
+    // e recorrência eram apagados do evento no Google a cada edição feita aqui.
+    method:'PATCH',
     body: JSON.stringify(body)
   });
   if(data){
@@ -1145,14 +1165,21 @@ async function syncToCloud(){
         const checkData = await check.json();
         const remoteActivity = checkData && checkData.record ? checkData.record.lastActivity : null;
         if(remoteActivity && remoteActivity !== CONFIG.lastKnownRemoteActivity){
-          showToast('⚠️ Havia uma versão mais nova salva de outro dispositivo — atualizando aqui antes de continuar.');
+          // Antes isto carregava o remoto e dava return — o que o usuário tinha
+          // acabado de digitar era descartado sem aviso. Agora as duas versões
+          // são unidas por id e o resultado é publicado.
+          const local = JSON.parse(JSON.stringify(STATE));
           await loadFromCloud({ forcar:true, silencioso:true });
-          return;
+          STATE = mesclarEstados(local, STATE);
+          STATE.lastActivity = new Date().toISOString();
+          saveState();
+          renderAll();
+          showToast('Havia uma versão mais nova de outro aparelho — as duas foram unidas.');
         }
       }catch(e){ /* checagem falhou — segue com o push normal */ }
     }
 
-    await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}`, {
+    const put = await fetch(`https://api.jsonbin.io/v3/b/${CONFIG.binId}`, {
       method:'PUT',
       headers:{
         'Content-Type':'application/json',
@@ -1160,12 +1187,40 @@ async function syncToCloud(){
       },
       body: JSON.stringify(STATE)
     });
+    // A resposta do PUT não era conferida: com chave inválida ou erro do
+    // JSONBin, o painel marcava "último sync" como se tivesse gravado e ainda
+    // envenenava o controle de conflito com um lastActivity que nunca subiu.
+    if(!put.ok){
+      const det = await put.json().catch(()=>({}));
+      showToast('Não consegui salvar na nuvem: ' + ((det && det.message) || ('erro ' + put.status)));
+      document.getElementById('lastSyncLine').textContent = 'último sync: FALHOU — dados só neste aparelho';
+      return;
+    }
     CONFIG.lastKnownRemoteActivity = STATE.lastActivity || null;
     saveConfig();
     document.getElementById('lastSyncLine').textContent = `último sync: ${new Date().toLocaleTimeString('pt-BR')}`;
   }catch(e){
     console.error('Erro ao sincronizar JSONBin', e);
+    showToast('Sem conexão para salvar na nuvem — dados guardados neste aparelho.');
   }
+}
+
+// União por id: o que existe só de um lado entra; o que existe nos dois fica
+// com a versão da nuvem. Evita que resolver um conflito apague o trabalho local.
+function mesclarEstados(local, remoto){
+  const uniao = (a, b) => {
+    const out = Array.isArray(b) ? b.slice() : [];
+    const ids = new Set(out.map(x => String(x && x.id)));
+    (Array.isArray(a) ? a : []).forEach(x => { if(x && !ids.has(String(x.id))) out.push(x); });
+    return out;
+  };
+  return Object.assign({}, remoto, {
+    recorrentes:  uniao(local.recorrentes,  remoto.recorrentes),
+    notas:        uniao(local.notas,        remoto.notas),
+    demandas:     uniao(local.demandas,     remoto.demandas),
+    eventosLocais:uniao(local.eventosLocais,remoto.eventosLocais),
+    googleImportedIds: [...new Set([...(local.googleImportedIds||[]), ...(remoto.googleImportedIds||[])])]
+  });
 }
 
 async function loadFromCloud(opts={}){
@@ -1215,7 +1270,7 @@ function openEventModal(tituloSugerido=''){
   // tenta interpretar comando rápido embutido no texto sugerido
   const parsed = parseComandoRapido(tituloSugerido);
   const alvo = parsed || new Date();
-  document.getElementById('eventDateInput').value = alvo.toISOString().slice(0,10);
+  document.getElementById('eventDateInput').value = dataLocalISO(alvo);
   document.getElementById('eventTimeInput').value = alvo.toTimeString().slice(0,5);
 
   openModal('modalEvent');

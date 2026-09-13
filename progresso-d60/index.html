@@ -1265,6 +1265,15 @@ async function carregarNuvem() {
       // que esta pessoa acabou de lançar sumia sem aviso; e uma exclusão feita
       // offline voltava na carga seguinte. A lista de excluídas evita o retorno.
       const excl = mergeAudExcluidas(d.record.excluidas);
+      // A exclusão precisa valer para TODA loja local, não só para as que ainda
+      // existem na nuvem: quando a loja tinha um único registro e ele foi
+      // apagado em outro aparelho, ela some do payload e o laço abaixo nunca
+      // passava por ela — o registro excluído continuava vivo aqui.
+      Object.keys(auditorias).forEach(lj => {
+        if (nuvem[lj]) return; // essas o laço seguinte já trata
+        const restantes = (auditorias[lj] || []).filter(a => !excl.includes(audKey(a)));
+        if (restantes.length) auditorias[lj] = restantes; else delete auditorias[lj];
+      });
       Object.keys(nuvem).forEach(lj => {
         const locais = (auditorias[lj] || []).filter(a => !excl.includes(audKey(a)));
         const vistos = new Set(locais.map(audKey));
