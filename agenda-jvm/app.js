@@ -177,6 +177,54 @@ function calcularStatsRecorrente(item){
   return { total, streak, pct };
 }
 
+// Recorrentes ativas — exclui as encerradas definitivamente das contagens,
+// do status "atrasado" e do resumo, mas mantém elas na lista pra poder reabrir.
+function recorrentesAtivas(){
+  return STATE.recorrentes.filter(r=>!r.encerrada);
+}
+
+// UNTIL em UTC básico (AAAAMMDDTHHMMSSZ), formato exigido pelo RRULE quando
+// o DTSTART tem hora — usado pra parar as ocorrências futuras no Google.
+function untilAgora(){
+  return new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+}
+
+// Encerra a recorrente de vez: para os lembretes futuros no Google (via
+// UNTIL na RRULE, sem apagar o histórico de ocorrências passadas) e some
+// da lista ativa/contagens no painel. Diferente de marcarFeito, que só
+// registra a ocorrência atual e a recorrência continua.
+async function encerrarRecorrente(id){
+  const item = STATE.recorrentes.find(r=>r.id===id);
+  if(!item) return;
+  if(!confirm(`Encerrar definitivamente "${item.nome}"? Isso para os lembretes futuros no Google Agenda também.`)) return;
+  if(item.googleEventId && isGoogleConnected()){
+    await googleApiFetch(`/calendars/primary/events/${item.googleEventId}`, {
+      method:'PATCH',
+      body: JSON.stringify({ recurrence: [ montarRRule(item) + ';UNTIL=' + untilAgora() ] })
+    });
+  }
+  item.encerrada = true;
+  item.encerradoEm = new Date().toISOString();
+  saveState();
+  renderRecorrentes();
+  renderSummary();
+  showToast(`"${item.nome}" encerrada — sem novos lembretes futuros`);
+}
+
+async function reabrirRecorrente(id){
+  const item = STATE.recorrentes.find(r=>r.id===id);
+  if(!item) return;
+  item.encerrada = false;
+  item.encerradoEm = null;
+  saveState();
+  renderRecorrentes();
+  renderSummary();
+  showToast(`"${item.nome}" reaberta`);
+  // recria a recorrência no Google a partir da próxima data (sem o UNTIL antigo)
+  if(isGoogleConnected()) await sincronizarRecorrenteGoogle(item, { silencioso:true });
+  renderRecorrentes();
+}
+
 function adiarRecorrente(id){
   const item = STATE.recorrentes.find(r=>r.id===id);
   if(!item) return;
@@ -194,7 +242,7 @@ function adiarRecorrente(id){
    ============================================================ */
 
 function renderSummary(){
-  const atrasadas = STATE.recorrentes.filter(r=>getRecurStatus(r)==='atrasado').length;
+  const atrasadas = recorrentesAtivas().filter(r=>getRecurStatus(r)==='atrasado').length;
   const eventosHoje = STATE.eventosLocais.filter(e=>isSameDay(parseDataEvento(e.start), new Date())).length;
   const demandasAbertas = STATE.demandas.filter(d=>!d.concluida).length;
 
@@ -225,14 +273,15 @@ function renderSummary(){
 const FREQ_LABEL = { semanal:'semanal', quinzenal:'quinzenal', mensal:'mensal' };
 
 function renderRecorrentes(){
+  const ativas = recorrentesAtivas();
   const counts = { semanal:0, quinzenal:0, mensal:0 };
-  STATE.recorrentes.forEach(r=>counts[r.freq]++);
+  ativas.forEach(r=>counts[r.freq]++);
   document.getElementById('countSemanal').textContent = counts.semanal;
   document.getElementById('countQuinzenal').textContent = counts.quinzenal;
   document.getElementById('countMensal').textContent = counts.mensal;
 
   // preview: mostra até 4, priorizando atrasadas/próximas
-  const ordenadas = [...STATE.recorrentes].sort((a,b)=>{
+  const ordenadas = [...ativas].sort((a,b)=>{
     const ordem = { atrasado:0, proximo:1, ok:2 };
     return ordem[getRecurStatus(a)] - ordem[getRecurStatus(b)];
   });
@@ -258,6 +307,21 @@ function renderRecurFullList(){
     return;
   }
   el.innerHTML = STATE.recorrentes.map(r=>{
+    if(r.encerrada){
+      const em = r.encerradoEm ? new Date(r.encerradoEm).toLocaleDateString('pt-BR') : '';
+      return `
+        <div class="recur-preview-item" style="align-items:flex-start;padding:10px 0;opacity:0.6;">
+          <span class="status-dot ok" style="margin-top:4px;"></span>
+          <div style="flex:1;">
+            <div class="recur-preview-name" style="font-weight:600;text-decoration:line-through;">${r.nome}</div>
+            <div class="recur-preview-freq">encerrada${em?(' em '+em):''} · sem novos lembretes</div>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="note-icon-btn" title="Reabrir" onclick="reabrirRecorrente('${r.id}')">↺</button>
+            <button class="note-icon-btn" title="Excluir" onclick="excluirRecorrente('${r.id}')">✕</button>
+          </div>
+        </div>`;
+    }
     const status = getRecurStatus(r);
     const ultimo = r.ultimoFeito ? new Date(r.ultimoFeito).toLocaleDateString('pt-BR') : 'nunca feito';
     const stats = calcularStatsRecorrente(r);
@@ -277,6 +341,7 @@ function renderRecurFullList(){
           <button class="note-icon-btn" title="${googleAtivo?'Lembrete ativo no Google Agenda — clique para atualizar':'Ativar lembrete automático no Google Agenda'}" style="opacity:${googleAtivo?1:0.45}" onclick="sincronizarRecorrenteGoogle(STATE.recorrentes.find(x=>x.id==='${r.id}'))">🔔</button>
           <button class="note-icon-btn" title="Marcar feito" onclick="marcarFeito('${r.id}')">✓</button>
           <button class="note-icon-btn" title="Adiar" onclick="adiarRecorrente('${r.id}')">⏭</button>
+          <button class="note-icon-btn" title="Encerrar definitivamente" onclick="encerrarRecorrente('${r.id}')">🏁</button>
           <button class="note-icon-btn" title="Editar" onclick="abrirModalRecurForm('${r.id}')">✏️</button>
           <button class="note-icon-btn" title="Excluir" onclick="excluirRecorrente('${r.id}')">✕</button>
         </div>
@@ -596,6 +661,7 @@ function autoArquivarDemandas(){
 
 const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const COR_EVENTO_PAINEL = '9'; // "Blueberry" no Google Calendar — usado para eventos criados por aqui
+const COR_EVENTO_CONCLUIDO = '8'; // "Graphite" — evento concluído (mantido na agenda, só marcado)
 
 function isGoogleConnected(){
   return CONFIG.googleToken && CONFIG.googleTokenExp && Date.now() < CONFIG.googleTokenExp;
@@ -698,9 +764,12 @@ async function carregarEventosGoogle(){
   if(data && data.items){
     STATE.eventosLocais = data.items.map(ev=>({
       id: ev.id,
-      titulo: ev.summary || '(sem título)',
+      // o "✅ " é só o marcador visual de concluído (colorId já basta pra saber
+      // o estado); sem tirar o prefixo aqui ele duplicava a cada recarga.
+      titulo: (ev.summary || '(sem título)').replace(/^✅\s*/, ''),
       start: ev.start.dateTime || ev.start.date,
-      fromPainel: ev.colorId === COR_EVENTO_PAINEL
+      fromPainel: ev.colorId === COR_EVENTO_PAINEL || ev.colorId === COR_EVENTO_CONCLUIDO,
+      concluido: ev.colorId === COR_EVENTO_CONCLUIDO
     }));
     saveState();
     renderEventos();
@@ -758,6 +827,9 @@ async function importarRecorrentesDoGoogle(opts={}){
   mestres.forEach(ev=>{
     const local = STATE.recorrentes.find(r=>r.googleEventId===ev.id);
     if(local){
+      // Encerrada por aqui — não deixa uma edição feita direto no Google
+      // reabrir a recorrente escondido, sem passar pelo "reabrir" do painel.
+      if(local.encerrada) return;
       // Já vinculada — se alguém mudou dia/horário/frequência direto no Google
       // (sem passar pelo painel), reflete essa mudança aqui também. Sem isso,
       // só entrava recorrente NOVA do Google; editar uma já vinculada nunca
@@ -817,8 +889,9 @@ function renderEventos(){
       <div class="event-item">
         <span class="event-time">${hora}</span>
         <span class="event-source-dot" style="background:${ev.fromPainel?'var(--azul-royal)':'var(--cinza-claro)'}"></span>
-        <span class="event-title">${escapeHtml(ev.titulo)}</span>
+        <span class="event-title" style="${ev.concluido?'text-decoration:line-through;opacity:0.55;':''}">${escapeHtml(ev.titulo)}</span>
         <div style="display:flex;gap:2px;flex-shrink:0;">
+          <button class="note-icon-btn" title="${ev.concluido?'Reabrir':'Concluir'}" onclick="${ev.concluido?'reabrirEventoGoogle':'concluirEventoGoogle'}('${ev.id}')">${ev.concluido?'↺':'✓'}</button>
           <button class="note-icon-btn" title="Editar" onclick="editarEventoGoogle('${ev.id}')">✏️</button>
           <button class="note-icon-btn" title="Excluir" onclick="excluirEventoGoogle('${ev.id}')">✕</button>
         </div>
@@ -903,6 +976,38 @@ async function excluirEventoGoogle(id){
   renderEventos();
   renderSummary();
   showToast(`"${ev.titulo}" excluído do Google Agenda`);
+}
+
+// Concluir mantém o evento na agenda (só marca visualmente) em vez de excluir —
+// assim dá pra reabrir depois, e o histórico não some do Google.
+async function concluirEventoGoogle(id){
+  const ev = STATE.eventosLocais.find(e=>e.id===id);
+  if(!ev) return;
+  const data = await googleApiFetch(`/calendars/primary/events/${id}`, {
+    method:'PATCH',
+    body: JSON.stringify({ summary: '✅ ' + ev.titulo, colorId: COR_EVENTO_CONCLUIDO })
+  });
+  if(!data) return;
+  ev.concluido = true;
+  saveState();
+  renderEventos();
+  renderSummary();
+  showToast(`"${ev.titulo}" concluído`);
+}
+
+async function reabrirEventoGoogle(id){
+  const ev = STATE.eventosLocais.find(e=>e.id===id);
+  if(!ev) return;
+  const data = await googleApiFetch(`/calendars/primary/events/${id}`, {
+    method:'PATCH',
+    body: JSON.stringify({ summary: ev.titulo, colorId: COR_EVENTO_PAINEL })
+  });
+  if(!data) return;
+  ev.concluido = false;
+  saveState();
+  renderEventos();
+  renderSummary();
+  showToast(`"${ev.titulo}" reaberto`);
 }
 
 /* ============================================================
@@ -1670,6 +1775,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // atualiza status de recorrentes a cada minuto (pulsos e resumo)
   setInterval(()=>{ renderRecorrentes(); renderSummary(); }, 60000);
+
+  // sincronização automática com o Google Agenda em segundo plano — sem isso,
+  // uma alteração feita direto no Google (nova recorrente, conclusão, edição de
+  // horário) só aparecia aqui se o usuário reabrisse o app ou clicasse em
+  // "sincronizado" manualmente.
+  setInterval(()=>{ if(isGoogleConnected()) carregarEventosGoogle(); }, 4*60000);
 });
 
 window.addEventListener('beforeunload', salvarUltimoEstado);
