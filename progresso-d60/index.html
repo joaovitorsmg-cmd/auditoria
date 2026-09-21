@@ -211,6 +211,17 @@
     min-width: 30px; height: 30px;
   }
   .btn-limpar:hover { border-color: var(--azul-cl); color: var(--azul-med); background: var(--azul-bg); }
+  .filtro-sel {
+    padding: 7px 12px; border: 1.5px solid var(--cinza-bd); border-radius: 6px;
+    font-size: 12px; color: var(--texto); background: var(--bg-card); outline: none; cursor: pointer;
+  }
+  .filtro-sel:focus { border-color: var(--azul-cl); }
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--azul-med); color: #fff; border: none; border-radius: 6px;
+    padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .2s;
+  }
+  .btn-export:hover { background: var(--azul-cl); }
 
   /* ── KPI STRIP ──────────────────────────────────────────────────── */
   .kpi-strip {
@@ -717,6 +728,7 @@
     <button class="tab-btn" id="tab-btn-evolucao" onclick="trocarAba('evolucao')">📈 Evolução</button>
     <button class="tab-btn" id="tab-btn-recebimentos" onclick="trocarAba('recebimentos')">💰 Recebimentos</button>
     <button class="tab-btn" id="tab-btn-novostiulos" onclick="trocarAba('novostiulos')">📈 Novos Títulos</button>
+    <button class="tab-btn" id="tab-btn-provvenc" onclick="trocarAba('provvenc')">⏰ Próx. Vencimentos</button>
   </div>
 
   <!-- FILTROS GLOBAIS — afetam Painel, Relatório e Evolução -->
@@ -1025,6 +1037,107 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!--  ABA: PRÓXIMOS VENCIMENTOS — sempre nasce vazia (crua)         -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="tab-page" id="tab-provvenc">
+    <div style="padding:20px 28px">
+
+      <!-- Estado inicial: sem dados -->
+      <div id="prov-cta" style="text-align:center;padding:60px 20px">
+        <div style="font-size:40px;margin-bottom:12px">⏰</div>
+        <div style="font-size:16px;font-weight:700;color:var(--texto)">Próximos Vencimentos</div>
+        <div style="font-size:13px;color:var(--texto-mut);max-width:520px;margin:8px auto 20px">
+          Esta aba nasce sempre vazia — é uma análise avulsa. Envie o Relatório de Cobrança Geral
+          para identificar, por filial, os títulos vencidos há até 59 dias, antes que entrem no D60.
+        </div>
+        <button class="btn-login" style="width:auto;padding:12px 28px" onclick="document.getElementById('prov-file-input').click()">📤 Enviar planilha</button>
+        <input type="file" id="prov-file-input" accept=".xls,.xlsx" style="display:none" onchange="importarProxVencimentos(this)">
+        <div id="prov-import-info" style="font-size:11px;color:var(--texto-mut);margin-top:12px"></div>
+      </div>
+
+      <!-- Conteúdo: só aparece após um upload -->
+      <div id="prov-content" style="display:none">
+
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn-limpar" style="width:auto;padding:6px 12px;font-size:12px" onclick="document.getElementById('prov-file-input-2').click()">🔄 Trocar planilha</button>
+          <input type="file" id="prov-file-input-2" accept=".xls,.xlsx" style="display:none" onchange="importarProxVencimentos(this)">
+          <div id="prov-import-info-2" style="font-size:11px;color:var(--texto-mut)"></div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <!-- Filtros "de back-end": ficam escondidos atrás de um único botão para não poluir a tela -->
+            <div style="position:relative">
+              <button class="btn-limpar" style="width:auto;padding:6px 12px;font-size:12px;display:inline-flex;gap:6px;align-items:center" onclick="provToggleFiltrosPanel()">
+                🔍 Filtros (loja/auditor/região)
+                <span id="prov-filtros-badge" style="display:none;background:var(--azul-med);color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700"></span>
+              </button>
+              <div id="prov-filtros-panel" style="display:none;position:absolute;top:36px;right:0;z-index:60;background:var(--bg-card);border:1px solid var(--cinza-bd);border-radius:10px;box-shadow:var(--sombra);padding:14px;width:300px;max-height:440px;overflow-y:auto">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter);margin-bottom:6px">Filial <span style="font-weight:400;text-transform:none">(escolha 1, várias ou todas)</span></div>
+                <input id="prov-filial-search" type="text" placeholder="Buscar filial…" oninput="provFiltrarListaFilial()" style="width:100%;padding:6px 8px;margin-bottom:6px;border:1.5px solid var(--cinza-bd);border-radius:6px;font-size:12px;background:var(--bg-input);color:var(--texto)">
+                <div id="prov-filial-list" style="max-height:150px;overflow-y:auto;margin-bottom:12px;border-bottom:1px solid var(--cinza-bd);padding-bottom:10px"></div>
+
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter);margin-bottom:6px">Auditor</div>
+                <div id="prov-auditor-list" style="margin-bottom:12px;border-bottom:1px solid var(--cinza-bd);padding-bottom:10px"></div>
+
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter);margin-bottom:6px">Região</div>
+                <div id="prov-regiao-list" style="margin-bottom:12px"></div>
+
+                <div style="display:flex;justify-content:space-between;gap:8px">
+                  <button class="btn-limpar" style="width:auto;font-size:11px;padding:5px 10px" onclick="limparFiltrosProv()">Limpar tudo</button>
+                  <button class="btn-export" style="padding:5px 12px;font-size:11px" onclick="provToggleFiltrosPanel()">Aplicar / Fechar</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn-export" onclick="exportarProxVencimentosXLS()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              XLS
+            </button>
+            <button class="btn-export" style="background:#7C3AED" onclick="exportarProxVencimentosPNG()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              PNG
+            </button>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--texto-mut);margin:-10px 0 12px">💡 Clique nos cartões de faixa abaixo para marcar/desmarcar períodos (ex.: só 0–45 dias, só o crítico, ou todos).</div>
+
+        <div id="prov-export-area">
+          <div id="prov-contexto" style="display:none;background:var(--bg-card);border-radius:10px;padding:14px 18px;margin-bottom:16px;box-shadow:var(--sombra)"></div>
+
+          <div id="prov-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px"></div>
+
+          <div id="prov-table-wrap" style="background:var(--bg-card);border-radius:10px;overflow:hidden;box-shadow:var(--sombra)">
+            <div style="overflow-x:auto">
+              <table id="prov-table" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
+                <thead id="prov-thead">
+                  <tr style="background:var(--azul);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+                    <th class="sort-th" data-col="lj" style="padding:9px 12px;text-align:left" onclick="provSortBy('lj')">LJ<span class="sort-ico"></span></th>
+                    <th class="sort-th" data-col="filial" style="padding:9px 12px;text-align:left" onclick="provSortBy('filial')">Filial<span class="sort-ico"></span></th>
+                    <th class="sort-th" data-col="representante" style="padding:9px 12px;text-align:left" onclick="provSortBy('representante')">Representante<span class="sort-ico"></span></th>
+                    <th class="sort-th" data-col="cliente" style="padding:9px 12px;text-align:left" onclick="provSortBy('cliente')">Cliente<span class="sort-ico"></span></th>
+                    <th style="padding:9px 12px;text-align:left">Título/NF</th>
+                    <th class="sort-th" data-col="vencto" style="padding:9px 12px;text-align:right" onclick="provSortBy('vencto')">Vencto<span class="sort-ico"></span></th>
+                    <th class="sort-th" data-col="dias" style="padding:9px 12px;text-align:right" onclick="provSortBy('dias')">Dias Vencido<span class="sort-ico"></span></th>
+                    <th class="sort-th" data-col="valor" style="padding:9px 12px;text-align:right" onclick="provSortBy('valor')">Valor<span class="sort-ico"></span></th>
+                  </tr>
+                </thead>
+                <tbody id="prov-tbody"></tbody>
+              </table>
+            </div>
+            <div id="prov-empty" style="display:none;padding:40px;text-align:center;color:var(--texto-mut);font-size:13px">
+              📭 Nenhum título vencido de até 59 dias para este filtro.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Modal de detalhe: abre ao clicar no indicador "(Nx)" de reincidência do cliente -->
+    <div id="prov-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center" onclick="provFecharModal(event)">
+      <div id="prov-modal-box" style="background:var(--bg-card);border-radius:12px;padding:20px;max-width:640px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)" onclick="event.stopPropagation()"></div>
+    </div>
+  </div>
+
 </div>
 
 <div id="toast"></div>
@@ -1088,35 +1201,35 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 const BASE_REGIONAIS = [
-  {lj:1,  sigla:'MTZ', loja:'MATRIZ',           estado:'GO', gerente:'REVALINO NETO',      supervisor:'ERON LUIZ',          regional:'SERGIO ADRIANO',   auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:1,  sigla:'MTZ', loja:'MATRIZ',           estado:'GO', gerente:'REVALINO NETO',      supervisor:'ERON LUIZ',          regional:'SERGIO ADRIANO',   auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:3,  sigla:'ARG', loja:'ARAGUAÍNA',         estado:'TO', gerente:'FABIO AUGUSTO',      supervisor:'MAGNO ALVES',        regional:'LEANDRO CAMPOS',   auditor:'CARLOS POGGIAN', coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:4,  sigla:'RVD', loja:'RIO VERDE',         estado:'GO', gerente:'WENDER PARTATA',     supervisor:'NATANIELLE VARGAS',  regional:'WENDER PARTATA',   auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:5,  sigla:'UBR', loja:'UBERLÂNDIA',        estado:'MG', gerente:'JOÃO CLÁUDIO',       supervisor:'GISELE MARIA',       regional:'NABIO BARROS',     auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:4,  sigla:'RVD', loja:'RIO VERDE',         estado:'GO', gerente:'WENDER PARTATA',     supervisor:'NATANIELLE VARGAS',  regional:'WENDER PARTATA',   auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:5,  sigla:'UBR', loja:'UBERLÂNDIA',        estado:'MG', gerente:'JOÃO CLÁUDIO',       supervisor:'GISELE MARIA',       regional:'NABIO BARROS',     auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:10, sigla:'MAR', loja:'MARABÁ',            estado:'PA', gerente:'ENIO JOSAFE',        supervisor:'LUCAS DAMACENO',     regional:'LEANDRO CAMPOS',   auditor:'GUILHERME',      coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:11, sigla:'JAT', loja:'JATAÍ',             estado:'GO', gerente:'RENATO TEODORO',     supervisor:'LUBIA SILVA',        regional:'WENDER PARTATA',   auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:12, sigla:'CRI', loja:'CRISTALINA',        estado:'GO', gerente:'ANDRE FERNANDO',     supervisor:'MARCIA DE OLIVEIRA', regional:'NABIO BARROS',     auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:13, sigla:'FAG', loja:'UBS',              estado:'GO', gerente:'EVANDRO MACEDO',      supervisor:'KARINE GOMES',       regional:'EVANDRO MACEDO',   auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:11, sigla:'JAT', loja:'JATAÍ',             estado:'GO', gerente:'RENATO TEODORO',     supervisor:'LUBIA SILVA',        regional:'WENDER PARTATA',   auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:12, sigla:'CRI', loja:'CRISTALINA',        estado:'GO', gerente:'ANDRE FERNANDO',     supervisor:'MARCIA DE OLIVEIRA', regional:'NABIO BARROS',     auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:13, sigla:'FAG', loja:'UBS',              estado:'GO', gerente:'EVANDRO MACEDO',      supervisor:'KARINE GOMES',       regional:'EVANDRO MACEDO',   auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:14, sigla:'RED', loja:'REDENÇÃO',          estado:'PA', gerente:'ANDERSON PEREIRA',   supervisor:'BARBARA PEREIRA',    regional:'LEANDRO CAMPOS',   auditor:'CARLOS POGGIAN', coord:'PATRICK LIMA',   regiao:'NORTE'},
   {lj:16, sigla:'IMP', loja:'IMPERATRIZ',        estado:'MA', gerente:'IALE MILHOMEM',      supervisor:'ROSIANE CANDIDO',    regional:'LEANDRO CAMPOS',   auditor:'GUILHERME',      coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:17, sigla:'BAR', loja:'BARRA DO GARÇAS',   estado:'MT', gerente:'VINICIUS BRITO',     supervisor:'KARINE SOARES',      regional:'MATO GROSSO',      auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:17, sigla:'BAR', loja:'BARRA DO GARÇAS',   estado:'MT', gerente:'VINICIUS BRITO',     supervisor:'KARINE SOARES',      regional:'MATO GROSSO',      auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:19, sigla:'PAL', loja:'PALMAS',            estado:'TO', gerente:'MARLON GERMANO',     supervisor:'PATRICIA PEREIRA',   regional:'LEANDRO CAMPOS',   auditor:'CARLOS POGGIAN', coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:21, sigla:'MOZ', loja:'MOZARLÂNDIA',       estado:'GO', gerente:'THIAGO VAZ',         supervisor:'NÚBIA GASPAROTTI',   regional:'SERGIO ADRIANO',   auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:21, sigla:'MOZ', loja:'MOZARLÂNDIA',       estado:'GO', gerente:'THIAGO VAZ',         supervisor:'NÚBIA GASPAROTTI',   regional:'SERGIO ADRIANO',   auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:22, sigla:'PGM', loja:'PARAGOMINAS',       estado:'PA', gerente:'LORENA MOISES',      supervisor:'ARTHUR SILVA',       regional:'LEANDRO CAMPOS',   auditor:'GUILHERME',      coord:'PATRICK LIMA',   regiao:'NORTE'},
   {lj:23, sigla:'SFX', loja:'SÃO FELIX DO XINGU',estado:'PA', gerente:'PEDRO MACIEL',      supervisor:'LANNA KEROLAYNE',    regional:'LEANDRO CAMPOS',   auditor:'CARLOS POGGIAN', coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:24, sigla:'FAP', loja:'FABRICA APARECIDA', estado:'GO', gerente:'ANNAPAULLA GARCIA',  supervisor:'ANNAPAULLA GARCIA',  regional:'ANNAPAULLA GARCIA', auditor:'JOÃO VITOR',    coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:25, sigla:'FCB', loja:'CUIABÁ',            estado:'MT', gerente:'GEOVANNY VIGILATO',  supervisor:'JULIANA LIMA',       regional:'MATO GROSSO',      auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:27, sigla:'URU', loja:'URUAÇU',            estado:'GO', gerente:'EDVANDO JOSE',       supervisor:'NIVEA ALVES',        regional:'SERGIO ADRIANO',   auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:28, sigla:'MOR', loja:'MORRINHOS',         estado:'GO', gerente:'ABEL HANUN',         supervisor:'PAULA REGINA',       regional:'NABIO BARROS',     auditor:'JOÃO VITOR',     coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:24, sigla:'FAP', loja:'FABRICA APARECIDA', estado:'GO', gerente:'ANNAPAULLA GARCIA',  supervisor:'ANNAPAULLA GARCIA',  regional:'ANNAPAULLA GARCIA', auditor:'JOÃO VITOR MENDES',    coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:25, sigla:'FCB', loja:'CUIABÁ',            estado:'MT', gerente:'GEOVANNY VIGILATO',  supervisor:'JULIANA LIMA',       regional:'MATO GROSSO',      auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:27, sigla:'URU', loja:'URUAÇU',            estado:'GO', gerente:'EDVANDO JOSE',       supervisor:'NIVEA ALVES',        regional:'SERGIO ADRIANO',   auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:28, sigla:'MOR', loja:'MORRINHOS',         estado:'GO', gerente:'ABEL HANUN',         supervisor:'PAULA REGINA',       regional:'NABIO BARROS',     auditor:'JOÃO VITOR MENDES',     coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:29, sigla:'CON', loja:'CONFRESA',          estado:'MT', gerente:'AKYLLA OLIVEIRA',    supervisor:'FELIPE ANDRADE',     regional:'MATO GROSSO',      auditor:'CARLOS POGGIAN', coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:30, sigla:'FOR', loja:'FORMOSA',           estado:'GO', gerente:'DANIEL BARREIRA',    supervisor:'JULIANA MARIA',      regional:'NABIO BARROS',     auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:31, sigla:'JUS', loja:'JUSSARA',           estado:'GO', gerente:'CLESIO ALVES',       supervisor:'MARIANNE SAHARA',    regional:'SERGIO ADRIANO',   auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:30, sigla:'FOR', loja:'FORMOSA',           estado:'GO', gerente:'DANIEL BARREIRA',    supervisor:'JULIANA MARIA',      regional:'NABIO BARROS',     auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:31, sigla:'JUS', loja:'JUSSARA',           estado:'GO', gerente:'CLESIO ALVES',       supervisor:'MARIANNE SAHARA',    regional:'SERGIO ADRIANO',   auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:32, sigla:'XRA', loja:'XINGUARA',          estado:'PA', gerente:'WILLIAN ANTIGO',     supervisor:'LEONICE MORAIS',     regional:'LEANDRO CAMPOS',   auditor:'GUILHERME',      coord:'PATRICK LIMA',   regiao:'NORTE'},
-  {lj:34, sigla:'POR', loja:'PORANGATU',         estado:'GO', gerente:'ANTONIO CARLOS',     supervisor:'ALLYNE LUCENA',      regional:'SERGIO ADRIANO',   auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:35, sigla:'PLA', loja:'PONTES E LACERDA',  estado:'MT', gerente:'MARCELO MULLER',     supervisor:'RENATA COSTA',       regional:'MATO GROSSO',      auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:36, sigla:'GRA', loja:'GOIANIRA',          estado:'GO', gerente:'HENISLEY SABINO',    supervisor:'HENISLEY SABINO',    regional:'HENISLEY SABINO',   auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:34, sigla:'POR', loja:'PORANGATU',         estado:'GO', gerente:'ANTONIO CARLOS',     supervisor:'ALLYNE LUCENA',      regional:'SERGIO ADRIANO',   auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:35, sigla:'PLA', loja:'PONTES E LACERDA',  estado:'MT', gerente:'MARCELO MULLER',     supervisor:'RENATA COSTA',       regional:'MATO GROSSO',      auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:36, sigla:'GRA', loja:'GOIANIRA',          estado:'GO', gerente:'HENISLEY SABINO',    supervisor:'HENISLEY SABINO',    regional:'HENISLEY SABINO',   auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:37, sigla:'CAN', loja:'CANARANA',          estado:'MT', gerente:'LEONARDO FREITAS',   supervisor:'INGRID KAROLAYNE',   regional:'SERGIO ADRIANO',   auditor:'JOÃO VITOR MENDES', coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:38, sigla:'GUR', loja:'GURUPI',            estado:'TO', gerente:'ALDAI LEMOS',         supervisor:'RENATA CERQUEIRA',   regional:'SERGIO ADRIANO',   auditor:'FÁBIO RIBEIRO',  coord:'ADRIANO SANTOS', regiao:'SUL'},
-  {lj:40, sigla:'RIA', loja:'RIALMA',            estado:'GO', gerente:'NATALINO NETO',      supervisor:'ROSILDA CURSINO',    regional:'SERGIO ADRIANO',   auditor:'FÁBIO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
+  {lj:40, sigla:'RIA', loja:'RIALMA',            estado:'GO', gerente:'NATALINO NETO',      supervisor:'ROSILDA CURSINO',    regional:'SERGIO ADRIANO',   auditor:'FÁBIO RIBEIRO',          coord:'ADRIANO SANTOS', regiao:'SUL'},
   {lj:41, sigla:'ALT', loja:'ALTAMIRA',          estado:'PA', gerente:'DAVID DOURADO',      supervisor:'JOSIMARA CABRAL',    regional:'LEANDRO CAMPOS',   auditor:'GUILHERME',      coord:'PATRICK LIMA',   regiao:'NORTE'},
 ];
 // Filiais sem vendas diretas (UBS, Fábrica Aparecida, Goianira) — excluídas do painel e relatório
@@ -1676,7 +1789,7 @@ function renderTabela() {
 // ABAS
 // ════════════════════════════════════════════════════════════════════
 function trocarAba(aba) {
-  ['painel','relatorio','evolucao','recebimentos','novostiulos'].forEach(id => {
+  ['painel','relatorio','evolucao','recebimentos','novostiulos','provvenc'].forEach(id => {
     document.getElementById('tab-' + id)?.classList.toggle('active', aba === id);
     document.getElementById('tab-btn-' + id)?.classList.toggle('active', aba === id);
   });
@@ -1684,10 +1797,11 @@ function trocarAba(aba) {
   if (stWrap) stWrap.style.display = aba === 'evolucao' ? '' : 'none';
   // global filtros-bar only applies to Painel/Relatório/Evolução
   const filtrosBar = document.querySelector('.filtros-bar');
-  if (filtrosBar) filtrosBar.style.display = ['recebimentos','novostiulos'].includes(aba) ? 'none' : '';
+  if (filtrosBar) filtrosBar.style.display = ['recebimentos','novostiulos','provvenc'].includes(aba) ? 'none' : '';
   if (aba === 'evolucao')     renderEvolucao();
   if (aba === 'recebimentos') renderRecebimentos();
   if (aba === 'novostiulos')  renderNovosTitulos();
+  if (aba === 'provvenc' && provVencData.length) renderProxVencimentos();
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -2437,6 +2551,12 @@ function hoje() {
   // Brasília lá já é o dia seguinte, e a auditoria era gravada com data de amanhã.
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+// Diferença em dias corridos entre duas datas ISO (YYYY-MM-DD): isoFim - isoInicio.
+function _diasEntre(isoFim, isoInicio) {
+  const [y1,m1,d1] = isoFim.split('-').map(Number);
+  const [y2,m2,d2] = isoInicio.split('-').map(Number);
+  return Math.round((Date.UTC(y1,m1-1,d1) - Date.UTC(y2,m2-1,d2)) / 86400000);
 }
 
 // Identidade de um registro de auditoria (ts é gerado no push e é único).
@@ -3557,6 +3677,442 @@ function exportarRecebimentosXLS() {
 
 function exportarNovosTitulosXLS() {
   _exportMovimentosXLS(_getNovos, novPeriodo, 'Novos Titulos', 'D60_NovosTitulos', 'NOVOS TÍTULOS D60 — AGROQUIMA');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// PRÓXIMOS VENCIMENTOS — análise avulsa, não persiste (aba sempre crua)
+// ════════════════════════════════════════════════════════════════════
+let provVencData      = [];   // [{lj, base, representante, cliente, ..., dias, valor}]
+let provFaixasSel     = new Set();   // faixas marcadas (visíveis)
+let provFiliaisSel    = new Set();   // vazio = todas as filiais
+let provAuditoresSel  = new Set();   // vazio = todos os auditores
+let provRegioesSel    = new Set();   // vazio = todas as regiões
+let _provRenderedRows = [];   // última tabela renderizada, p/ abrir o detalhe do cliente
+const provSortState   = { col: 'dias', dir: 'desc' };
+
+const PROV_FAIXAS = [
+  { k:'0-15',  min:0,  max:15, cor:'#16A34A', corBg:'#DCFCE7', label:'0–15 dias'          },
+  { k:'16-30', min:16, max:30, cor:'#D97706', corBg:'#FEF3C7', label:'16–30 dias'         },
+  { k:'31-45', min:31, max:45, cor:'#EA580C', corBg:'#FFEDD5', label:'31–45 dias'         },
+  { k:'46-59', min:46, max:59, cor:'#DC2626', corBg:'#FEE2E2', label:'46–59 dias · CRÍTICO' },
+];
+function _provFaixa(dias) {
+  return PROV_FAIXAS.find(f => dias >= f.min && dias <= f.max) || PROV_FAIXAS[PROV_FAIXAS.length - 1];
+}
+function _escAttr(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function importarProxVencimentos(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const _normSh = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+      const shKey = wb.SheetNames.find(n => { const k = _normSh(n); return k === 'titulos' || k === 'titulo'; }) || wb.SheetNames[0];
+      const ws   = wb.Sheets[shKey];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '', blankrows: false });
+      if (!rows.length) { toast('⚠️ Planilha vazia.'); return; }
+
+      const _normDate = v => {
+        if (!v) return '';
+        if (v instanceof Date) return v.toISOString().slice(0,10);
+        if (typeof v === 'number') return new Date((v - 25569) * 86400000).toISOString().slice(0,10);
+        const s = String(v).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s)) {
+          const [dd, mm, yy] = s.split('/');
+          const yyyy = yy.length === 2 ? (parseInt(yy) > 50 ? '19' + yy : '20' + yy) : yy;
+          return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+        }
+        return s;
+      };
+
+      const hj = hoje();
+      const dados = [];
+      rows.forEach(r => {
+        // Linha inteira descartada quando BCO = 555
+        const bco = String(r['BCO'] ?? '').trim();
+        if (bco === '555') return;
+
+        // Filial responsável = LOJA_LOT (mesma convenção do restante do painel)
+        const lj = parseInt(r['LOJA_LOT'] || r['LOJA'] || r['LJ'] || r['lj'] || 0);
+        if (!lj) return;
+
+        const emissao = _normDate(r['EMISSÃO'] || r['EMISSAO'] || r['EMISSAO '] || '');
+        const vencto  = _normDate(r['VENCTO']  || r['Vencto']  || '');
+        if (!vencto) return;
+
+        // Emissão: 01/01/2000 até hoje
+        if (emissao && (emissao < '2000-01-01' || emissao > hj)) return;
+
+        // Vencido entre 0 e 59 dias (60+ já pertence ao D60)
+        const dias = _diasEntre(hj, vencto);
+        if (dias < 0 || dias > 59) return;
+
+        dados.push({
+          lj, base: BASE_REGIONAIS.find(b => b.lj === lj),
+          representante: (r['REPRESENTANTE: '] || r['REPRESENTANTE:'] || r['REPRESENTANTE'] || '').trim(),
+          cliente:       (r['CLIENTE'] || '').trim(),
+          codCliente:    r['CÓDIGO_CLIENT'] || r['CODIGO_CLIENT'] || r['CÓDIGO_CLIENTE'] || r['CODIGO_CLIENTE'] || '',
+          titulo:        r['TÍTULO'] || r['TITULO'] || '',
+          nf:            r['N.F.'] || r['N.F'] || r['NF'] || r['N. F.'] || '',
+          emissao, vencto, dias,
+          ocorrencias:   parseInt(r['Total de Ocorrencias'] || r['TOTAL DE OCORRENCIAS'] || 1) || 1,
+          valor:         parseFloat(r['VALOR'] || 0),
+        });
+      });
+
+      if (!dados.length) { toast('⚠️ Nenhum título vencido entre 0 e 59 dias encontrado.'); return; }
+
+      provVencData     = dados;
+      provFaixasSel    = new Set(PROV_FAIXAS.map(f => f.k));
+      provFiliaisSel   = new Set();
+      provAuditoresSel = new Set();
+      provRegioesSel   = new Set();
+      _provBuildFiltrosPanel();
+      const painel = document.getElementById('prov-filtros-panel');
+      if (painel) painel.style.display = 'none';
+
+      const info = '✅ ' + file.name + ' — ' + dados.length + ' títulos (referência ' + formatarData(hj) + ')';
+      document.getElementById('prov-import-info').innerHTML   = info;
+      document.getElementById('prov-import-info-2').innerHTML = info;
+      document.getElementById('prov-cta').style.display     = 'none';
+      document.getElementById('prov-content').style.display = '';
+      renderProxVencimentos();
+      toast('Planilha carregada! ' + dados.length + ' títulos analisados.');
+    } catch(err) {
+      toast('⚠️ Erro ao ler o arquivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Painel de filtros "de back-end" — construído uma vez por upload (não a cada render,
+// para não perder o texto de busca nem piscar os checkboxes a cada clique).
+function _provBuildFiltrosPanel() {
+  const ljs = [...new Set(provVencData.map(d => d.lj))].sort((a,b) => a-b);
+  const filialList = document.getElementById('prov-filial-list');
+  if (filialList) {
+    filialList.innerHTML = ljs.map(lj => {
+      const b = BASE_REGIONAIS.find(x => x.lj === lj);
+      const nome = b ? lj + ' — ' + b.loja : String(lj);
+      return `<label data-txt="${_escAttr(nome.toLowerCase())}" style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;cursor:pointer">
+        <input type="checkbox" onchange="provToggleFilial(${lj})"> ${nome}
+      </label>`;
+    }).join('');
+  }
+
+  const auditores = [...new Set(provVencData.map(d => d.base?.auditor).filter(Boolean))].sort();
+  const auditorList = document.getElementById('prov-auditor-list');
+  if (auditorList) {
+    auditorList.innerHTML = auditores.map(a => `
+      <label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;cursor:pointer">
+        <input type="checkbox" onchange="provToggleAuditor('${a.replace(/'/g,"\\'")}')"> ${a}
+      </label>`).join('');
+  }
+
+  const regioes = [...new Set(provVencData.map(d => d.base?.regiao).filter(Boolean))].sort();
+  const regiaoList = document.getElementById('prov-regiao-list');
+  if (regiaoList) {
+    regiaoList.innerHTML = regioes.map(r => `
+      <label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;cursor:pointer">
+        <input type="checkbox" onchange="provToggleRegiao('${r}')"> ${r}
+      </label>`).join('');
+  }
+
+  const search = document.getElementById('prov-filial-search');
+  if (search) search.value = '';
+}
+
+function provToggleFiltrosPanel() {
+  const p = document.getElementById('prov-filtros-panel');
+  if (p) p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+}
+
+function provFiltrarListaFilial() {
+  const q = (document.getElementById('prov-filial-search') || {value:''}).value.toLowerCase();
+  document.querySelectorAll('#prov-filial-list label').forEach(lbl => {
+    lbl.style.display = (lbl.dataset.txt || '').includes(q) ? '' : 'none';
+  });
+}
+
+function provToggleFilial(lj) {
+  lj = parseInt(lj);
+  if (provFiliaisSel.has(lj)) provFiliaisSel.delete(lj); else provFiliaisSel.add(lj);
+  renderProxVencimentos();
+}
+function provToggleAuditor(nome) {
+  if (provAuditoresSel.has(nome)) provAuditoresSel.delete(nome); else provAuditoresSel.add(nome);
+  renderProxVencimentos();
+}
+function provToggleRegiao(r) {
+  if (provRegioesSel.has(r)) provRegioesSel.delete(r); else provRegioesSel.add(r);
+  renderProxVencimentos();
+}
+
+function _provAtualizarBadgeFiltros() {
+  const badge = document.getElementById('prov-filtros-badge');
+  if (!badge) return;
+  const n = provFiliaisSel.size + provAuditoresSel.size + provRegioesSel.size;
+  badge.textContent   = n;
+  badge.style.display = n ? 'inline-block' : 'none';
+}
+
+// Filtros de filial/auditor/região apenas — usado para os KPIs de faixa mostrarem
+// sempre a contagem real (mesmo quando aquela faixa está desmarcada da tabela).
+function _provFiltrarBase() {
+  return provVencData.filter(d => {
+    if (provFiliaisSel.size   && !provFiliaisSel.has(d.lj))              return false;
+    if (provAuditoresSel.size && !provAuditoresSel.has(d.base?.auditor)) return false;
+    if (provRegioesSel.size   && !provRegioesSel.has(d.base?.regiao))    return false;
+    return true;
+  });
+}
+
+function _provFiltrar() {
+  return _provFiltrarBase().filter(d => provFaixasSel.has(_provFaixa(d.dias).k));
+}
+
+function provToggleFaixa(k) {
+  if (provFaixasSel.has(k)) provFaixasSel.delete(k); else provFaixasSel.add(k);
+  renderProxVencimentos();
+}
+function provToggleTodasFaixas() {
+  if (provFaixasSel.size === PROV_FAIXAS.length) provFaixasSel.clear();
+  else provFaixasSel = new Set(PROV_FAIXAS.map(f => f.k));
+  renderProxVencimentos();
+}
+
+function limparFiltrosProv() {
+  provFaixasSel    = new Set(PROV_FAIXAS.map(f => f.k));
+  provFiliaisSel   = new Set();
+  provAuditoresSel = new Set();
+  provRegioesSel   = new Set();
+  _provBuildFiltrosPanel();
+  renderProxVencimentos();
+}
+
+function provSortBy(col) {
+  if (provSortState.col === col) provSortState.dir = provSortState.dir === 'asc' ? 'desc' : 'asc';
+  else { provSortState.col = col; provSortState.dir = ['valor','dias','ocorrencias'].includes(col) ? 'desc' : 'asc'; }
+  renderProxVencimentos();
+}
+
+function _provSort(items) {
+  const { col, dir } = provSortState;
+  const mult = dir === 'asc' ? 1 : -1;
+  return [...items].sort((a,b) => {
+    let va, vb;
+    switch(col) {
+      case 'lj':            va = a.lj; vb = b.lj; break;
+      case 'filial':        va = a.base?.loja || ''; vb = b.base?.loja || ''; break;
+      case 'representante': va = (a.representante||'').trim(); vb = (b.representante||'').trim(); break;
+      case 'cliente':       va = (a.cliente||'').trim(); vb = (b.cliente||'').trim(); break;
+      case 'vencto':        va = a.vencto || ''; vb = b.vencto || ''; break;
+      case 'dias':          va = a.dias || 0; vb = b.dias || 0; break;
+      case 'valor':         va = a.valor || 0; vb = b.valor || 0; break;
+      default:              va = 0; vb = 0;
+    }
+    if (typeof va === 'string') return mult * va.localeCompare(vb, 'pt-BR');
+    return mult * (va - vb);
+  });
+}
+
+function provMostrarDetalheCliente(idx) {
+  const row = _provRenderedRows[idx];
+  if (!row) return;
+  const relacionados = provVencData
+    .filter(x => x.lj === row.lj && (x.cliente||'').trim() === (row.cliente||'').trim())
+    .sort((a,b) => b.dias - a.dias);
+  const total = relacionados.reduce((s,x) => s + (x.valor||0), 0);
+  const box = document.getElementById('prov-modal-box');
+  if (!box) return;
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px">
+      <div>
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter)">Detalhe do cliente — por que aparece mais de uma vez</div>
+        <div style="font-size:17px;font-weight:800;color:var(--accent-text)">${row.cliente || '—'}</div>
+        <div style="font-size:11px;color:var(--texto-mut)">${row.base ? row.base.loja : 'LJ'+row.lj} · ${relacionados.length} título(s) neste levantamento</div>
+      </div>
+      <button class="btn-limpar" style="width:auto;padding:4px 10px" onclick="provFecharModal()">✕</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:var(--azul);color:#fff;font-size:10px;text-transform:uppercase">
+        <th style="padding:7px 10px;text-align:left">Título/NF</th>
+        <th style="padding:7px 10px;text-align:right">Vencto</th>
+        <th style="padding:7px 10px;text-align:right">Dias</th>
+        <th style="padding:7px 10px;text-align:right">Valor</th>
+      </tr></thead>
+      <tbody>
+        ${relacionados.map(x => { const f = _provFaixa(x.dias); return `<tr style="background:${f.corBg}30">
+          <td style="padding:6px 10px;color:var(--texto)">${[x.titulo,x.nf].filter(Boolean).join('/') || '—'}</td>
+          <td style="padding:6px 10px;text-align:right;color:var(--texto-sec)">${formatarData(x.vencto)}</td>
+          <td style="padding:6px 10px;text-align:right"><span style="background:${f.cor};color:#fff;border-radius:20px;padding:1px 8px;font-weight:700">${x.dias}d</span></td>
+          <td style="padding:6px 10px;text-align:right;font-weight:700;color:${f.cor}">${formatMoeda(x.valor||0)}</td>
+        </tr>`; }).join('')}
+      </tbody>
+      <tfoot><tr style="font-weight:700;background:var(--bg-input)">
+        <td colspan="3" style="padding:7px 10px;text-align:right">TOTAL</td>
+        <td style="padding:7px 10px;text-align:right">${formatMoeda(total)}</td>
+      </tr></tfoot>
+    </table>`;
+  document.getElementById('prov-modal-overlay').style.display = 'flex';
+}
+
+function provFecharModal() {
+  const ov = document.getElementById('prov-modal-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function _provRenderContexto(filtrados) {
+  const el = document.getElementById('prov-contexto');
+  if (!el) return;
+  const b = provFiliaisSel.size === 1 ? BASE_REGIONAIS.find(x => provFiliaisSel.has(x.lj)) : null;
+  if (!b) { el.style.display = 'none'; return; }
+
+  const critico      = filtrados.filter(d => _provFaixa(d.dias).k === '46-59');
+  const totalCritico = critico.reduce((s,d) => s + (d.valor||0), 0);
+
+  el.style.display = '';
+  el.innerHTML = `
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter);margin-bottom:8px">🎯 Filial em análise — visita de auditoria</div>
+    <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center">
+      <div>
+        <div style="font-size:20px;font-weight:800;color:var(--accent-text)">${b.lj} — ${b.loja}</div>
+        <div style="font-size:11px;color:var(--texto-mut)">${b.estado} · Regional ${b.regional} · Região ${b.regiao}</div>
+      </div>
+      <div><div style="font-size:10px;color:var(--texto-ter);text-transform:uppercase">Gerente</div><div style="font-size:14px;font-weight:700">${b.gerente}</div></div>
+      <div><div style="font-size:10px;color:var(--texto-ter);text-transform:uppercase">Supervisor</div><div style="font-size:14px;font-weight:700">${b.supervisor}</div></div>
+      <div><div style="font-size:10px;color:var(--texto-ter);text-transform:uppercase">Auditor</div><div style="font-size:14px;font-weight:700">${b.auditor}</div></div>
+      ${critico.length ? `<div style="margin-left:auto;background:var(--verm-bg);border:1.5px solid var(--verm);border-radius:8px;padding:8px 14px">
+        <div style="font-size:10px;font-weight:700;color:var(--verm);text-transform:uppercase">⚠️ Prestes a virar D60 (46–59 dias)</div>
+        <div style="font-size:15px;font-weight:800;color:var(--verm)">${critico.length} título(s) · ${formatMoeda(totalCritico)}</div>
+      </div>` : ''}
+    </div>`;
+}
+
+function _provRenderKpis(base, filtrados) {
+  const el = document.getElementById('prov-kpis');
+  if (!el) return;
+  const totalGeral = filtrados.reduce((s,d) => s + (d.valor||0), 0);
+
+  let html = `<div class="kpi-card" style="border-left:4px solid var(--azul-med);background:var(--bg-card);border-radius:10px;padding:14px 16px;box-shadow:var(--sombra)" onclick="provToggleTodasFaixas()" title="Clique para marcar/desmarcar todas as faixas de uma vez">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--texto-ter);margin-bottom:6px">Total exibido</div>
+    <div style="font-size:18px;font-weight:800;color:var(--azul-med)">${formatMoeda(totalGeral)}</div>
+    <div style="font-size:10px;color:var(--texto-mut);margin-top:3px">${filtrados.length} títulos</div>
+  </div>`;
+
+  PROV_FAIXAS.forEach(f => {
+    const itens = base.filter(d => _provFaixa(d.dias).k === f.k);
+    const tot   = itens.reduce((s,d) => s + (d.valor||0), 0);
+    const ativo = provFaixasSel.has(f.k);
+    html += `<div class="kpi-card" style="border-left:4px solid ${f.cor};background:${ativo ? f.corBg : 'var(--bg-card)'};border-radius:10px;padding:14px 16px;box-shadow:var(--sombra);opacity:${ativo ? 1 : .55};${ativo ? 'outline:2px solid '+f.cor+';outline-offset:-2px;' : ''}" onclick="provToggleFaixa('${f.k}')" title="${ativo ? 'Marcado — clique para ocultar esta faixa' : 'Oculto — clique para exibir esta faixa'} (checkbox)">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${ativo ? f.cor : 'var(--texto-ter)'};margin-bottom:6px">${ativo ? '☑' : '☐'} ${f.label}</div>
+      <div style="font-size:18px;font-weight:800;color:${f.cor}">${itens.length}</div>
+      <div style="font-size:11px;color:var(--texto-mut);margin-top:3px">${formatMoeda(tot)}</div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function _provRenderTabela(filtrados) {
+  const tbody = document.getElementById('prov-tbody');
+  const empty = document.getElementById('prov-empty');
+  if (!tbody) return;
+
+  document.querySelectorAll('#prov-thead .sort-th').forEach(th => {
+    const col = th.dataset.col;
+    th.classList.toggle('asc',  col === provSortState.col && provSortState.dir === 'asc');
+    th.classList.toggle('desc', col === provSortState.col && provSortState.dir === 'desc');
+  });
+
+  if (!filtrados.length) {
+    tbody.innerHTML = '';
+    _provRenderedRows = [];
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const sorted = _provSort(filtrados);
+  _provRenderedRows = sorted;
+  let html = '', tot = 0;
+  sorted.forEach((d, idx) => {
+    tot += (d.valor||0);
+    const f    = _provFaixa(d.dias);
+    const nome = d.base ? d.base.loja : 'LJ'+d.lj;
+    let reincid = '';
+    if (d.ocorrencias > 1) {
+      const relacionados = provVencData.filter(x => x.lj === d.lj && (x.cliente||'').trim() === (d.cliente||'').trim());
+      const dica = relacionados.length + ' título(s) deste cliente — clique para ver detalhes:\n' +
+        relacionados.map(x => `${[x.titulo,x.nf].filter(Boolean).join('/')} · ${formatarData(x.vencto)} · ${x.dias}d · ${formatMoeda(x.valor||0)}`).join('\n');
+      reincid = ` <span onclick="provMostrarDetalheCliente(${idx})" title="${_escAttr(dica)}" style="cursor:pointer;text-decoration:underline dotted;color:${f.cor};font-weight:700">(${d.ocorrencias}×) 🔍</span>`;
+    }
+    html += `<tr style="background:${f.corBg}30;border-left:3px solid ${f.cor}">
+      <td style="padding:7px 12px;font-weight:700;color:var(--azul)">${d.lj}</td>
+      <td style="padding:7px 12px;font-weight:600;color:var(--texto)">${nome}</td>
+      <td style="padding:7px 12px;color:var(--texto-sec)">${d.representante || '—'}</td>
+      <td style="padding:7px 12px;color:var(--texto)">${d.cliente || '—'}${reincid}</td>
+      <td style="padding:7px 12px;color:var(--texto-ter);font-size:11px">${[d.titulo, d.nf].filter(Boolean).join('/') || '—'}</td>
+      <td style="padding:7px 12px;text-align:right;color:var(--texto-sec)">${formatarData(d.vencto)}</td>
+      <td style="padding:7px 12px;text-align:right"><span style="display:inline-block;padding:2px 9px;border-radius:20px;background:${f.cor};color:#fff;font-weight:700;font-size:11px">${d.dias}d</span></td>
+      <td style="padding:7px 12px;text-align:right;font-weight:700;color:${f.cor}">${formatMoeda(d.valor||0)}</td>
+    </tr>`;
+  });
+  html += `<tr style="background:var(--azul);color:#fff;font-weight:700">
+    <td colspan="7" style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px">TOTAL (${sorted.length} títulos)</td>
+    <td style="padding:8px 12px;text-align:right;font-size:13px">${formatMoeda(tot)}</td>
+  </tr>`;
+  tbody.innerHTML = html;
+}
+
+function renderProxVencimentos() {
+  if (!provVencData.length) return;
+  const base      = _provFiltrarBase();
+  const filtrados = base.filter(d => provFaixasSel.has(_provFaixa(d.dias).k));
+  _provAtualizarBadgeFiltros();
+  _provRenderContexto(filtrados);
+  _provRenderKpis(base, filtrados);
+  _provRenderTabela(filtrados);
+}
+
+function exportarProxVencimentosXLS() {
+  if (!provVencData.length) { toast('Sem dados para exportar.'); return; }
+  const filtrados = _provSort(_provFiltrar());
+  if (!filtrados.length) { toast('Sem dados para exportar.'); return; }
+
+  // Região e Auditor ficam de fora do arquivo — são apenas filtros internos, não aparecem para o cliente/gerente.
+  const header = ['LJ','Filial','Representante','Cliente','Título','NF','Vencimento','Dias Vencido','Faixa','Ocorrências','Valor'];
+  const rows = filtrados.map(d => [
+    d.lj, d.base ? d.base.loja : 'LJ'+d.lj,
+    d.representante||'', d.cliente||'', d.titulo||'', d.nf||'', d.vencto||'',
+    d.dias, _provFaixa(d.dias).label, d.ocorrencias||1, d.valor||0,
+  ]);
+  const total = filtrados.reduce((s,d) => s + (d.valor||0), 0);
+  rows.push(new Array(header.length - 2).fill('').concat(['TOTAL', total]));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([['PRÓXIMOS VENCIMENTOS D60 — AGROQUIMA'], ['Referência: ' + formatarData(hoje())], [], header, ...rows]);
+  XLSX.utils.book_append_sheet(wb, ws, 'Prox Vencimentos');
+  XLSX.writeFile(wb, 'D60_ProximosVencimentos_' + hoje() + '.xlsx');
+  toast('✅ XLS exportado!');
+}
+
+async function exportarProxVencimentosPNG() {
+  if (!provVencData.length) { toast('Sem dados para exportar.'); return; }
+  const el = document.getElementById('prov-export-area');
+  if (!el) return;
+  try {
+    const canvas = await html2canvas(el, { backgroundColor: getComputedStyle(document.body).backgroundColor || '#0A1628', scale: 2 });
+    await _downloadPNG(canvas, 'D60_ProximosVencimentos_' + hoje() + '.png');
+    toast('✅ PNG exportado!');
+  } catch(e) {
+    toast('Erro ao gerar imagem: ' + e.message);
+  }
 }
 
 function renderGraficoLinha(semanas, totais) {
