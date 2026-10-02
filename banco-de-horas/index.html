@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banco de Horas — Agroquima</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --surface2: #f7f8fa;
+  --border: #e2e6ea;
+  --text: #1a2332;
+  --text2: #5a6780;
+  --text3: #8a96a8;
+  --accent: #0D47A1;
+  --accent2: #1565C0;
+  --accent-light: #e8f0fe;
+  --red: #c62828;
+  --red-bg: #fff0f0;
+  --red-border: #ffcdd2;
+  --yellow: #e65100;
+  --yellow-bg: #fff8f0;
+  --yellow-border: #ffe0b2;
+  --green: #1b5e20;
+  --green-bg: #f0fff4;
+  --green-border: #c8e6c9;
+  --orange: #bf360c;
+  --orange-bg: #fff3e0;
+  --orange-border: #ffccbc;
+  --shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+[data-theme="dark"] {
+  --bg: #0f1218;
+  --surface: #1a2030;
+  --surface2: #212840;
+  --border: #2a3348;
+  --text: #e8edf5;
+  --text2: #8a9ab8;
+  --text3: #5a6780;
+  --accent: #4a90d9;
+  --accent2: #64b5f6;
+  --accent-light: #1a2a40;
+  --red: #ef5350;
+  --red-bg: #2a1a1a;
+  --red-border: #5c2020;
+  --yellow: #ff8f00;
+  --yellow-bg: #2a1e0a;
+  --yellow-border: #5c3a10;
+  --green: #66bb6a;
+  --green-bg: #0a2010;
+  --green-border: #1a4020;
+  --orange: #ff7043;
+  --orange-bg: #2a1a0a;
+  --orange-border: #5c2a10;
+  --shadow: 0 1px 4px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.2);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  min-height: 100vh;
+  transition: background .2s, color .2s;
+}
+/* ── HEADER ── */
+.header {
+  background: var(--accent);
+  color: #fff;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+.header-logo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.header-logo span { color: #64b5f6; }
+.header-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,.75);
+  flex: 1;
+}
+.header-period {
+  background: rgba(255,255,255,.15);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.btn-icon {
+  background: rgba(255,255,255,.15);
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.btn-icon:hover { background: rgba(255,255,255,.25); }
+.btn-danger { background: rgba(198,40,40,.5) !important; }
+.btn-danger:hover { background: rgba(198,40,40,.8) !important; }
+
+/* ── WARNING BANNER ── */
+.warning-banner {
+  background: #fff8e1;
+  border-bottom: 2px solid #ffc107;
+  color: #5d4037;
+  padding: 8px 24px;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+[data-theme="dark"] .warning-banner {
+  background: #2a200a;
+  border-color: #8a6000;
+  color: #ffd54f;
+}
+
+/* ── UPLOAD SCREEN ── */
+#upload-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 56px);
+  padding: 40px 24px;
+  gap: 24px;
+}
+.upload-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 48px 40px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow);
+  border: 2px dashed var(--border);
+}
+.upload-card.drag-over { border-color: var(--accent); background: var(--accent-light); }
+.upload-icon { font-size: 48px; margin-bottom: 16px; }
+.upload-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.upload-card p { color: var(--text2); font-size: 13px; margin-bottom: 24px; line-height: 1.6; }
+.btn-upload {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-upload:hover { background: var(--accent2); }
+#file-input { display: none; }
+.upload-hint { color: var(--text3); font-size: 11px; margin-top: 12px; }
+
+/* ── MAIN CONTENT ── */
+#main-content { display: none; padding: 16px 24px 32px; }
+
+/* ── FILTERS ── */
+.filter-bar {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+.filter-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; }
+.filter-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.filter-select:focus { border-color: var(--accent); }
+.toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  transition: all .15s;
+  user-select: none;
+}
+.toggle-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.btn-capture {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s;
+  margin-left: auto;
+}
+.btn-capture:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── KPI CARDS ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.kpi-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all .15s;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+}
+.kpi-card.red::before { background: var(--red); }
+.kpi-card.yellow::before { background: var(--yellow); }
+.kpi-card.green::before { background: var(--green); }
+.kpi-card.orange::before { background: var(--orange); }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.kpi-card.selected { border-color: var(--accent); background: var(--accent-light); }
+.kpi-label { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+.kpi-value { font-size: 32px; font-weight: 800; line-height: 1; }
+.kpi-card.red .kpi-value { color: var(--red); }
+.kpi-card.yellow .kpi-value { color: var(--yellow); }
+.kpi-card.green .kpi-value { color: var(--green); }
+.kpi-card.orange .kpi-value { color: var(--orange); }
+.kpi-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ── TABLE ── */
+.table-wrapper {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.table-header-row {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.table-title { font-size: 14px; font-weight: 700; }
+.table-count { font-size: 12px; color: var(--text2); }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 900px; }
+th {
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  padding: 9px 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+}
+th:hover { color: var(--accent); }
+th.sorted { color: var(--accent); }
+th .sort-arrow { margin-left: 4px; opacity: .5; }
+th.sorted .sort-arrow { opacity: 1; }
+td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  vertical-align: middle;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+tr { cursor: pointer; transition: background .1s; }
+tr:hover td { background: var(--accent-light); }
+tr.row-red td { background: var(--red-bg); }
+tr.row-red:hover td { background: #ffe0e0; }
+tr.row-yellow td { background: var(--yellow-bg); }
+tr.row-yellow:hover td { background: #ffe8c0; }
+tr.row-green td { background: var(--green-bg); }
+tr.row-green:hover td { filter: brightness(.97); }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge-red { background: var(--red-border); color: var(--red); }
+.badge-yellow { background: var(--yellow-border); color: var(--yellow); }
+.badge-green { background: var(--green-border); color: var(--green); }
+.badge-gray { background: var(--border); color: var(--text2); }
+.badge-norte { background: #e3f2fd; color: #0d47a1; }
+.badge-sul { background: #e8f5e9; color: #1b5e20; }
+[data-theme="dark"] .badge-norte { background: #0d2a40; color: #64b5f6; }
+[data-theme="dark"] .badge-sul { background: #0a2010; color: #66bb6a; }
+.obs-cell { color: var(--text2); font-style: italic; font-size: 11px; max-width: 160px; }
+.has-obs { color: var(--accent); font-style: normal; }
+.sup-tag { font-size: 9px; font-weight: 700; background: var(--orange-border); color: var(--orange); padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+.empty-row td { text-align: center; color: var(--text3); padding: 32px; }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 8px 40px rgba(0,0,0,.2);
+  position: relative;
+}
+.modal-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: var(--surface2);
+  border: none;
+  border-radius: 6px;
+  width: 28px; height: 28px;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; padding-right: 32px; }
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.modal-field label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 3px; }
+.modal-field span { font-size: 13px; color: var(--text); }
+.modal-saldo {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--surface2);
+  margin-bottom: 16px;
+}
+.modal-saldo-item { flex: 1; text-align: center; }
+.modal-saldo-item label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 4px; }
+.modal-saldo-item span { font-size: 20px; font-weight: 800; }
+.saldo-positivo { color: var(--red); }
+.saldo-neutro { color: var(--text2); }
+.obs-label { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.obs-prev { font-size: 10px; font-style: italic; color: var(--orange); }
+textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border .15s;
+}
+textarea:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.btn-save {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-cancel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ── SUPERVISORES SECTION ── */
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title span { font-size: 12px; font-weight: 400; color: var(--text2); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .header-title { display: none; }
+  #main-content { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">AGRO<span>QUIMA</span></div>
+  <div class="header-title">Painel · Banco de Horas</div>
+  <div class="header-period" id="header-period" style="display:none">—</div>
+  <div class="header-actions">
+    <button class="btn-icon" onclick="toggleTheme()" title="Alternar tema">🌓</button>
+    <button class="btn-icon btn-danger" id="btn-reset" style="display:none" onclick="confirmReset()">🔄 Atualizar Base</button>
+  </div>
+</header>
+
+<!-- WARNING BANNER -->
+<div class="warning-banner">
+  ⚠️ &nbsp;Emita o relatório na <strong>quarta-feira após o expediente</strong> para garantir saldo completo de todos os colaboradores.
+</div>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upload-card" id="drop-zone">
+    <div class="upload-icon">📊</div>
+    <h2>Conta Corrente Banco de Horas</h2>
+    <p>Arraste e solte o arquivo .xlsx aqui, ou clique para selecionar.<br>Os dados ficam salvos localmente nesta máquina.</p>
+    <button class="btn-upload" onclick="document.getElementById('file-input').click()">
+      📂 Selecionar arquivo .xlsx
+    </button>
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+    <div class="upload-hint">Arquivo: Relatorio_ContaCorrenteBancoDeHorasResumo_*.xlsx</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content">
+  <!-- FILTERS -->
+  <div class="filter-bar" id="capture-target">
+    <span class="filter-label">Região</span>
+    <select class="filter-select" id="f-regiao" onchange="applyFilters()">
+      <option value="">Todas</option>
+      <option value="SUL">SUL</option>
+      <option value="NORTE">NORTE</option>
+    </select>
+
+    <div class="filter-sep"></div>
+    <span class="filter-label">Auditor</span>
+    <select class="filter-select" id="f-auditor" onchange="applyFilters()"></select>
+
+    <div class="filter-sep"></div>
+    <span class="filter-label">Filial</span>
+    <select class="filter-select" id="f-filial" onchange="applyFilters()"></select>
+
+    <div class="filter-sep"></div>
+    <span class="filter-label">Cargo</span>
+    <select class="filter-select" id="f-cargo" onchange="applyFilters()"></select>
+
+    <div class="filter-sep"></div>
+    <span class="toggle-pill active" id="pill-neg" onclick="togglePill('neg')">🚫 Ocultar negativos</span>
+    <span class="toggle-pill active" id="pill-zero" onclick="togglePill('zero')">🚫 Ocultar zerados</span>
+
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn-capture" onclick="captureImage()">📷 Capturar</button>
+      <button class="btn-capture" onclick="exportExcel()">📊 Excel</button>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-row">
+    <div class="kpi-card red" onclick="filterByKPI('critico')" id="kpi-critico">
+      <div class="kpi-label">🔴 Críticos &gt; 6h</div>
+      <div class="kpi-value" id="kv-critico">0</div>
+      <div class="kpi-sub">Exigem observação urgente</div>
+    </div>
+    <div class="kpi-card yellow" onclick="filterByKPI('atencao')" id="kpi-atencao">
+      <div class="kpi-label">🟡 Atenção 4h–6h</div>
+      <div class="kpi-value" id="kv-atencao">0</div>
+      <div class="kpi-sub">Zona de alerta</div>
+    </div>
+    <div class="kpi-card green" onclick="filterByKPI('ok')" id="kpi-ok">
+      <div class="kpi-label">🟢 OK &lt; 4h</div>
+      <div class="kpi-value" id="kv-ok">0</div>
+      <div class="kpi-sub">Positivos regulares</div>
+    </div>
+    <div class="kpi-card orange" onclick="filterByKPI('supervisor')" id="kpi-sup">
+      <div class="kpi-label">🟠 Supervisores positivos</div>
+      <div class="kpi-value" id="kv-sup">0</div>
+      <div class="kpi-sub">Cobrados diretamente</div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrapper">
+    <div class="table-header-row">
+      <span class="table-title">Colaboradores</span>
+      <span class="table-count" id="table-count"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="main-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Filial <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(1)">Sigla <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(2)">Região <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(3)">Auditor <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(4)">Supervisor <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(5)">Colaborador <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(6)">Cargo <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(7)">Crédito <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(8)">Débito <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(9)">Saldo <span class="sort-arrow">↕</span></th>
+            <th onclick="sortTable(10)">Status <span class="sort-arrow">↕</span></th>
+            <th>Observação</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SUPERVISORES -->
+  <div id="sup-section">
+    <div class="section-title">🟠 Supervisores com Saldo Positivo <span>(acompanhamento direto do auditor)</span></div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="sup-table">
+          <thead>
+            <tr>
+              <th>Supervisor</th>
+              <th>Filial</th>
+              <th>Região</th>
+              <th>Auditor</th>
+              <th>Cargo</th>
+              <th>Crédito</th>
+              <th>Saldo</th>
+              <th>Status</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="sup-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 id="modal-nome"></h3>
+    <div class="modal-grid">
+      <div class="modal-field"><label>Matrícula</label><span id="m-matricula"></span></div>
+      <div class="modal-field"><label>Cargo</label><span id="m-cargo"></span></div>
+      <div class="modal-field"><label>Filial</label><span id="m-filial"></span></div>
+      <div class="modal-field"><label>Auditor</label><span id="m-auditor"></span></div>
+      <div class="modal-field"><label>Supervisor</label><span id="m-supervisor"></span></div>
+      <div class="modal-field"><label>Região</label><span id="m-regiao"></span></div>
+    </div>
+    <div class="modal-saldo">
+      <div class="modal-saldo-item">
+        <label>Crédito</label>
+        <span id="m-credito" class="saldo-neutro"></span>
+      </div>
+      <div class="modal-saldo-item">
+        <label>Débito</label>
+        <span id="m-debito" class="saldo-neutro"></span>
+      </div>
+      <div class="modal-saldo-item">
+        <label>Saldo Final</label>
+        <span id="m-saldo" class="saldo-positivo"></span>
+      </div>
+    </div>
+    <div class="obs-label">
+      📝 Observação do Auditor
+      <span class="obs-prev" id="obs-prev-label"></span>
+    </div>
+    <textarea id="obs-textarea" placeholder="Registre aqui o acompanhamento, compensação prevista ou justificativa..."></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveObs()">💾 Salvar Observação</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  BASE REGIONAIS (hardcoded)
+// ══════════════════════════════════════════════
+const BASE_REGIONAIS = [
+  {filial:1,sigla:"MTZ",loja:"MATRIZ",estado:"GO",gerente:"REVALINO NETO",supervisor:"ERON LUIZ",regional:"SERGIO ADRIANO",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:3,sigla:"ARG",loja:"ARAGUAÍNA",estado:"TO",gerente:"FABIO AUGUSTO",supervisor:"MAGNO ALVES",regional:"LEANDRO CAMPOS",auditor:"CARLOS POGGIAN",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:4,sigla:"RVD",loja:"RIO VERDE",estado:"GO",gerente:"WENDER PARTATA",supervisor:"NATANIELLE VARGAS",regional:"WENDER PARTATA",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:5,sigla:"UBR",loja:"UBERLÂNDIA",estado:"MG",gerente:"JOÃO CLÁUDIO",supervisor:"GISELE MARIA",regional:"NABIO BARROS",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:10,sigla:"MAR",loja:"MARABÁ",estado:"PA",gerente:"ENIO JOSAFE",supervisor:"LUCAS DAMACENO",regional:"LEANDRO CAMPOS",auditor:"GUILHERME LACERDA",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:11,sigla:"JAT",loja:"JATAI",estado:"GO",gerente:"RENATO TEODORO",supervisor:"LUBIA SILVA",regional:"WENDER PARTATA",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:12,sigla:"CRI",loja:"CRISTALINA",estado:"GO",gerente:"LORENA MOISES",supervisor:"MARCIA DE OLIVEIRA",regional:"NABIO BARROS",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:13,sigla:"FAG",loja:"UBS",estado:"GO",gerente:"EVANDRO MACEDO",supervisor:"KARINE GOMES",regional:"EVANDRO MACEDO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:14,sigla:"RED",loja:"REDENÇÃO",estado:"PA",gerente:"ANDERSON PEREIRA",supervisor:"BARBARA PEREIRA",regional:"LEANDRO CAMPOS",auditor:"CARLOS POGGIAN",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:16,sigla:"IMP",loja:"IMPERATRIZ",estado:"MA",gerente:"IALE MILHOMEM",supervisor:"ROSIANE CANDIDO",regional:"LEANDRO CAMPOS",auditor:"GUILHERME LACERDA",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:17,sigla:"BAR",loja:"BARRA DO GARÇAS",estado:"MT",gerente:"VINICIUS BRITO",supervisor:"KARINI SOARES",regional:"MATO GROSSO",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:19,sigla:"PAL",loja:"PALMAS",estado:"TO",gerente:"MARLON GERMANO",supervisor:"PATRICIA PEREIRA",regional:"LEANDRO CAMPOS",auditor:"CARLOS POGGIAN",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:21,sigla:"MOZ",loja:"MOZARLÂNDIA",estado:"GO",gerente:"THIAGO VAZ",supervisor:"NÚBIA GASPAROTTI",regional:"SERGIO ADRIANO",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:22,sigla:"PGM",loja:"PARAGOMINAS",estado:"PA",gerente:"",supervisor:"ARTHUR SILVA",regional:"LEANDRO CAMPOS",auditor:"GUILHERME LACERDA",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:23,sigla:"SFX",loja:"SÃO FELIX DO XINGU",estado:"PA",gerente:"PEDRO MACIEL",supervisor:"LANNA KEROLAYNE",regional:"LEANDRO CAMPOS",auditor:"CARLOS POGGIAN",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:24,sigla:"FAP",loja:"FABRICA APARECIDA",estado:"GO",gerente:"ANNAPAULLA GARCIA",supervisor:"ANNAPAULLA GARCIA",regional:"ANNAPAULLA GARCIA",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:25,sigla:"FCB",loja:"CUIABÁ",estado:"MT",gerente:"GEOVANNY VIGILATO",supervisor:"JULIANA LIMA",regional:"MATO GROSSO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:27,sigla:"URU",loja:"URUAÇU",estado:"GO",gerente:"EDVANDO JOSE",supervisor:"NIVEA ALVES",regional:"SERGIO ADRIANO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:28,sigla:"MOR",loja:"MORRINHOS",estado:"GO",gerente:"ABEL HANUN",supervisor:"PAULA REGINA",regional:"NABIO BARROS",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:29,sigla:"CON",loja:"CONFRESA",estado:"MT",gerente:"AKYLLA OLIVEIRA",supervisor:"FELIPE ANDRADE",regional:"MATO GROSSO",auditor:"CARLOS POGGIAN",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:30,sigla:"FOR",loja:"FORMOSA",estado:"GO",gerente:"DANIEL BARREIRA",supervisor:"JULIANA MARIA",regional:"NABIO BARROS",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:31,sigla:"JUS",loja:"JUSSARA",estado:"GO",gerente:"CLESIO ALVES",supervisor:"MARIANNE SAHARA",regional:"SERGIO ADRIANO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:32,sigla:"XRA",loja:"XINGUARA",estado:"PA",gerente:"WILLIAN ANTIGO",supervisor:"LEONICE MORAIS",regional:"LEANDRO CAMPOS",auditor:"GUILHERME LACERDA",coord:"PATRICK LIMA",regiao:"NORTE"},
+  {filial:34,sigla:"POR",loja:"PORANGATU",estado:"GO",gerente:"ANTONIO CARLOS",supervisor:"ALLYNE LUCENA",regional:"SERGIO ADRIANO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:35,sigla:"PLA",loja:"PONTES E LACERDA",estado:"MT",gerente:"MARCELO MULLER",supervisor:"RENATA COSTA",regional:"MATO GROSSO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:36,sigla:"GRA",loja:"GOIANIRA",estado:"GO",gerente:"HENISLEY SABINO",supervisor:"HENISLEY SABINO",regional:"HENISLEY SABINO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:37,sigla:"CAN",loja:"CANARANA",estado:"MT",gerente:"LEONARDO FREITAS",supervisor:"",regional:"SERGIO ADRIANO",auditor:"JOÃO VITOR MENDES",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:38,sigla:"GUR",loja:"GURUPI",estado:"TO",gerente:"ALDAI LEMOS",supervisor:"RENATA CERQUEIRA",regional:"SERGIO ADRIANO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:40,sigla:"RIA",loja:"RIALMA",estado:"GO",gerente:"NATALINO NETO",supervisor:"ROSILDA CURSINO",regional:"SERGIO ADRIANO",auditor:"FÁBIO RIBEIRO",coord:"ADRIANO SANTOS",regiao:"SUL"},
+  {filial:41,sigla:"ALT",loja:"ALTAMIRA",estado:"PA",gerente:"DAVID DOURADO",supervisor:"JOSIMARA CABRAL",regional:"LEANDRO CAMPOS",auditor:"GUILHERME LACERDA",coord:"PATRICK LIMA",regiao:"NORTE"},
+];
+
+// Mapa de normalização de estabelecimentos
+const ESTAB_MAP = {
+  "AGROQUIMA PRODUTOS AGROPECUARIOS LTDA": {filial:1,sigla:"MTZ",regiao:"SUL",auditor:"JOÃO VITOR MENDES"},
+  "SEDE ADMINISTRATIVA": {filial:null,sigla:"—",regiao:"—",auditor:"Gerente Administrativo"},
+  "FAGRO - APARECIDA DE GOIANIA": {filial:24,sigla:"FAP",regiao:"SUL",auditor:"JOÃO VITOR MENDES"},
+  "FAGRO - CUIABA": {filial:25,sigla:"FCB",regiao:"SUL",auditor:"FÁBIO RIBEIRO"},
+};
+
+// ══════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ══════════════════════════════════════════════
+let allData = [];
+let filteredData = [];
+let kpiFilter = null;
+let sortCol = 9; // saldo
+let sortAsc = false;
+let pillState = { neg: true, zero: true };
+let currentRow = null;
+
+// ══════════════════════════════════════════════
+//  TEMA
+// ══════════════════════════════════════════════
+function initTheme() {
+  const saved = localStorage.getItem('aq_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+  } else {
+    const pref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', pref);
+  }
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('aq_theme', next);
+}
+initTheme();
+
+// ══════════════════════════════════════════════
+//  PERSISTÊNCIA
+// ══════════════════════════════════════════════
+function saveData(data) {
+  try { localStorage.setItem('aq_bh_data', JSON.stringify(data)); } catch(e) {}
+}
+function loadData() {
+  try {
+    const d = localStorage.getItem('aq_bh_data');
+    return d ? JSON.parse(d) : null;
+  } catch(e) { return null; }
+}
+function getObs(matricula) {
+  try { return JSON.parse(localStorage.getItem('aq_obs_'+matricula) || 'null'); } catch(e) { return null; }
+}
+function saveObs() {
+  if (!currentRow) return;
+  const text = document.getElementById('obs-textarea').value.trim();
+  const key = 'aq_obs_'+currentRow.matricula;
+  if (text) {
+    localStorage.setItem(key, JSON.stringify({text, date: new Date().toLocaleDateString('pt-BR'), semana: currentRow.periodo}));
+  } else {
+    localStorage.removeItem(key);
+  }
+  currentRow._obs = text ? {text, date: new Date().toLocaleDateString('pt-BR'), semana: currentRow.periodo} : null;
+  renderTable();
+  renderSupTable();
+  closeModal();
+}
+
+// ══════════════════════════════════════════════
+//  PARSE
+// ══════════════════════════════════════════════
+function normEstab(estab) {
+  const e = (estab||'').trim().toUpperCase();
+  // Check exact map
+  for (const [k,v] of Object.entries(ESTAB_MAP)) {
+    if (e === k.toUpperCase()) return v;
+  }
+  // Try matching by city name in base regionais
+  for (const b of BASE_REGIONAIS) {
+    const loja = b.loja.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const bnorm = e.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    // Also normalize BARRA DO GARCAS -> BARRA DO GARÇAS etc
+    if (loja === bnorm || b.loja.toUpperCase() === e) {
+      return {filial:b.filial, sigla:b.sigla, regiao:b.regiao, auditor:b.auditor, supervisor:b.supervisor, gerente:b.gerente};
+    }
+  }
+  return {filial:null, sigla:"—", regiao:"—", auditor:"Gerente Administrativo"};
+}
+
+function timeToMinutes(t) {
+  if (!t || t === '00:00') return 0;
+  const neg = t.startsWith('-');
+  const clean = t.replace('-','');
+  const [h,m] = clean.split(':').map(Number);
+  return (neg ? -1 : 1) * (h*60 + m);
+}
+
+function minutesToTime(min) {
+  const neg = min < 0;
+  const abs = Math.abs(min);
+  const h = Math.floor(abs/60);
+  const m = abs%60;
+  return (neg?'-':'') + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+}
+
+function getStatus(min) {
+  if (min <= 0) return min === 0 ? 'zero' : 'negativo';
+  if (min > 360) return 'critico';
+  if (min > 240) return 'atencao';
+  return 'ok';
+}
+
+function isSupervisor(cargo) {
+  return /supervisor/i.test(cargo||'');
+}
+
+function parseXLSX(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if (rows.length < 2) { alert('Planilha vazia ou formato inválido.'); return; }
+      
+      const header = rows[0];
+      const data = [];
+      let periodo = '';
+      
+      for (let i=1; i<rows.length; i++) {
+        const r = rows[i];
+        if (!r[6]) continue; // sem nome
+        
+        const estab = String(r[2]||'').trim();
+        const matched = normEstab(estab);
+        // get full regional info if filial matched
+        let regional = null;
+        if (matched.filial) {
+          regional = BASE_REGIONAIS.find(b=>b.filial===matched.filial) || null;
+        }
+        
+        const saldoFinalStr = String(r[17]||'00:00');
+        const saldoColabStr = String(r[19]||'00:00');
+        // Use SaldoColaborador as primary; fallback SaldoFinal
+        const saldoStr = saldoColabStr !== '00:00' ? saldoColabStr : saldoFinalStr;
+        const saldoMin = timeToMinutes(saldoStr);
+        const creditoMin = timeToMinutes(String(r[12]||'00:00'));
+        
+        const ref = String(r[7]||'');
+        if (ref && !periodo) periodo = ref;
+        
+        const cargo = String(r[8]||'');
+        const matricula = String(r[5]||'');
+        
+        const obs = getObs(matricula);
+        
+        data.push({
+          estab,
+          filial: matched.filial ? `F${String(matched.filial).padStart(2,'0')}` : '—',
+          filial_num: matched.filial || 9999,
+          sigla: matched.sigla || '—',
+          regiao: regional ? regional.regiao : (matched.regiao||'—'),
+          auditor: regional ? regional.auditor : (matched.auditor||'Gerente Administrativo'),
+          supervisor: regional ? regional.supervisor : (matched.supervisor||'—'),
+          gerente: regional ? regional.gerente : (matched.gerente||'—'),
+          nome: String(r[6]||'').trim(),
+          matricula,
+          cargo,
+          credito: String(r[12]||'00:00'),
+          credito_min: creditoMin,
+          debito: String(r[13]||'00:00'),
+          saldo: saldoStr,
+          saldo_min: saldoMin,
+          status: getStatus(saldoMin),
+          isSup: isSupervisor(cargo),
+          periodo: ref,
+          _obs: obs,
+        });
+      }
+      
+      allData = data;
+      if (periodo) {
+        // Format: 10/2026 -> Outubro/2026
+        const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const [mm,yy] = periodo.split('/');
+        const mFormatted = meses[parseInt(mm)] ? meses[parseInt(mm)]+'/'+yy : periodo;
+        document.getElementById('header-period').textContent = mFormatted;
+        document.getElementById('header-period').style.display='';
+      }
+      saveData(data);
+      showPanel();
+    } catch(err) {
+      alert('Erro ao processar arquivo: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════
+//  UI
+// ══════════════════════════════════════════════
+function showUpload() {
+  document.getElementById('upload-screen').style.display='flex';
+  document.getElementById('main-content').style.display='none';
+  document.getElementById('btn-reset').style.display='none';
+}
+
+function showPanel() {
+  document.getElementById('upload-screen').style.display='none';
+  document.getElementById('main-content').style.display='block';
+  document.getElementById('btn-reset').style.display='';
+  populateFilterDropdowns();
+  applyFilters();
+}
+
+function handleFile(file) {
+  if (!file) return;
+  parseXLSX(file);
+}
+
+// Drag & Drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+function confirmReset() {
+  if (confirm('Limpar dados atuais e carregar novo arquivo?\n\nAs observações salvas serão mantidas.')) {
+    localStorage.removeItem('aq_bh_data');
+    allData = [];
+    document.getElementById('header-period').style.display='none';
+    showUpload();
+  }
+}
+
+// ══════════════════════════════════════════════
+//  FILTROS
+// ══════════════════════════════════════════════
+function populateFilterDropdowns() {
+  const auditors = [...new Set(allData.map(d=>d.auditor).filter(Boolean))].sort();
+  const filiais = [...new Set(allData.map(d=>d.filial))].sort((a,b)=>{
+    const na=parseInt(a.replace('F',''))||9999, nb=parseInt(b.replace('F',''))||9999;
+    return na-nb;
+  });
+  const cargos = [...new Set(allData.map(d=>{
+    const c = d.cargo.replace(/^\d+-/,'').trim();
+    return c;
+  }).filter(Boolean))].sort();
+
+  fillSelect('f-auditor', auditors);
+  fillSelect('f-filial', filiais);
+  fillSelect('f-cargo', cargos);
+}
+
+function fillSelect(id, opts) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">Todos</option>';
+  opts.forEach(o => { const op=document.createElement('option'); op.value=o; op.textContent=o; sel.appendChild(op); });
+}
+
+function togglePill(key) {
+  pillState[key] = !pillState[key];
+  document.getElementById('pill-'+key).classList.toggle('active', pillState[key]);
+  applyFilters();
+}
+
+function filterByKPI(type) {
+  if (kpiFilter === type) { kpiFilter = null; } else { kpiFilter = type; }
+  document.querySelectorAll('.kpi-card').forEach(c=>c.classList.remove('selected'));
+  if (kpiFilter) document.getElementById('kpi-'+type).classList.add('selected');
+  applyFilters();
+}
+
+function applyFilters() {
+  const regiao = document.getElementById('f-regiao').value;
+  const auditor = document.getElementById('f-auditor').value;
+  const filial = document.getElementById('f-filial').value;
+  const cargo = document.getElementById('f-cargo').value;
+
+  filteredData = allData.filter(d => {
+    if (pillState.neg && d.saldo_min < 0) return false;
+    if (pillState.zero && d.saldo_min === 0) return false;
+    if (regiao && d.regiao !== regiao) return false;
+    if (auditor && d.auditor !== auditor) return false;
+    if (filial && d.filial !== filial) return false;
+    if (cargo) {
+      const dc = d.cargo.replace(/^\d+-/,'').trim();
+      if (dc !== cargo) return false;
+    }
+    if (kpiFilter === 'critico' && d.status !== 'critico') return false;
+    if (kpiFilter === 'atencao' && d.status !== 'atencao') return false;
+    if (kpiFilter === 'ok' && d.status !== 'ok') return false;
+    if (kpiFilter === 'supervisor' && !(d.isSup && d.saldo_min > 0)) return false;
+    return true;
+  });
+
+  sortData();
+  updateKPIs();
+  renderTable();
+  renderSupTable();
+}
+
+function sortData() {
+  const cols = ['filial_num','sigla','regiao','auditor','supervisor','nome','cargo','credito_min','debito','saldo_min','status'];
+  filteredData.sort((a,b) => {
+    let va = a[cols[sortCol]], vb = b[cols[sortCol]];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+}
+
+function sortTable(col) {
+  if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = false; }
+  document.querySelectorAll('th').forEach((th,i)=>{
+    th.classList.toggle('sorted', i===col);
+    const arr = th.querySelector('.sort-arrow');
+    if (arr) arr.textContent = i===col ? (sortAsc?'↑':'↓') : '↕';
+  });
+  sortData();
+  renderTable();
+}
+
+// ══════════════════════════════════════════════
+//  KPIs
+// ══════════════════════════════════════════════
+function updateKPIs() {
+  // KPIs calculated from ALL data (no KPI filter applied), but respecting other filters
+  const base = allData.filter(d => {
+    const regiao = document.getElementById('f-regiao').value;
+    const auditor = document.getElementById('f-auditor').value;
+    const filial = document.getElementById('f-filial').value;
+    const cargo = document.getElementById('f-cargo').value;
+    if (pillState.neg && d.saldo_min < 0) return false;
+    if (pillState.zero && d.saldo_min === 0) return false;
+    if (regiao && d.regiao !== regiao) return false;
+    if (auditor && d.auditor !== auditor) return false;
+    if (filial && d.filial !== filial) return false;
+    if (cargo) {
+      const dc = d.cargo.replace(/^\d+-/,'').trim();
+      if (dc !== cargo) return false;
+    }
+    return true;
+  });
+  document.getElementById('kv-critico').textContent = base.filter(d=>d.status==='critico').length;
+  document.getElementById('kv-atencao').textContent = base.filter(d=>d.status==='atencao').length;
+  document.getElementById('kv-ok').textContent = base.filter(d=>d.status==='ok').length;
+  document.getElementById('kv-sup').textContent = base.filter(d=>d.isSup && d.saldo_min>0).length;
+}
+
+// ══════════════════════════════════════════════
+//  RENDER TABLE
+// ══════════════════════════════════════════════
+function statusBadge(s) {
+  if (s==='critico') return '<span class="badge badge-red">🔴 CRÍTICO</span>';
+  if (s==='atencao') return '<span class="badge badge-yellow">🟡 ATENÇÃO</span>';
+  if (s==='ok') return '<span class="badge badge-green">🟢 OK</span>';
+  if (s==='negativo') return '<span class="badge badge-gray">— negativo</span>';
+  return '<span class="badge badge-gray">— zero</span>';
+}
+function regiaBadge(r) {
+  if (r==='NORTE') return '<span class="badge badge-norte">NORTE</span>';
+  if (r==='SUL') return '<span class="badge badge-sul">SUL</span>';
+  return r||'—';
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  document.getElementById('table-count').textContent = filteredData.length + ' colaborador(es)';
+  
+  if (!filteredData.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="12">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = filteredData.map((d,i) => {
+    const rowClass = d.status==='critico'?'row-red': d.status==='atencao'?'row-yellow': d.status==='ok'?'row-green':'';
+    const obs = d._obs;
+    const obsText = obs ? `<span class="obs-cell has-obs" title="${obs.text}">📝 ${obs.text.substring(0,30)}${obs.text.length>30?'…':''}</span>`
+                        : `<span class="obs-cell">— clique para adicionar</span>`;
+    const supTag = d.isSup ? '<span class="sup-tag">SUP</span>' : '';
+    const cargoClean = d.cargo.replace(/^\d+-/,'').trim();
+    return `<tr class="${rowClass}" onclick="openModal(${i})">
+      <td>${d.filial}</td>
+      <td>${d.sigla}</td>
+      <td>${regiaBadge(d.regiao)}</td>
+      <td title="${d.auditor}">${d.auditor}</td>
+      <td title="${d.supervisor}">${d.supervisor||'—'}</td>
+      <td title="${d.nome}"><strong>${d.nome}</strong>${supTag}</td>
+      <td title="${cargoClean}">${cargoClean}</td>
+      <td>${d.credito}</td>
+      <td>${d.debito}</td>
+      <td><strong>${d.saldo}</strong></td>
+      <td>${statusBadge(d.status)}</td>
+      <td>${obsText}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSupTable() {
+  const sups = filteredData.filter(d => d.isSup && d.saldo_min > 0);
+  const tbody = document.getElementById('sup-body');
+  document.getElementById('sup-section').style.display = sups.length ? '' : 'none';
+  if (!sups.length) return;
+  
+  tbody.innerHTML = sups.map((d,i) => {
+    const rowClass = d.status==='critico'?'row-red': d.status==='atencao'?'row-yellow':'row-green';
+    const obs = d._obs;
+    const obsText = obs ? `<span class="obs-cell has-obs">📝 ${obs.text.substring(0,30)}${obs.text.length>30?'…':''}</span>`
+                        : `<span class="obs-cell">— clique para adicionar</span>`;
+    const idx = filteredData.indexOf(d);
+    return `<tr class="${rowClass}" onclick="openModal(${idx})">
+      <td><strong>${d.nome}</strong></td>
+      <td>${d.filial} ${d.sigla}</td>
+      <td>${regiaBadge(d.regiao)}</td>
+      <td>${d.auditor}</td>
+      <td>${d.cargo.replace(/^\d+-/,'').trim()}</td>
+      <td>${d.credito}</td>
+      <td><strong>${d.saldo}</strong></td>
+      <td>${statusBadge(d.status)}</td>
+      <td>${obsText}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════════
+function openModal(idx) {
+  const d = filteredData[idx];
+  currentRow = d;
+  document.getElementById('modal-nome').textContent = d.nome;
+  document.getElementById('m-matricula').textContent = d.matricula;
+  document.getElementById('m-cargo').textContent = d.cargo.replace(/^\d+-/,'').trim();
+  document.getElementById('m-filial').textContent = d.filial + ' — ' + d.estab;
+  document.getElementById('m-auditor').textContent = d.auditor;
+  document.getElementById('m-supervisor').textContent = d.supervisor||'—';
+  document.getElementById('m-regiao').textContent = d.regiao;
+  document.getElementById('m-credito').textContent = d.credito;
+  document.getElementById('m-debito').textContent = d.debito;
+  document.getElementById('m-saldo').textContent = d.saldo;
+  document.getElementById('m-saldo').className = d.saldo_min > 360 ? 'saldo-positivo' : d.saldo_min > 0 ? 'saldo-neutro' : 'saldo-neutro';
+  
+  const obs = d._obs;
+  const prevLabel = document.getElementById('obs-prev-label');
+  if (obs && obs.semana !== d.periodo) {
+    prevLabel.textContent = '⟳ observação de ' + (obs.semana||'semana anterior');
+    prevLabel.style.display='';
+  } else {
+    prevLabel.style.display='none';
+  }
+  document.getElementById('obs-textarea').value = obs ? obs.text : '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+  currentRow = null;
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// ══════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════
+function captureImage() {
+  const target = document.getElementById('capture-target');
+  // Capture the full main-content area
+  html2canvas(document.getElementById('main-content'), {
+    backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg').trim() || '#f0f2f5',
+    scale: 2,
+    useCORS: true,
+  }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    const now = new Date();
+    a.download = `BancoHoras_${now.toLocaleDateString('pt-BR').replace(/\//g,'-')}.png`;
+    a.click();
+  });
+}
+
+function exportExcel() {
+  const rows = [['Filial','Sigla','Região','Auditor','Supervisor','Colaborador','Cargo','Crédito','Débito','Saldo','Status','Observação']];
+  filteredData.forEach(d => {
+    const obs = d._obs ? d._obs.text : '';
+    rows.push([d.filial, d.sigla, d.regiao, d.auditor, d.supervisor||'—', d.nome, d.cargo.replace(/^\d+-/,'').trim(), d.credito, d.debito, d.saldo, d.status, obs]);
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = rows[0].map((_,i)=>({wch: [8,6,8,20,20,30,25,9,9,9,10,40][i]||15}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Banco de Horas');
+  const now = new Date();
+  XLSX.writeFile(wb, `BancoHoras_${now.toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`);
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+(function init() {
+  const saved = loadData();
+  if (saved && saved.length) {
+    allData = saved.map(d => ({...d, _obs: getObs(d.matricula)}));
+    // Restore period label
+    if (allData[0]?.periodo) {
+      const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      const [mm,yy] = allData[0].periodo.split('/');
+      const mf = meses[parseInt(mm)] ? meses[parseInt(mm)]+'/'+yy : allData[0].periodo;
+      document.getElementById('header-period').textContent = mf;
+      document.getElementById('header-period').style.display='';
+    }
+    showPanel();
+  } else {
+    showUpload();
+  }
+})();
+</script>
+</body>
+</html>
