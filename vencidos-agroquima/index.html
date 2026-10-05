@@ -869,6 +869,15 @@ tbody tr{transition:.1s}tbody tr:hover td{background:var(--bg2)}
       </div>
       <button class="btn xs ghost" id="fut-clear-btn" onclick="clearFutFiltros()" style="display:none;color:var(--red);border-color:var(--red);white-space:nowrap"><i class="ti ti-x"></i> Limpar filtros</button>
     </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;flex-shrink:0">Vence em:</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="fut-banda-30" class="ws-btn" style="padding:6px 14px;font-size:12px" onclick="toggleFutBanda('30')" title="Produtos que vencem em até 30 dias">≤ 30 dias</button>
+        <button id="fut-banda-60" class="ws-btn" style="padding:6px 14px;font-size:12px" onclick="toggleFutBanda('60')" title="Produtos que vencem entre 31 e 60 dias (ativa ≤30 também)">31 – 60 dias</button>
+        <button id="fut-banda-90" class="ws-btn" style="padding:6px 14px;font-size:12px" onclick="toggleFutBanda('90')" title="Produtos que vencem entre 61 e 90 dias (ativa as anteriores também)">61 – 90 dias</button>
+      </div>
+      <span style="font-size:11px;color:var(--text3)">— selecione uma ou mais faixas; clique novamente para desfiltrar</span>
+    </div>
     <div id="futuro-filtro-ativo" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;align-items:center;gap:8px"></div>
   </div>
 
@@ -3218,6 +3227,7 @@ let futFiltroFab='';
 let futFiltroLinha='';
 let futFiltroLojas=new Set();
 let futFiltroMes='';
+let futBandas=new Set();
 
 function _futMesKey(r){
   const vt=pdate(r.DtVenc);if(!vt)return null;
@@ -3239,6 +3249,12 @@ function _futAplicaFiltros(arr,skip={}){
   if(!skip.linha&&futFiltroLinha)r=r.filter(x=>cleanLinha(x.Desc)===futFiltroLinha);
   if(!skip.fab&&futFiltroFab)r=r.filter(x=>cleanFab(x.Fab)===futFiltroFab);
   if(!skip.mes&&futFiltroMes)r=r.filter(x=>_futMesKey(x)===futFiltroMes);
+  if(!skip.banda&&futBandas.size>0){
+    r=r.filter(x=>{
+      const d=x.Dias||0;
+      return (futBandas.has('30')&&d>=1&&d<=30)||(futBandas.has('60')&&d>=31&&d<=60)||(futBandas.has('90')&&d>=61&&d<=90);
+    });
+  }
   return r;
 }
 
@@ -3319,10 +3335,22 @@ function setFutMes(mes){
   futFiltroMes=futFiltroMes===mes?'':mes;
   renderFuturo();
 }
+function toggleFutBanda(b){
+  if(futBandas.has(b)){
+    futBandas.delete(b);
+  } else {
+    futBandas.add(b);
+    if(b==='60')futBandas.add('30');
+    if(b==='90'){futBandas.add('30');futBandas.add('60');}
+  }
+  ['30','60','90'].forEach(k=>{const el=document.getElementById('fut-banda-'+k);if(el)el.classList.toggle('active',futBandas.has(k));});
+  renderFuturo();
+}
 function clearFutFiltros(){
-  futFiltroReg='';futFiltroFab='';futFiltroLinha='';futFiltroLojas=new Set();futFiltroMes='';
+  futFiltroReg='';futFiltroFab='';futFiltroLinha='';futFiltroLojas=new Set();futFiltroMes='';futBandas=new Set();
   const fabSel=document.getElementById('fut-fab');if(fabSel)fabSel.value='';
   const linhaSel=document.getElementById('fut-linha');if(linhaSel)linhaSel.value='';
+  ['30','60','90'].forEach(k=>{const el=document.getElementById('fut-banda-'+k);if(el)el.classList.remove('active');});
   _futUpdateLojaOpts();
   renderFuturo();
 }
@@ -3428,7 +3456,7 @@ function renderFuturo(){
 
   const clearBtn=document.getElementById('fut-clear-btn');
   const filtroAtivo=document.getElementById('futuro-filtro-ativo');
-  const temFiltro=futFiltroReg||futFiltroFab||futFiltroLinha||futFiltroLojas.size>0||futFiltroMes;
+  const temFiltro=futFiltroReg||futFiltroFab||futFiltroLinha||futFiltroLojas.size>0||futFiltroMes||futBandas.size>0;
   if(clearBtn)clearBtn.style.display=temFiltro?'inline-flex':'none';
   if(filtroAtivo){
     if(temFiltro){
