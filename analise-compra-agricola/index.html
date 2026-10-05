@@ -127,6 +127,8 @@ select.flt:focus{outline:none;border-color:#0D47A1}
 .btn-cl:hover{background:var(--bg)}
 .btn-gav{padding:5px 13px;border:1.5px solid var(--border2);border-radius:6px;background:var(--surface);font-size:12px;font-weight:600;cursor:pointer;color:var(--txt);display:flex;align-items:center;gap:5px;transition:.15s}
 .btn-gav:hover{border-color:#0D47A1;color:#0D47A1}
+.btn-exp{padding:5px 14px;border:1.5px solid #0D47A1;border-radius:6px;background:#0D47A1;font-size:12px;font-weight:700;cursor:pointer;color:#fff;transition:.15s;display:flex;align-items:center;gap:5px}
+.btn-exp:hover{background:#1565C0;border-color:#1565C0}
 .gpill{display:inline-block;background:#0D47A1;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:2px}
 
 /* ── ABAS ── */
@@ -332,6 +334,8 @@ tbody tr:hover td{background:var(--row-hover)}
     </div>
     <div class="sep"></div>
     <button class="btn-cl" onclick="limpar()">↺ Limpar</button>
+    <div class="sep"></div>
+    <button class="btn-exp" onclick="exportarExcel()">⬇ Exportar Excel</button>
   </div>
 
   <div class="abas">
@@ -753,6 +757,84 @@ function updGpill(){
   const gp=document.getElementById('gpill');
   if(prodIgnore.size>0){gp.textContent=m+'/'+PRODS.length;gp.style.display='inline-block';}
   else gp.style.display='none';
+}
+
+// ── EXPORTAR EXCEL ────────────────────────────────────────────────────────────
+function exportarExcel(){
+  const d=df();
+  if(!d.length){alert('Nenhum dado para exportar com os filtros atuais.');return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,_exGeral(d),'Visão Geral');
+  XLSX.utils.book_append_sheet(wb,_exComprar(d),'O que Comprar');
+  XLSX.utils.book_append_sheet(wb,_exFornecedor(d),'Por Fornecedor');
+  const dt=new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  XLSX.writeFile(wb,'compras_'+dt+'.xlsx',{cellStyles:true});
+}
+
+const _S={
+  H:  {fill:{patternType:'solid',fgColor:{rgb:'FF0D47A1'}},font:{bold:true,color:{rgb:'FFFFFFFF'}}},
+  GP: {fill:{patternType:'solid',fgColor:{rgb:'FFD6E4F7'}},font:{bold:true,color:{rgb:'FF0D47A1'}}},
+  GF: {fill:{patternType:'solid',fgColor:{rgb:'FF0D47A1'}},font:{bold:true,color:{rgb:'FFFFFFFF'}}},
+  R:  {alignment:{horizontal:'right'}},
+  RR: {alignment:{horizontal:'right'},font:{color:{rgb:'FFC62828'}}},
+  COMPRAR:{fill:{patternType:'solid',fgColor:{rgb:'FFFDE8E8'}},font:{color:{rgb:'FFC62828'},bold:true}},
+  PARCIAL:{fill:{patternType:'solid',fgColor:{rgb:'FFFFF0E6'}},font:{color:{rgb:'FFE65100'},bold:true}},
+  ATENCAO:{fill:{patternType:'solid',fgColor:{rgb:'FFFFF8E1'}},font:{color:{rgb:'FFB45309'},bold:true}},
+  ATENDE: {fill:{patternType:'solid',fgColor:{rgb:'FFE8F5E9'}},font:{color:{rgb:'FF2E7D32'},bold:true}},
+};
+function _c(v,s,t){const cell={v:v==null?'':v};if(s)cell.s=s;cell.t=t||(typeof v==='number'?'n':'s');return cell;}
+function _exSheet(rows,cols){
+  const vals=rows.map(r=>r.map(c=>typeof c==='object'&&c!==null&&'v'in c?c.v:(c==null?'':c)));
+  const ws=XLSX.utils.aoa_to_sheet(vals);
+  rows.forEach((row,ri)=>row.forEach((cell,ci)=>{
+    if(typeof cell==='object'&&cell!==null&&(cell.s||cell.t)){
+      const ref=XLSX.utils.encode_cell({r:ri,c:ci});
+      if(ws[ref]){if(cell.s)ws[ref].s=cell.s;if(cell.t)ws[ref].t=cell.t;}
+    }
+  }));
+  if(cols)ws['!cols']=cols;
+  return ws;
+}
+function _exGeral(d){
+  let s=[...d];
+  if(GERAL_SORT.col){const col=GERAL_SORT.col,dir=GERAL_SORT.dir;s.sort((a,b)=>{const av=a[col],bv=b[col];if(typeof av==='string'||typeof bv==='string')return dir*String(av||'').localeCompare(String(bv||''));return dir*((av||0)-(bv||0));});}
+  else s.sort((a,b)=>SO[a.status]-SO[b.status]||b.dem-a.dem);
+  const H=_S.H,R=_S.R,RR=_S.RR;
+  const rows=[[_c('Região',H),_c('Filial',H),_c('Sigla',H),_c('Loja',H),_c('Código',H),_c('Produto',H),_c('Fornecedor',H),_c('Demanda',H),_c('Estoque',H),_c('GAP',H),_c('Status',H),_c('Pedidos',H)]];
+  s.forEach(r=>{rows.push([_c(r.regiao),_c(r.filial,{},'n'),_c(r.sigla),_c(r.loja),_c(r.codigo,{},'n'),_c(r.desc),_c(r.forn),_c(r.dem,R,'n'),_c(r.est,R,'n'),_c(r.gap,r.gap<0?RR:R,'n'),_c(SL[r.status],_S[r.status]),_c(r.ped,R,'n')]);});
+  return _exSheet(rows,[{wch:8},{wch:8},{wch:7},{wch:22},{wch:9},{wch:35},{wch:30},{wch:11},{wch:11},{wch:11},{wch:10},{wch:8}]);
+}
+function _exComprar(d){
+  const itens=d.filter(r=>r.status==='COMPRAR'||r.status==='PARCIAL');
+  if(!itens.length)return XLSX.utils.aoa_to_sheet([['Nenhum item a comprar com os filtros atuais.']]);
+  const map={};
+  itens.forEach(r=>{if(!map[r.codigo])map[r.codigo]={codigo:r.codigo,desc:r.desc,forn:r.forn,rows:[]};map[r.codigo].rows.push(r);});
+  const prods=Object.values(map).sort((a,b)=>b.rows.length-a.rows.length);
+  const H=_S.H,GP=_S.GP,R=_S.R;
+  const rows=[[_c('Código',H),_c('Produto',H),_c('Fornecedor',H),_c('Sigla',H),_c('Filial',H),_c('Loja',H),_c('Região',H),_c('Demanda',H),_c('Estoque',H),_c('A Comprar',H),_c('Status',H)]];
+  prods.forEach(p=>{
+    const total=p.rows.reduce((s,r)=>s+Math.max(0,r.dem-r.est),0);
+    rows.push([_c(p.codigo,GP,'n'),_c(p.desc,GP),_c(p.forn,GP),_c('',GP),_c('',GP),_c(p.rows.length+' filial(is)',GP),_c('',GP),_c('',GP),_c('',GP),_c(total,{...GP,alignment:{horizontal:'right'}},'n'),_c('',GP)]);
+    p.rows.forEach(r=>{const falta=Math.max(0,r.dem-r.est);rows.push([_c(r.codigo,{},'n'),_c(r.desc),_c(r.forn),_c(r.sigla),_c(r.filial,{},'n'),_c(r.loja),_c(r.regiao),_c(r.dem,R,'n'),_c(r.est,R,'n'),_c(falta,R,'n'),_c(SL[r.status],_S[r.status])]);});
+  });
+  return _exSheet(rows,[{wch:9},{wch:35},{wch:30},{wch:7},{wch:8},{wch:22},{wch:8},{wch:11},{wch:11},{wch:11},{wch:10}]);
+}
+function _exFornecedor(d){
+  const itens=d.filter(r=>r.status==='COMPRAR'||r.status==='PARCIAL');
+  if(!itens.length)return XLSX.utils.aoa_to_sheet([['Nenhum item a comprar com os filtros atuais.']]);
+  const map={};
+  itens.forEach(r=>{if(!map[r.forn])map[r.forn]={nome:r.forn,prods:{}};const f=map[r.forn];if(!f.prods[r.codigo])f.prods[r.codigo]={codigo:r.codigo,desc:r.desc,rows:[]};f.prods[r.codigo].rows.push(r);});
+  const forns=Object.values(map).sort((a,b)=>a.nome.localeCompare(b.nome));
+  const H=_S.H,GF=_S.GF,R=_S.R;
+  const rows=[[_c('Fornecedor',H),_c('Código',H),_c('Produto',H),_c('Total a Comprar',H),_c('Detalhes por Filial',H)]];
+  forns.forEach(f=>{
+    const prods=Object.values(f.prods);
+    const totalForn=prods.reduce((s,p)=>s+p.rows.reduce((s2,r)=>s2+Math.max(0,r.dem-r.est),0),0);
+    const filsCount=new Set(prods.flatMap(p=>p.rows.map(r=>r.sigla))).size;
+    rows.push([_c(f.nome,GF),_c('',GF),_c(prods.length+' produto(s) · '+filsCount+' filial(is)',GF),_c(totalForn,{...GF,alignment:{horizontal:'right'}},'n'),_c('',GF)]);
+    prods.forEach(p=>{const total=p.rows.reduce((s,r)=>s+Math.max(0,r.dem-r.est),0);const filStr=p.rows.map(r=>r.sigla+'('+n(Math.max(0,r.dem-r.est))+')').join(' · ');rows.push([_c(f.nome),_c(p.codigo,{},'n'),_c(p.desc),_c(total,R,'n'),_c(filStr)]);});
+  });
+  return _exSheet(rows,[{wch:32},{wch:9},{wch:35},{wch:16},{wch:60}]);
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
