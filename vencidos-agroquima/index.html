@@ -124,10 +124,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* CARDS */
 .card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh)}
 .card-h{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-transform:uppercase;letter-spacing:.5px}
-.tbl-export-btns{margin-left:auto;display:flex;gap:3px;flex-shrink:0}
-.btn-export-tiny{width:26px!important;height:26px!important;opacity:.5;transition:opacity .15s}
-.btn-export-tiny:hover{opacity:1}
-.btn-export-tiny i{font-size:13px!important}
 .card-h i{font-size:17px;color:var(--brand)}
 /* METRICS */
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
@@ -893,7 +889,7 @@ tbody tr{transition:.1s}tbody tr:hover td{background:var(--bg2)}
     </div>
 
     <div class="card" style="margin-bottom:22px">
-      <div class="card-h"><i class="ti ti-building-factory-2"></i> Por Fornecedor<div class="tbl-export-btns"><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabXlsx('futuro-fab','Por_Fornecedor')" title="Exportar XLSX"><i class="ti ti-file-spreadsheet"></i></button><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabPng(this,'Por_Fornecedor')" title="Exportar PNG"><i class="ti ti-photo"></i></button></div></div>
+      <div class="card-h"><i class="ti ti-building-factory-2"></i> Por Fornecedor</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">Fornecedores com maior valor a vencer no período selecionado (top 10 no gráfico, todos na tabela). Clique numa barra ou linha para filtrar, ou use "Detalhar" para a composição completa por linha e filial.</div>
       <div class="chartbox" style="height:280px"><canvas id="ch-futuro-fab"></canvas></div>
       <div class="tw" style="margin-top:14px"><table><thead><tr><th>Fornecedor</th><th class="r">Itens</th><th class="r">Filiais</th><th class="r">Linhas</th><th class="r">Vence em (mín.)</th><th class="r">Valor (R$)</th><th class="r">% Total</th><th style="width:90px"></th></tr></thead><tbody id="futuro-fab"></tbody></table></div>
@@ -901,21 +897,21 @@ tbody tr{transition:.1s}tbody tr:hover td{background:var(--bg2)}
 
     <div class="g2" style="margin-bottom:22px">
       <div class="card">
-        <div class="card-h"><i class="ti ti-box"></i> Por Linha<div class="tbl-export-btns"><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabXlsx('futuro-linha','Por_Linha')" title="Exportar XLSX"><i class="ti ti-file-spreadsheet"></i></button><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabPng(this,'Por_Linha')" title="Exportar PNG"><i class="ti ti-photo"></i></button></div></div>
+        <div class="card-h"><i class="ti ti-box"></i> Por Linha</div>
         <div class="tw"><table><thead><tr><th>Linha</th><th class="r">Itens</th><th class="r">Fornec.</th><th class="r">Valor (R$)</th></tr></thead><tbody id="futuro-linha"></tbody></table></div>
       </div>
       <div class="card">
-        <div class="card-h"><i class="ti ti-map-pin"></i> Por Regional<div class="tbl-export-btns"><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabXlsx('futuro-reg','Por_Regional')" title="Exportar XLSX"><i class="ti ti-file-spreadsheet"></i></button><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabPng(this,'Por_Regional')" title="Exportar PNG"><i class="ti ti-photo"></i></button></div></div>
+        <div class="card-h"><i class="ti ti-map-pin"></i> Por Regional</div>
         <div class="tw"><table><thead><tr><th>Regional</th><th class="r">Itens</th><th class="r">Valor (R$)</th></tr></thead><tbody id="futuro-reg"></tbody></table></div>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:22px">
-      <div class="card-h"><i class="ti ti-building-store"></i> Por Filial<div class="tbl-export-btns"><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabXlsx('futuro-filial','Por_Filial')" title="Exportar XLSX"><i class="ti ti-file-spreadsheet"></i></button><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabPng(this,'Por_Filial')" title="Exportar PNG"><i class="ti ti-photo"></i></button></div></div>
+      <div class="card-h"><i class="ti ti-building-store"></i> Por Filial</div>
       <div class="tw"><table><thead><tr><th>Filial</th><th>Regional</th><th class="r">Itens</th><th class="r">Valor (R$)</th></tr></thead><tbody id="futuro-filial"></tbody></table></div>
     </div>
 
-    <div class="card"><div class="card-h"><i class="ti ti-list-check"></i> Todos os lotes a vencer (<span id="futuro-count">0</span>)<div class="tbl-export-btns"><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabXlsx('futuro-list','Todos_os_Lotes')" title="Exportar XLSX"><i class="ti ti-file-spreadsheet"></i></button><button class="btn ghost icon-only btn-export-tiny" onclick="exportFutTabPng(this,'Todos_os_Lotes')" title="Exportar PNG"><i class="ti ti-photo"></i></button></div></div>
+    <div class="card"><div class="card-h"><i class="ti ti-list-check"></i> Todos os lotes a vencer (<span id="futuro-count">0</span>)</div>
       <div class="tw"><table><thead><tr><th>Produto</th><th>Fornecedor</th><th>Linha</th><th>Lote</th><th>Filial</th><th class="r">Qtd</th><th class="r">Vencimento</th><th class="r">Faltam</th><th class="r">Valor (R$)</th></tr></thead><tbody id="futuro-list"></tbody></table></div>
     </div>
   </div>
@@ -3350,36 +3346,6 @@ function exportarFuturoXlsx(){
   const fname='vencimento_futuro_'+futWindow+'d'+(futFiltroFab?'_'+futFiltroFab.replace(/\s+/g,'_').slice(0,20):'')+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
   XLSX.writeFile(wb,fname);
   toast('XLSX exportado!','green');
-}
-
-function exportFutTabXlsx(tbodyId,name){
-  if(typeof XLSX==='undefined'){toast('Biblioteca XLSX não carregada','red');return;}
-  const tbody=document.getElementById(tbodyId);
-  if(!tbody||!tbody.rows.length){toast('Tabela vazia','amber');return;}
-  const table=tbody.closest('table');
-  const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.table_to_sheet(table);
-  XLSX.utils.book_append_sheet(wb,ws,name.replace(/_/g,' ').slice(0,31));
-  XLSX.writeFile(wb,name+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  toast('XLSX exportado!','green');
-}
-
-function exportFutTabPng(btn,name){
-  if(typeof html2canvas==='undefined'){toast('Biblioteca html2canvas não carregada','red');return;}
-  const card=btn.closest('.card');
-  if(!card)return;
-  // hide export buttons during capture
-  const btns=card.querySelectorAll('.tbl-export-btns');
-  btns.forEach(b=>b.style.visibility='hidden');
-  const bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#ffffff';
-  html2canvas(card,{scale:2,useCORS:true,backgroundColor:bg}).then(canvas=>{
-    btns.forEach(b=>b.style.visibility='');
-    const a=document.createElement('a');
-    a.href=canvas.toDataURL('image/png');
-    a.download=name+'_'+new Date().toISOString().slice(0,10)+'.png';
-    a.click();
-    toast('PNG exportado!','green');
-  }).catch(()=>{btns.forEach(b=>b.style.visibility='');toast('Erro ao gerar PNG','red');});
 }
 
 function renderFuturo(){
