@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Produção Diária — FL 13</title>
+<style>
+:root {
+  --azul-royal:#0D47A1; --azul-escuro:#002B5B; --azul-claro:#64B5F6;
+  --azul-mid:#1565C0; --cinza:#333; --cinza-claro:#E6E6E6;
+  --branco:#FFF; --verde:#2E7D32; --laranja:#E65100; --roxo:#6A1B9A;
+  --fundo:#F0F4F8;
+  box-sizing:border-box;
+}
+*,*::before,*::after{box-sizing:inherit;}
+body{margin:0;background:var(--fundo);font-family:'Segoe UI',Arial,sans-serif;color:var(--cinza);-webkit-font-smoothing:antialiased;}
+
+/* HEADER */
+header{background:linear-gradient(135deg,var(--azul-escuro),var(--azul-royal));color:#fff;position:relative;overflow:hidden;}
+header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--azul-claro);}
+.header-inner{max-width:1100px;margin:0 auto;padding:24px 32px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.brand-label{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--azul-claro);display:block;margin-bottom:4px;}
+.brand-name{font-size:22px;font-weight:700;color:#fff;}
+.header-meta{text-align:right;font-size:12px;color:rgba(255,255,255,.7);line-height:1.6;}
+.header-meta strong{color:#fff;font-size:14px;display:block;}
+
+/* SELETOR DE MESES */
+.mes-bar{background:var(--azul-escuro);padding:12px 32px;max-width:none;}
+.mes-bar-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.mes-bar-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--azul-claro);white-space:nowrap;}
+.mes-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.mes-chip{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:20px;padding:4px 12px;cursor:pointer;transition:all .15s;user-select:none;}
+.mes-chip:hover{background:rgba(255,255,255,.15);border-color:var(--azul-claro);}
+.mes-chip.ativo{background:var(--azul-royal);border-color:var(--azul-claro);}
+.mes-chip input{display:none;}
+.mes-chip span{font-size:12px;font-weight:600;color:#fff;}
+.mes-chip .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3);}
+.mes-chip.ativo .dot{background:var(--azul-claro);}
+.mes-chip.tem-dados .dot{background:#4CAF50;}
+.mes-chip.ativo.tem-dados .dot{background:#81C784;}
+
+/* CARDS */
+.section{max-width:1100px;margin:0 auto;padding:20px 32px 0;}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin:0 0 10px;}
+.cards-row{display:grid;gap:10px;margin-bottom:10px;}
+.cols5{grid-template-columns:repeat(5,1fr);}
+.cols4{grid-template-columns:repeat(4,1fr);}
+.card{background:var(--branco);border-radius:10px;padding:14px 16px;border-left:5px solid var(--azul-royal);box-shadow:0 2px 8px rgba(13,71,161,.10);}
+.card.verde{border-left-color:var(--verde);}
+.card.laranja{border-left-color:var(--laranja);}
+.card.roxo{border-left-color:var(--roxo);}
+.card.destaque{border-left-color:var(--azul-claro);background:var(--azul-escuro);}
+.card-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--azul-royal);margin-bottom:4px;}
+.card.verde .card-label{color:var(--verde);}
+.card.laranja .card-label{color:var(--laranja);}
+.card.roxo .card-label{color:var(--roxo);}
+.card.destaque .card-label{color:var(--azul-claro);}
+.card-valor{font-size:26px;font-weight:700;color:var(--azul-escuro);line-height:1;}
+.card.verde .card-valor{color:var(--verde);}
+.card.laranja .card-valor{color:var(--laranja);}
+.card.roxo .card-valor{color:var(--roxo);}
+.card.destaque .card-valor{color:#fff;}
+.card-unidade{font-size:10px;opacity:.6;margin-top:3px;}
+
+/* BLOCO MÊS */
+.mes-bloco{max-width:1100px;margin:0 auto;padding:20px 32px 0;}
+.mes-bloco-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.mes-bloco-title{font-size:14px;font-weight:700;color:var(--azul-royal);text-transform:uppercase;letter-spacing:.06em;}
+.mes-resumo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+.mr-card{background:var(--branco);border-radius:8px;padding:10px 14px;border-top:3px solid var(--azul-royal);box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.mr-card.verde{border-top-color:var(--verde);}
+.mr-card.destaque{border-top-color:var(--azul-claro);background:var(--azul-escuro);}
+.mr-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--azul-royal);margin-bottom:2px;}
+.mr-card.verde .mr-label{color:var(--verde);}
+.mr-card.destaque .mr-label{color:var(--azul-claro);}
+.mr-valor{font-size:18px;font-weight:700;color:var(--azul-escuro);}
+.mr-card.verde .mr-valor{color:var(--verde);}
+.mr-card.destaque .mr-valor{color:#fff;}
+.mr-sub{font-size:10px;color:#999;margin-top:1px;}
+
+/* TABELA */
+.table-wrap{overflow-x:auto;margin-bottom:28px;}
+table{width:100%;border-collapse:collapse;background:var(--branco);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.07);min-width:800px;}
+thead tr.th-g{background:#001d3f;}
+thead tr.th-g th{padding:7px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.75);text-align:center;border-right:1px solid rgba(255,255,255,.08);}
+thead tr.th-g th:first-child{text-align:left;}
+thead tr.th-c{background:var(--azul-royal);color:#fff;}
+thead tr.th-c th{padding:9px 10px;font-size:11px;font-weight:600;text-transform:uppercase;text-align:right;border-right:1px solid rgba(255,255,255,.1);}
+thead tr.th-c th:first-child{text-align:left;}
+thead tr.th-c th.ctr{text-align:center;}
+tbody tr{border-bottom:1px solid var(--cinza-claro);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#EEF4FF;}
+td{padding:8px 10px;font-size:13px;border-right:1px solid #f0f0f0;}
+td:last-child{border-right:none;}
+.td-data{font-weight:500;white-space:nowrap;}
+.td-dia{font-size:10px;color:#888;}
+.td-r{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;}
+.td-r.dim{color:#ccc;}
+.td-c{text-align:center;font-weight:700;}
+.td-c.dim{color:#ccc;}
+.td-c.ok{color:var(--azul-royal);}
+
+.ci{width:78px;border:1.5px solid transparent;border-radius:6px;padding:3px 7px;font-size:13px;font-weight:600;text-align:right;font-family:inherit;background:transparent;outline:none;transition:border-color .15s,background .15s;}
+.ci::placeholder{color:#ccc;font-weight:400;}
+.ci:hover{border-color:var(--azul-claro);background:#f0f7ff;}
+.ci:focus{border-color:var(--azul-royal);background:#e8f0fe;}
+.ci.u{color:var(--azul-royal);}
+.ci.r{color:var(--verde);}
+.ci.p{color:#333;width:58px;text-align:center;}
+.ci.p:hover{border-color:#aaa;background:#f9f9f9;}
+.ci.p:focus{border-color:#555;background:#f5f5f5;}
+.ci.cg{color:var(--laranja);}
+.ci.rc{color:var(--roxo);}
+
+tfoot tr.ft-t{background:var(--azul-escuro);color:#fff;}
+tfoot tr.ft-m{background:var(--azul-mid);color:#fff;}
+tfoot td{font-size:12px;font-weight:700;padding:9px 10px;text-align:right;border-right:1px solid rgba(255,255,255,.1);}
+tfoot td:first-child{text-align:left;}
+tfoot td.ctr{text-align:center;}
+
+.divider{max-width:1100px;margin:4px auto 0;padding:0 32px;}
+.divider hr{border:none;border-top:2px dashed var(--cinza-claro);margin:0;}
+
+.instrucao{max-width:1100px;margin:10px auto 0;padding:0 32px;font-size:11px;color:#888;}
+.instrucao span{color:var(--azul-royal);font-weight:600;}
+footer{max-width:1100px;margin:16px auto;padding:0 32px 28px;display:flex;justify-content:space-between;font-size:11px;color:#999;}
+
+.vazio-msg{text-align:center;padding:40px;color:#bbb;font-size:14px;}
+
+@media(max-width:800px){
+  .cols5,.cols4{grid-template-columns:repeat(2,1fr);}
+  .mes-resumo{grid-template-columns:repeat(2,1fr);}
+  .header-inner{flex-direction:column;gap:8px;padding:20px 16px;}
+  .header-meta{text-align:left;}
+  .section,.mes-bloco,.divider,.instrucao,footer{padding-left:16px;padding-right:16px;}
+  .mes-bar{padding:12px 16px;}
+}
+@media print{
+  body{background:white;}
+  .instrucao,.mes-bar{display:none;}
+  .ci{border:none!important;background:transparent!important;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <span class="brand-label">Relatório de Produção</span>
+      <span class="brand-name">Produção Diária — FL 13</span>
+    </div>
+    <div class="header-meta">
+      <strong id="h-periodo">—</strong>
+      Emitido em: <span id="data-emissao">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- SELETOR DE MESES -->
+<div class="mes-bar">
+  <div class="mes-bar-inner">
+    <span class="mes-bar-label">Meses:</span>
+    <div class="mes-chips" id="mes-chips"></div>
+  </div>
+</div>
+
+<!-- CARDS CONSOLIDADO -->
+<div class="section" id="secao-consolidado" style="display:none">
+  <div class="section-title" id="label-consolidado">Consolidado</div>
+  <div class="cards-row cols5">
+    <div class="card"><div class="card-label">Usinagem · Total</div><div class="card-valor" id="c-tu">0</div><div class="card-unidade">unidades</div></div>
+    <div class="card"><div class="card-label">Usinagem · Média/dia</div><div class="card-valor" id="c-mu">—</div><div class="card-unidade">un/dia</div></div>
+    <div class="card verde"><div class="card-label">Revestida · Total</div><div class="card-valor" id="c-tr">0</div><div class="card-unidade">unidades</div></div>
+    <div class="card verde"><div class="card-label">Revestida · Média/dia</div><div class="card-valor" id="c-mr">—</div><div class="card-unidade">un/dia</div></div>
+    <div class="card destaque"><div class="card-label">Total Geral</div><div class="card-valor" id="c-tg">0</div><div class="card-unidade">unidades</div></div>
+  </div>
+  <div class="cards-row cols4">
+    <div class="card"><div class="card-label">Pessoas · Média/dia</div><div class="card-valor" id="c-mp">—</div><div class="card-unidade">colaboradores</div></div>
+    <div class="card destaque"><div class="card-label">Prod/Pessoa · Média</div><div class="card-valor" id="c-ppp">—</div><div class="card-unidade">un/pessoa/dia</div></div>
+    <div class="card laranja"><div class="card-label">Carregamento · Total</div><div class="card-valor" id="c-tcg">0</div><div class="card-unidade">carregamentos</div></div>
+    <div class="card roxo"><div class="card-label">Recebimento · Total</div><div class="card-valor" id="c-trc">0</div><div class="card-unidade">descargas</div></div>
+  </div>
+</div>
+
+<!-- BLOCOS POR MÊS -->
+<div id="meses-container"></div>
+
+<div class="instrucao">
+  <span>✏️ Clique em qualquer célula</span> para digitar. Dados salvos automaticamente. <span>●</span> Verde = mês com dados lançados.
+</div>
+<footer>
+  <span>Agroquima Distribuidora · Uso interno</span>
+  <span>FL 13 · 2026</span>
+</footer>
+
+<script>
+const MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MESES_ABR   = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const DIAS_SEM    = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const ANO         = 2026;
+const STORAGE_KEY = 'producao_fl13';
+
+// ── STORAGE ──────────────────────────────────────────
+function carregar() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function salvar(bd) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bd)); } catch {}
+}
+
+let bd = carregar();
+
+// Dados iniciais de outubro (da planilha original)
+const outKey = `${ANO}-10`;
+if (!bd[outKey]) {
+  bd[outKey] = {};
+  [{d:13,u:400},{d:14,u:765,r:500},{d:15,u:970,r:522},{d:16,u:799,r:422}].forEach(v => {
+    bd[outKey][v.d] = {u:v.u??null, r:v.r??null, p:null, cg:null, rc:null};
+  });
+  salvar(bd);
+}
+
+function getDia(mesKey, dia) {
+  return bd[mesKey]?.[dia] || {u:null,r:null,p:null,cg:null,rc:null};
+}
+function setDia(mesKey, dia, campo, val) {
+  if (!bd[mesKey]) bd[mesKey] = {};
+  if (!bd[mesKey][dia]) bd[mesKey][dia] = {u:null,r:null,p:null,cg:null,rc:null};
+  bd[mesKey][dia][campo] = val;
+  salvar(bd);
+}
+
+// ── SELEÇÃO DE MESES ──────────────────────────────────
+let mesesAtivos = new Set([10]); // outubro ativo por padrão
+
+function diasDoMes(mes) { // mes = 1-12
+  return new Date(ANO, mes, 0).getDate();
+}
+
+function temDados(mes) {
+  const key = `${ANO}-${String(mes).padStart(2,'0')}`;
+  const m = bd[key];
+  if (!m) return false;
+  return Object.values(m).some(d => d.u!==null||d.r!==null||d.p!==null||d.cg!==null||d.rc!==null);
+}
+
+// Render chips
+const chipsEl = document.getElementById('mes-chips');
+for (let m=1; m<=12; m++) {
+  const chip = document.createElement('label');
+  chip.className = 'mes-chip' + (mesesAtivos.has(m)?' ativo':'') + (temDados(m)?' tem-dados':'');
+  chip.dataset.mes = m;
+  chip.innerHTML = `<div class="dot"></div><span>${MESES_ABR[m-1]}</span>`;
+  chip.addEventListener('click', () => toggleMes(m, chip));
+  chipsEl.appendChild(chip);
+}
+
+function toggleMes(m, chip) {
+  if (mesesAtivos.has(m)) {
+    mesesAtivos.delete(m);
+    chip.classList.remove('ativo');
+  } else {
+    mesesAtivos.add(m);
+    chip.classList.add('ativo');
+  }
+  renderTudo();
+}
+
+function atualizarChip(mes) {
+  const chip = chipsEl.querySelector(`[data-mes="${mes}"]`);
+  if (!chip) return;
+  chip.classList.toggle('tem-dados', temDados(mes));
+}
+
+// ── HELPERS ──────────────────────────────────────────
+const fmt  = n => n===null ? '—' : Math.round(n).toLocaleString('pt-BR');
+const fmtF = n => n===null||isNaN(n) ? '—' : parseFloat(n).toFixed(1);
+function calcMedia(soma, n) { return n===0 ? null : soma/n; }
+
+// ── RENDER TUDO ───────────────────────────────────────
+function renderTudo() {
+  const container = document.getElementById('meses-container');
+  container.innerHTML = '';
+
+  const ativos = [...mesesAtivos].sort((a,b)=>a-b);
+  const multi  = ativos.length > 1;
+
+  document.getElementById('secao-consolidado').style.display = ativos.length ? '' : 'none';
+  document.getElementById('label-consolidado').textContent =
+    multi ? `Consolidado — ${ativos.map(m=>MESES_NOMES[m-1]).join(', ')}` : `Resumo — ${MESES_NOMES[ativos[0]-1]} ${ANO}`;
+
+  if (!ativos.length) {
+    container.innerHTML = '<div class="vazio-msg">Selecione um ou mais meses para visualizar.</div>';
+    return;
+  }
+
+  // Acumuladores consolidados
+  let tot = {u:0,r:0,p:0,cg:0,rc:0};
+  let cnt = {u:0,r:0,p:0,cg:0,rc:0,any:0,ppp:0};
+  let sumPPP = 0;
+
+  ativos.forEach(mes => {
+    const bloco = renderMes(mes, multi);
+    container.appendChild(bloco.el);
+    // acumular
+    tot.u  += bloco.sum.u;  cnt.u  += bloco.cnt.u;
+    tot.r  += bloco.sum.r;  cnt.r  += bloco.cnt.r;
+    tot.p  += bloco.sum.p;  cnt.p  += bloco.cnt.p;
+    tot.cg += bloco.sum.cg; cnt.cg += bloco.cnt.cg;
+    tot.rc += bloco.sum.rc; cnt.rc += bloco.cnt.rc;
+    cnt.any+= bloco.cnt.any;
+    sumPPP += bloco.sumPPP; cnt.ppp+= bloco.cnt.ppp;
+  });
+
+  // Cards consolidados
+  const totG   = tot.u + tot.r;
+  const medPPP = cnt.ppp>0 ? Math.round(sumPPP/cnt.ppp) : null;
+  const medP   = cnt.p>0 ? (tot.p/cnt.p) : null;
+
+  set('c-tu',  fmt(tot.u));
+  set('c-mu',  fmt(calcMedia(tot.u, cnt.u)));
+  set('c-tr',  fmt(tot.r));
+  set('c-mr',  fmt(calcMedia(tot.r, cnt.r)));
+  set('c-tg',  fmt(totG));
+  set('c-mp',  fmtF(medP));
+  set('c-ppp', fmt(medPPP));
+  set('c-tcg', fmt(tot.cg));
+  set('c-trc', fmt(tot.rc));
+
+  // Período header
+  if (ativos.length===1) {
+    document.getElementById('h-periodo').textContent = `${MESES_NOMES[ativos[0]-1]} ${ANO}`;
+  } else {
+    document.getElementById('h-periodo').textContent =
+      `${MESES_ABR[ativos[0]-1]} – ${MESES_ABR[ativos[ativos.length-1]-1]} ${ANO}`;
+  }
+}
+
+// ── RENDER MÊS ────────────────────────────────────────
+function renderMes(mes, comResumo) {
+  const mesKey = `${ANO}-${String(mes).padStart(2,'0')}`;
+  const total  = diasDoMes(mes);
+  let sum = {u:0,r:0,p:0,cg:0,rc:0};
+  let cnt = {u:0,r:0,p:0,cg:0,rc:0,any:0};
+  let sumPPP=0, cntPPP=0;
+
+  // Calcular totais do mês
+  for (let d=1; d<=total; d++) {
+    const v = getDia(mesKey, d);
+    if (v.u!==null){sum.u+=v.u;cnt.u++;}
+    if (v.r!==null){sum.r+=v.r;cnt.r++;}
+    if (v.p!==null){sum.p+=v.p;cnt.p++;}
+    if (v.cg!==null){sum.cg+=v.cg;cnt.cg++;}
+    if (v.rc!==null){sum.rc+=v.rc;cnt.rc++;}
+    if (v.u!==null||v.r!==null)cnt.any++;
+    if ((v.u!==null||v.r!==null)&&v.p){sumPPP+=((v.u||0)+(v.r||0))/v.p;cntPPP++;}
+  }
+  const sumG=sum.u+sum.r;
+  const medPPP=cntPPP>0?Math.round(sumPPP/cntPPP):null;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mes-bloco';
+
+  // Mini resumo do mês (sempre visível)
+  const resumoHtml = `
+  <div class="mes-bloco-header">
+    <div class="mes-bloco-title">${MESES_NOMES[mes-1]} ${ANO}</div>
+    <span style="font-size:11px;color:#888">${cnt.any} dias com produção</span>
+  </div>
+  <div class="mes-resumo">
+    <div class="mr-card"><div class="mr-label">Usinagem</div><div class="mr-valor">${fmt(sum.u)}</div><div class="mr-sub">Média: ${fmt(calcMedia(sum.u,cnt.u))}/dia</div></div>
+    <div class="mr-card verde"><div class="mr-label">Revestida</div><div class="mr-valor">${fmt(sum.r)}</div><div class="mr-sub">Média: ${fmt(calcMedia(sum.r,cnt.r))}/dia</div></div>
+    <div class="mr-card destaque"><div class="mr-label">Total</div><div class="mr-valor">${fmt(sumG)}</div><div class="mr-sub">Prod/Pessoa: ${fmt(medPPP)}</div></div>
+    <div class="mr-card"><div class="mr-label">Carregam. / Recebim.</div><div class="mr-valor">${fmt(sum.cg)} / ${fmt(sum.rc)}</div><div class="mr-sub">Pessoas: ≈${fmtF(calcMedia(sum.p,cnt.p))}/dia</div></div>
+  </div>`;
+
+  // Tabela
+  const tableId = `tbl-${mesKey}`;
+  let rows = '';
+  for (let d=1; d<=total; d++) {
+    const dt  = new Date(ANO, mes-1, d);
+    const sem = DIAS_SEM[dt.getDay()];
+    const dia = String(d).padStart(2,'0');
+    const mesA= MESES_ABR[mes-1];
+    const v   = getDia(mesKey, d);
+    const temProd = v.u!==null||v.r!==null;
+    const totD = temProd ? (v.u||0)+(v.r||0) : null;
+    const ppp  = temProd&&v.p ? Math.round(((v.u||0)+(v.r||0))/v.p) : null;
+    rows += `<tr>
+      <td class="td-data">${dia} ${mesA} <span class="td-dia">${sem}</span></td>
+      <td><input class="ci u" data-mk="${mesKey}" data-d="${d}" data-c="u" type="number" min="0" placeholder="—" value="${v.u??''}"></td>
+      <td><input class="ci r" data-mk="${mesKey}" data-d="${d}" data-c="r" type="number" min="0" placeholder="—" value="${v.r??''}"></td>
+      <td class="td-r${totD===null?' dim':''}" id="${tableId}-g-${d}">${totD!==null?totD.toLocaleString('pt-BR'):'—'}</td>
+      <td style="text-align:center"><input class="ci p" data-mk="${mesKey}" data-d="${d}" data-c="p" type="number" min="0" placeholder="—" value="${v.p??''}"></td>
+      <td class="td-c ${ppp!==null?'ok':'dim'}" id="${tableId}-ppp-${d}">${ppp!==null?ppp.toLocaleString('pt-BR'):'—'}</td>
+      <td><input class="ci cg" data-mk="${mesKey}" data-d="${d}" data-c="cg" type="number" min="0" placeholder="—" value="${v.cg??''}"></td>
+      <td><input class="ci rc" data-mk="${mesKey}" data-d="${d}" data-c="rc" type="number" min="0" placeholder="—" value="${v.rc??''}"></td>
+    </tr>`;
+  }
+
+  const medP2 = calcMedia(sum.p,cnt.p);
+  wrapper.innerHTML = resumoHtml + `
+  <div class="table-wrap">
+    <table id="${tableId}">
+      <thead>
+        <tr class="th-g">
+          <th style="text-align:left">Data</th>
+          <th colspan="3">Produção</th>
+          <th colspan="2">Pessoas</th>
+          <th colspan="2">Movimentação</th>
+        </tr>
+        <tr class="th-c">
+          <th style="text-align:left">Data</th>
+          <th>Usinagem</th><th>Revestida</th><th>Total dia</th>
+          <th class="ctr">Pessoas</th><th class="ctr">Prod/Pessoa</th>
+          <th>Carregamento</th><th>Recebimento</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="ft-t">
+          <td>Total acumulado</td>
+          <td id="${tableId}-fu">${fmt(sum.u)}</td>
+          <td id="${tableId}-fr">${fmt(sum.r)}</td>
+          <td id="${tableId}-fg">${fmt(sumG)}</td>
+          <td class="ctr">—</td><td class="ctr">—</td>
+          <td id="${tableId}-fcg">${fmt(sum.cg)}</td>
+          <td id="${tableId}-frc">${fmt(sum.rc)}</td>
+        </tr>
+        <tr class="ft-m">
+          <td>Média por dia produzido</td>
+          <td id="${tableId}-mu">${fmt(calcMedia(sum.u,cnt.u))}</td>
+          <td id="${tableId}-mr">${fmt(calcMedia(sum.r,cnt.r))}</td>
+          <td id="${tableId}-mg">${fmt(calcMedia(sumG,cnt.any))}</td>
+          <td class="ctr" id="${tableId}-mp">${fmtF(medP2)}</td>
+          <td class="ctr" id="${tableId}-mppp">${fmt(medPPP)}</td>
+          <td id="${tableId}-mcg">${fmt(calcMedia(sum.cg,cnt.cg))}</td>
+          <td id="${tableId}-mrc">${fmt(calcMedia(sum.rc,cnt.rc))}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+
+  // Divider
+  const div = document.createElement('div');
+  div.className='divider'; div.innerHTML='<hr>';
+  wrapper.appendChild(div);
+
+  return { el:wrapper, sum, cnt, sumPPP, cnt:{...cnt,ppp:cntPPP} };
+}
+
+// ── EVENTOS DE INPUT (delegado no container) ──────────
+document.getElementById('meses-container').addEventListener('input', e => {
+  if (!e.target.classList.contains('ci')) return;
+  const {mk, d, c} = e.target.dataset;
+  const val = e.target.value==='' ? null : +e.target.value;
+  setDia(mk, +d, c, val);
+  atualizarChip(+mk.split('-')[1]);
+
+  // Atualizar células calculadas da linha
+  const mes  = +mk.split('-')[1];
+  const v    = getDia(mk, +d);
+  const tid  = `tbl-${mk}`;
+  const temP = v.u!==null||v.r!==null;
+  const totD = temP?(v.u||0)+(v.r||0):null;
+  const ppp  = temP&&v.p?Math.round(totD/v.p):null;
+  const gEl  = document.getElementById(`${tid}-g-${d}`);
+  const pEl  = document.getElementById(`${tid}-ppp-${d}`);
+  if (gEl){ gEl.textContent=totD!==null?totD.toLocaleString('pt-BR'):'—'; gEl.className='td-r'+(totD===null?' dim':''); }
+  if (pEl){ pEl.textContent=ppp!==null?ppp.toLocaleString('pt-BR'):'—'; pEl.className='td-c '+(ppp!==null?'ok':'dim'); }
+
+  // Recalcular rodapé + cards consolidados
+  recalcularMes(mk);
+  recalcularConsolidado();
+});
+
+function recalcularMes(mesKey) {
+  const mes   = +mesKey.split('-')[1];
+  const total = diasDoMes(mes);
+  const tid   = `tbl-${mesKey}`;
+  let sum={u:0,r:0,p:0,cg:0,rc:0};
+  let cnt={u:0,r:0,p:0,cg:0,rc:0,any:0};
+  let sumPPP=0,cntPPP=0;
+  for(let d=1;d<=total;d++){
+    const v=getDia(mesKey,d);
+    if(v.u!==null){sum.u+=v.u;cnt.u++;}
+    if(v.r!==null){sum.r+=v.r;cnt.r++;}
+    if(v.p!==null){sum.p+=v.p;cnt.p++;}
+    if(v.cg!==null){sum.cg+=v.cg;cnt.cg++;}
+    if(v.rc!==null){sum.rc+=v.rc;cnt.rc++;}
+    if(v.u!==null||v.r!==null)cnt.any++;
+    if((v.u!==null||v.r!==null)&&v.p){sumPPP+=((v.u||0)+(v.r||0))/v.p;cntPPP++;}
+  }
+  const sumG=sum.u+sum.r;
+  const medPPP=cntPPP>0?Math.round(sumPPP/cntPPP):null;
+  const medP=calcMedia(sum.p,cnt.p);
+  // rodapé tabela
+  setT(`${tid}-fu`,fmt(sum.u)); setT(`${tid}-fr`,fmt(sum.r)); setT(`${tid}-fg`,fmt(sumG));
+  setT(`${tid}-fcg`,fmt(sum.cg)); setT(`${tid}-frc`,fmt(sum.rc));
+  setT(`${tid}-mu`,fmt(calcMedia(sum.u,cnt.u))); setT(`${tid}-mr`,fmt(calcMedia(sum.r,cnt.r)));
+  setT(`${tid}-mg`,fmt(calcMedia(sumG,cnt.any))); setT(`${tid}-mp`,fmtF(medP));
+  setT(`${tid}-mppp`,fmt(medPPP)); setT(`${tid}-mcg`,fmt(calcMedia(sum.cg,cnt.cg)));
+  setT(`${tid}-mrc`,fmt(calcMedia(sum.rc,cnt.rc)));
+  // resumo mini cards (recria só os valores)
+  const bloco = document.querySelector(`.mes-bloco [id^="tbl-${mesKey}"]`)?.closest('.mes-bloco');
+  if(bloco){
+    const mrs = bloco.querySelectorAll('.mr-valor');
+    const subs= bloco.querySelectorAll('.mr-sub');
+    if(mrs[0]){mrs[0].textContent=fmt(sum.u); subs[0].textContent=`Média: ${fmt(calcMedia(sum.u,cnt.u))}/dia`;}
+    if(mrs[1]){mrs[1].textContent=fmt(sum.r); subs[1].textContent=`Média: ${fmt(calcMedia(sum.r,cnt.r))}/dia`;}
+    if(mrs[2]){mrs[2].textContent=fmt(sumG);  subs[2].textContent=`Prod/Pessoa: ${fmt(medPPP)}`;}
+    if(mrs[3]){mrs[3].textContent=`${fmt(sum.cg)} / ${fmt(sum.rc)}`; subs[3].textContent=`Pessoas: ≈${fmtF(medP)}/dia`;}
+    const header = bloco.querySelector('.mes-bloco-header span');
+    if(header) header.textContent=`${cnt.any} dias com produção`;
+  }
+}
+
+function recalcularConsolidado() {
+  const ativos=[...mesesAtivos].sort((a,b)=>a-b);
+  let tot={u:0,r:0,p:0,cg:0,rc:0};
+  let cnt={u:0,r:0,p:0,cg:0,rc:0,any:0,ppp:0};
+  let sumPPP=0;
+  ativos.forEach(mes=>{
+    const mesKey=`${ANO}-${String(mes).padStart(2,'0')}`;
+    const total=diasDoMes(mes);
+    for(let d=1;d<=total;d++){
+      const v=getDia(mesKey,d);
+      if(v.u!==null){tot.u+=v.u;cnt.u++;}
+      if(v.r!==null){tot.r+=v.r;cnt.r++;}
+      if(v.p!==null){tot.p+=v.p;cnt.p++;}
+      if(v.cg!==null){tot.cg+=v.cg;cnt.cg++;}
+      if(v.rc!==null){tot.rc+=v.rc;cnt.rc++;}
+      if(v.u!==null||v.r!==null)cnt.any++;
+      if((v.u!==null||v.r!==null)&&v.p){sumPPP+=((v.u||0)+(v.r||0))/v.p;cnt.ppp++;}
+    }
+  });
+  const totG=tot.u+tot.r;
+  const medPPP=cnt.ppp>0?Math.round(sumPPP/cnt.ppp):null;
+  set('c-tu',fmt(tot.u)); set('c-mu',fmt(calcMedia(tot.u,cnt.u)));
+  set('c-tr',fmt(tot.r)); set('c-mr',fmt(calcMedia(tot.r,cnt.r)));
+  set('c-tg',fmt(totG));  set('c-mp',fmtF(calcMedia(tot.p,cnt.p)));
+  set('c-ppp',fmt(medPPP)); set('c-tcg',fmt(tot.cg)); set('c-trc',fmt(tot.rc));
+}
+
+function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function setT(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+
+// ── INIT ─────────────────────────────────────────────
+const hoje=new Date();
+document.getElementById('data-emissao').textContent=
+  `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+renderTudo();
+</script>
+</body>
+</html>
