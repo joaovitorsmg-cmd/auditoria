@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Produção Diária — FL 13</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
 <style>
 :root {
   --azul-royal:#0D47A1; --azul-escuro:#002B5B; --azul-claro:#64B5F6;
@@ -141,6 +142,64 @@ footer{max-width:1100px;margin:16px auto;padding:0 32px 28px;display:flex;justif
   .instrucao,.mes-bar{display:none;}
   .ci{border:none!important;background:transparent!important;}
 }
+
+/* ROW VISIBILITY */
+tr.row-domingo{display:none;}
+tr.row-vazio{display:none;}
+.table-wrap[data-show-dom="1"] tr.row-domingo{display:table-row;}
+.table-wrap[data-show-vz="1"] tr.row-vazio{display:table-row;}
+tr.row-domingo td{background:#fafafa;}
+tr.row-domingo .ci{color:#aaa;}
+
+/* TOGGLE BUTTONS */
+.tbl-toggles{display:flex;align-items:center;gap:6px;}
+.btn-toggle{font-size:10px;font-weight:600;padding:3px 10px;border-radius:12px;border:1.5px solid;cursor:pointer;transition:all .15s;background:transparent;line-height:1.4;}
+.btn-toggle.dom{color:#999;border-color:#ddd;}
+.btn-toggle.dom.on{color:#fff;background:#999;border-color:#999;}
+.btn-toggle.vz{color:var(--azul-royal);border-color:var(--azul-claro);}
+.btn-toggle.vz.on{color:#fff;background:var(--azul-royal);border-color:var(--azul-royal);}
+
+/* PRINT BUTTON */
+#btn-salvar{position:fixed;left:20px;bottom:32px;z-index:100;background:var(--verde);color:#fff;border:none;border-radius:50px;padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(46,125,50,.4);transition:all .2s;display:flex;align-items:center;gap:6px;}
+#btn-salvar:hover{background:#1b5e20;box-shadow:0 6px 20px rgba(46,125,50,.5);}
+#btn-salvar:disabled{opacity:.7;cursor:wait;}
+#btn-print{position:fixed;right:20px;bottom:32px;z-index:100;background:var(--azul-royal);color:#fff;border:none;border-radius:50px;padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(13,71,161,.4);transition:all .2s;display:flex;align-items:center;gap:6px;}
+#btn-print:hover{background:var(--azul-escuro);box-shadow:0 6px 20px rgba(13,71,161,.5);}
+.sync-status{position:fixed;left:20px;bottom:80px;z-index:100;font-size:11px;color:#888;background:rgba(255,255,255,.9);padding:4px 10px;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.1);display:none;}
+.sync-status.vis{display:block;}
+
+/* PRINT MODAL */
+#print-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center;}
+#print-modal.open{display:flex;}
+.pm-box{background:#fff;border-radius:12px;padding:32px;max-width:520px;width:90%;max-height:90vh;overflow-y:auto;}
+.pm-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;}
+.pm-title{font-size:16px;font-weight:700;color:var(--azul-escuro);}
+.pm-sub{font-size:11px;color:#888;margin-top:2px;}
+.pm-close{background:none;border:none;font-size:22px;cursor:pointer;color:#bbb;padding:0;line-height:1;}
+.pm-close:hover{color:#555;}
+.pm-section{margin-bottom:20px;}
+.pm-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px;}
+.pm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pm-item{background:var(--fundo);border-radius:8px;padding:10px 14px;}
+.pm-item.wide{grid-column:1/-1;}
+.pm-item-label{font-size:9px;font-weight:600;text-transform:uppercase;color:#888;margin-bottom:2px;}
+.pm-item-valor{font-size:22px;font-weight:700;color:var(--azul-escuro);}
+.pm-item.verde .pm-item-valor{color:var(--verde);}
+.pm-item.destaque{background:var(--azul-escuro);}
+.pm-item.destaque .pm-item-label{color:var(--azul-claro);}
+.pm-item.destaque .pm-item-valor{color:#fff;}
+.pm-sem-dados{text-align:center;padding:20px;color:#bbb;font-size:13px;}
+.pm-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;border-top:1px solid #eee;padding-top:16px;}
+.pm-btn{padding:8px 20px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+.pm-btn.print{background:var(--azul-royal);color:#fff;}
+.pm-btn.cancel{background:#f0f0f0;color:#555;}
+
+@media print{
+  body>*:not(#print-modal){display:none!important;}
+  #print-modal{display:block!important;position:static!important;background:none!important;}
+  .pm-box{box-shadow:none;padding:0;max-width:100%;border-radius:0;}
+  .pm-actions,.pm-close{display:none!important;}
+}
 </style>
 </head>
 <body>
@@ -195,6 +254,31 @@ footer{max-width:1100px;margin:16px auto;padding:0 32px 28px;display:flex;justif
   <span>FL 13 · 2026</span>
 </footer>
 
+<!-- BOTÃO SALVAR -->
+<button id="btn-salvar" onclick="salvarSupabase()">💾 Salvar</button>
+<div class="sync-status" id="sync-status"></div>
+
+<!-- BOTÃO PRINT -->
+<button id="btn-print" onclick="abrirPrint()">🖨️ Print</button>
+
+<!-- MODAL PRINT -->
+<div id="print-modal">
+  <div class="pm-box">
+    <div class="pm-header">
+      <div>
+        <div class="pm-title" id="pm-titulo"></div>
+        <div class="pm-sub" id="pm-data"></div>
+      </div>
+      <button class="pm-close" onclick="fecharPrint()">✕</button>
+    </div>
+    <div id="pm-corpo"></div>
+    <div class="pm-actions">
+      <button class="pm-btn cancel" onclick="fecharPrint()">Fechar</button>
+      <button class="pm-btn print" onclick="window.print()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES_ABR   = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -202,24 +286,63 @@ const DIAS_SEM    = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const ANO         = 2026;
 const STORAGE_KEY = 'producao_fl13';
 
-// ── STORAGE ──────────────────────────────────────────
-function carregar() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
-}
-function salvar(bd) {
+// ── SUPABASE ─────────────────────────────────────────
+const SUPA_URL = 'https://yeburvkopwbmnfcmthtz.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllYnVydmtvcHdibW5mY210aHR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2ODk5NDMsImV4cCI6MjEwODI2NTk0M30.3t-4Q8SM9XV0OdQLHktMUmKNItg1byBkyv0HGN3B-74';
+const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let bd = {};
+
+function salvarLocal() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bd)); } catch {}
 }
 
-let bd = carregar();
+function mostrarStatus(msg, dur=3000) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg; el.classList.add('vis');
+  if (dur) setTimeout(() => el.classList.remove('vis'), dur);
+}
 
-// Dados iniciais de outubro (da planilha original)
-const outKey = `${ANO}-10`;
-if (!bd[outKey]) {
-  bd[outKey] = {};
-  [{d:13,u:400},{d:14,u:765,r:500},{d:15,u:970,r:522},{d:16,u:799,r:422}].forEach(v => {
-    bd[outKey][v.d] = {u:v.u??null, r:v.r??null, p:null, cg:null, rc:null};
-  });
-  salvar(bd);
+async function carregarSupabase() {
+  try {
+    const { data, error } = await supa.from('producao').select('*');
+    if (error) throw error;
+    const res = {};
+    data.forEach(row => {
+      if (!res[row.mes_key]) res[row.mes_key] = {};
+      res[row.mes_key][row.dia] = { u: row.u, r: row.r, p: row.p, cg: row.cg, rc: row.rc };
+    });
+    return res;
+  } catch(e) {
+    console.warn('Supabase indisponível, usando cache local:', e.message);
+    mostrarStatus('⚠️ Offline — usando dados locais', 5000);
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+  }
+}
+
+async function salvarSupabase() {
+  const btn = document.getElementById('btn-salvar');
+  btn.disabled = true; btn.textContent = '⏳ Salvando...';
+  try {
+    const rows = [];
+    Object.entries(bd).forEach(([mes_key, dias]) => {
+      Object.entries(dias).forEach(([dia, v]) => {
+        rows.push({ mes_key, dia: +dia, u: v.u, r: v.r, p: v.p, cg: v.cg, rc: v.rc,
+          updated_at: new Date().toISOString() });
+      });
+    });
+    if (!rows.length) { btn.textContent = '💾 Salvar'; btn.disabled = false; return; }
+    const { error } = await supa.from('producao').upsert(rows, { onConflict: 'mes_key,dia' });
+    if (error) throw error;
+    salvarLocal();
+    btn.textContent = '✅ Salvo!';
+    mostrarStatus('✅ Dados salvos para todos!');
+    setTimeout(() => { btn.textContent = '💾 Salvar'; btn.disabled = false; }, 2500);
+  } catch(e) {
+    btn.textContent = '❌ Erro';
+    mostrarStatus('❌ Falha ao salvar. Verifique a conexão.', 5000);
+    btn.disabled = false;
+  }
 }
 
 function getDia(mesKey, dia) {
@@ -229,7 +352,7 @@ function setDia(mesKey, dia, campo, val) {
   if (!bd[mesKey]) bd[mesKey] = {};
   if (!bd[mesKey][dia]) bd[mesKey][dia] = {u:null,r:null,p:null,cg:null,rc:null};
   bd[mesKey][dia][campo] = val;
-  salvar(bd);
+  salvarLocal();
 }
 
 // ── SELEÇÃO DE MESES ──────────────────────────────────
@@ -367,7 +490,11 @@ function renderMes(mes, comResumo) {
   const resumoHtml = `
   <div class="mes-bloco-header">
     <div class="mes-bloco-title">${MESES_NOMES[mes-1]} ${ANO}</div>
-    <span style="font-size:11px;color:#888">${cnt.any} dias com produção</span>
+    <div class="tbl-toggles">
+      <span style="font-size:11px;color:#888;margin-right:4px">${cnt.any} dias com produção</span>
+      <button class="btn-toggle vz" onclick="toggleVazios(this)" title="Mostrar/ocultar dias sem produção">+ Vazios</button>
+      <button class="btn-toggle dom" onclick="toggleDom(this)" title="Mostrar/ocultar domingos">📅 Dom</button>
+    </div>
   </div>
   <div class="mes-resumo">
     <div class="mr-card"><div class="mr-label">Usinagem</div><div class="mr-valor">${fmt(sum.u)}</div><div class="mr-sub">Média: ${fmt(calcMedia(sum.u,cnt.u))}/dia</div></div>
@@ -388,7 +515,10 @@ function renderMes(mes, comResumo) {
     const temProd = v.u!==null||v.r!==null;
     const totD = temProd ? (v.u||0)+(v.r||0) : null;
     const ppp  = temProd&&v.p ? Math.round(((v.u||0)+(v.r||0))/v.p) : null;
-    rows += `<tr>
+    const isDom = dt.getDay() === 0;
+    const temDadosDia = v.u!==null||v.r!==null||v.p!==null||v.cg!==null||v.rc!==null;
+    const rowCls = isDom ? 'row-domingo' : (!temDadosDia ? 'row-vazio' : '');
+    rows += `<tr${rowCls ? ` class="${rowCls}"` : ''}>
       <td class="td-data">${dia} ${mesA} <span class="td-dia">${sem}</span></td>
       <td><input class="ci u" data-mk="${mesKey}" data-d="${d}" data-c="u" type="number" min="0" placeholder="—" value="${v.u??''}"></td>
       <td><input class="ci r" data-mk="${mesKey}" data-d="${d}" data-c="r" type="number" min="0" placeholder="—" value="${v.r??''}"></td>
@@ -547,11 +677,105 @@ function recalcularConsolidado() {
 function set(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function setT(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 
+// ── TOGGLE DOMINGOS / VAZIOS ──────────────────────────
+function toggleDom(btn) {
+  const wrap = btn.closest('.mes-bloco').querySelector('.table-wrap');
+  const on = wrap.dataset.showDom === '1';
+  wrap.dataset.showDom = on ? '0' : '1';
+  btn.classList.toggle('on', !on);
+}
+
+function toggleVazios(btn) {
+  const wrap = btn.closest('.mes-bloco').querySelector('.table-wrap');
+  const on = wrap.dataset.showVz === '1';
+  wrap.dataset.showVz = on ? '0' : '1';
+  btn.classList.toggle('on', !on);
+}
+
+// ── PRINT ─────────────────────────────────────────────
+function abrirPrint() {
+  const agora = new Date();
+  const diaHoje = agora.getDate();
+  const mesHoje = agora.getMonth() + 1;
+  const anoHoje = agora.getFullYear();
+  const diaStr = `${String(diaHoje).padStart(2,'0')}/${String(mesHoje).padStart(2,'0')}/${anoHoje}`;
+
+  // Mês para print: preferir mês atual se ativo, senão primeiro ativo
+  const ativos = [...mesesAtivos].sort((a,b)=>a-b);
+  const mesPrint = ativos.includes(mesHoje) ? mesHoje : (ativos[0] || mesHoje);
+  const mesKey = `${ANO}-${String(mesPrint).padStart(2,'0')}`;
+
+  // Calcular consolidado do mês
+  const total = diasDoMes(mesPrint);
+  let sum={u:0,r:0,p:0,cg:0,rc:0};
+  let cnt={u:0,r:0,p:0,cg:0,rc:0,any:0};
+  let sumPPP=0, cntPPP=0;
+  for(let d=1;d<=total;d++){
+    const v=getDia(mesKey,d);
+    if(v.u!==null){sum.u+=v.u;cnt.u++;}
+    if(v.r!==null){sum.r+=v.r;cnt.r++;}
+    if(v.p!==null){sum.p+=v.p;cnt.p++;}
+    if(v.cg!==null){sum.cg+=v.cg;cnt.cg++;}
+    if(v.rc!==null){sum.rc+=v.rc;cnt.rc++;}
+    if(v.u!==null||v.r!==null)cnt.any++;
+    if((v.u!==null||v.r!==null)&&v.p){sumPPP+=((v.u||0)+(v.r||0))/v.p;cntPPP++;}
+  }
+  const sumG=sum.u+sum.r;
+  const medPPP=cntPPP>0?Math.round(sumPPP/cntPPP):null;
+
+  // Dados de hoje (somente se ANO e mês batem)
+  const vHoje = (anoHoje===ANO && mesHoje===mesPrint) ? getDia(mesKey, diaHoje) : null;
+  const totDHoje = vHoje&&(vHoje.u!==null||vHoje.r!==null) ? (vHoje.u||0)+(vHoje.r||0) : null;
+  const pppHoje = totDHoje!==null&&vHoje.p ? Math.round(totDHoje/vHoje.p) : null;
+
+  document.getElementById('pm-titulo').textContent = `Produção — ${MESES_NOMES[mesPrint-1]} ${ANO}`;
+  document.getElementById('pm-data').textContent = `Emitido em: ${diaStr}`;
+
+  document.getElementById('pm-corpo').innerHTML = `
+    <div class="pm-section">
+      <div class="pm-section-label">Consolidado do Mês · ${cnt.any} dias com produção</div>
+      <div class="pm-grid">
+        <div class="pm-item"><div class="pm-item-label">Usinagem Total</div><div class="pm-item-valor">${fmt(sum.u)}</div></div>
+        <div class="pm-item verde"><div class="pm-item-label">Revestida Total</div><div class="pm-item-valor">${fmt(sum.r)}</div></div>
+        <div class="pm-item destaque wide"><div class="pm-item-label">Total Geral do Mês</div><div class="pm-item-valor">${fmt(sumG)}</div></div>
+        <div class="pm-item"><div class="pm-item-label">Prod/Pessoa Média</div><div class="pm-item-valor">${fmt(medPPP)}</div></div>
+        <div class="pm-item"><div class="pm-item-label">Carregam. / Recebim.</div><div class="pm-item-valor">${fmt(sum.cg)} / ${fmt(sum.rc)}</div></div>
+      </div>
+    </div>
+    <div class="pm-section">
+      <div class="pm-section-label">Produção do Dia · ${diaStr}</div>
+      ${totDHoje!==null ? `
+      <div class="pm-grid">
+        <div class="pm-item"><div class="pm-item-label">Usinagem</div><div class="pm-item-valor">${fmt(vHoje.u)}</div></div>
+        <div class="pm-item verde"><div class="pm-item-label">Revestida</div><div class="pm-item-valor">${fmt(vHoje.r)}</div></div>
+        <div class="pm-item destaque wide"><div class="pm-item-label">Total do Dia</div><div class="pm-item-valor">${fmt(totDHoje)}</div></div>
+        <div class="pm-item"><div class="pm-item-label">Pessoas</div><div class="pm-item-valor">${fmt(vHoje.p)}</div></div>
+        <div class="pm-item"><div class="pm-item-label">Prod/Pessoa</div><div class="pm-item-valor">${fmt(pppHoje)}</div></div>
+      </div>` : `<div class="pm-sem-dados">Nenhuma produção registrada para hoje.</div>`}
+    </div>`;
+
+  document.getElementById('print-modal').classList.add('open');
+}
+
+function fecharPrint() {
+  document.getElementById('print-modal').classList.remove('open');
+}
+
+// Fechar modal clicando fora
+document.getElementById('print-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('print-modal')) fecharPrint();
+});
+
 // ── INIT ─────────────────────────────────────────────
-const hoje=new Date();
-document.getElementById('data-emissao').textContent=
-  `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
-renderTudo();
+(async () => {
+  const hoje = new Date();
+  document.getElementById('data-emissao').textContent =
+    `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+  document.getElementById('meses-container').innerHTML =
+    '<div class="vazio-msg">⏳ Carregando dados...</div>';
+  bd = await carregarSupabase();
+  renderTudo();
+})();
 </script>
 </body>
 </html>
