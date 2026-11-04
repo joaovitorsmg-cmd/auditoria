@@ -189,6 +189,14 @@
   }
   .btn-import-icon:hover { background: rgba(255,255,255,.1); color: var(--branco); opacity: 1; }
   #file-input { display: none; }
+  /* ── DRAG & DROP (global, roteia pra aba ativa) ──────────────────── */
+  #global-dropzone-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9500;
+    background: rgba(37,99,235,.16); border: 3px dashed var(--azul-med);
+    align-items: center; justify-content: center; pointer-events: none;
+  }
+  #global-dropzone-overlay.ativo { display: flex; }
+  .dropzone-msg { background: var(--bg-card); color: var(--accent-text); padding: 18px 30px; border-radius: 12px; font-size: 15px; font-weight: 700; box-shadow: var(--sombra); }
   .import-status { font-size: 11px; color: var(--verde); font-weight: 600; }
   .import-date-info { font-size: 11px; color: #B7C6E0; }
 
@@ -245,6 +253,31 @@
   #evol-table tbody tr:hover { background:var(--hover-row); }
   #evol-table thead th { cursor:pointer; user-select:none; }
   #evol-table thead th:hover { background:#2563EB88; }
+
+  /* ── EVOLUÇÃO: rankings e pequenos múltiplos (substituem a tabela como visão principal) ── */
+  .evol-bar-list { display:flex; flex-direction:column; gap:4px; }
+  .evol-bar-row { display:grid; grid-template-columns:150px 1fr 110px; align-items:center; gap:10px; min-width:0; }
+  .evol-bar-row .nome { font-size:12px; color:var(--texto-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .evol-bar-row .nome b { color:var(--texto); font-weight:700; }
+  .evol-bar-track { position:relative; height:20px; background:var(--bg-input); border-radius:5px; overflow:hidden; }
+  .evol-bar-fill { position:absolute; inset:0 auto 0 0; border-radius:5px; }
+  .evol-bar-row .val { font-size:11px; text-align:right; color:var(--texto); font-variant-numeric:tabular-nums; }
+  .evol-bar-row:hover .evol-bar-track { outline:1.5px solid var(--azul-med); outline-offset:1px; }
+  .evol-bar-legend { display:flex; flex-wrap:wrap; gap:12px; font-size:11px; color:var(--texto-sec); margin-top:10px; }
+  .evol-bar-legend .item { display:flex; align-items:center; gap:6px; }
+  .evol-bar-legend .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .evol-risk-note { margin-top:10px; font-size:11px; color:#60A5FA; background:rgba(96,165,250,.12); border-radius:8px; padding:8px 12px; }
+  .evol-risk-note:empty { display:none; }
+  .evol-spark-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(165px, 1fr)); gap:8px; }
+  .evol-spark-card { background:var(--bg-input); border:1px solid var(--cinza-bd); border-radius:10px; padding:10px 12px; min-width:0; }
+  .evol-spark-card .top { display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
+  .evol-spark-card .nome { font-size:11px; font-weight:700; color:var(--texto); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .evol-spark-card .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .evol-spark-card svg { width:100%; height:32px; display:block; margin-top:4px; }
+  .evol-spark-card .foot { display:flex; justify-content:space-between; align-items:baseline; margin-top:2px; }
+  .evol-spark-card .val { font-size:12px; font-weight:700; color:var(--texto); font-variant-numeric:tabular-nums; }
+  .evol-spark-card .pct { font-size:10px; font-variant-numeric:tabular-nums; }
+  @media (max-width:640px) { .evol-bar-row { grid-template-columns:100px 1fr 80px; } }
 
   .kpi-card { cursor:pointer; transition:box-shadow .15s, transform .1s; }
   .kpi-card:hover { box-shadow:0 0 0 2px #2563EB66; transform:translateY(-1px); }
@@ -888,7 +921,36 @@
             <button class="btn-slide-export" data-tip="Exportar slide PNG — todas as filiais ou o Regional selecionado" onclick="exportarSlideRegional()" title="Exportar Slide"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M9 10l2 2 4-4"/></svg></button>
           </div>
         </div>
-        <div style="overflow-x:auto">
+
+        <!-- Faturamento por filial: análise avulsa, não persiste (some ao recarregar) -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:var(--bg-input);border-radius:8px">
+          <button class="btn-limpar" style="width:auto;padding:6px 12px;font-size:12px" onclick="document.getElementById('fat-file-input').click()">📤 Enviar faturamento por filial</button>
+          <input type="file" id="fat-file-input" accept=".xls,.xlsx" style="display:none" onchange="importarFaturamento(this)">
+          <div id="fat-import-info" style="font-size:11px;color:var(--texto-mut)"></div>
+          <button id="fat-btn-limpar" class="btn-limpar" style="width:auto;padding:6px 10px;font-size:12px;display:none" onclick="limparFaturamento()">✕ Limpar</button>
+          <div id="fat-kpi-geral" style="margin-left:auto;font-size:12px;color:var(--texto-sec)"></div>
+          <div style="flex-basis:100%;font-size:10px;color:var(--texto-mut)">💡 Dados de faturamento são temporários — não ficam salvos: somem ao recarregar a página. Também dá pra digitar direto na coluna "Faturamento" de cada filial, na tabela completa.</div>
+        </div>
+
+        <!-- D60 por filial, maior pro menor -->
+        <div style="font-size:11px;font-weight:700;color:var(--texto-ter);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">D60 por filial — maior para o menor</div>
+        <div class="evol-bar-list" id="evol-risk-list"></div>
+        <div class="evol-bar-legend" id="evol-risk-legend"></div>
+        <div class="evol-risk-note" id="evol-risk-note"></div>
+
+        <!-- % Endividamento por filial -->
+        <div style="font-size:11px;font-weight:700;color:var(--texto-ter);text-transform:uppercase;letter-spacing:.5px;margin:22px 0 10px">% Endividamento por filial <span style="font-weight:400;text-transform:none;color:var(--texto-mut)">— D60 atual ÷ faturamento informado</span></div>
+        <div class="evol-bar-list" id="evol-endiv-list"></div>
+        <div id="evol-endiv-empty" style="display:none;font-size:11.5px;color:var(--texto-mut);padding:10px 0">Envie o faturamento por filial acima para ver este ranking.</div>
+
+        <!-- Tendência por filial (pequenos múltiplos) -->
+        <div style="font-size:11px;font-weight:700;color:var(--texto-ter);text-transform:uppercase;letter-spacing:.5px;margin:22px 0 10px">Tendência por filial</div>
+        <div class="evol-spark-grid" id="evol-spark-grid"></div>
+
+        <!-- Tabela completa: recolhida, para conferir valores exatos e exportar -->
+        <details style="margin-top:22px;border:1px solid var(--cinza-bd);border-radius:10px;overflow:hidden">
+          <summary style="list-style:none;cursor:pointer;padding:12px 16px;font-size:11.5px;font-weight:700;color:var(--texto-ter);text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between;align-items:center">Ver tabela completa (dados exatos para exportar/conferir) <span>▸</span></summary>
+        <div style="overflow-x:auto;border-top:1px solid var(--cinza-bd)">
           <table id="evol-table" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
             <thead>
               <tr style="background:var(--azul);color:var(--branco);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">
@@ -897,6 +959,8 @@
                 <th style="padding:9px 12px;text-align:left" onclick="evolOrdenar('regional')" title="Ordenar por Regional">Regional <span id="evol-arrow-regional"></span></th>
                 <th style="padding:9px 12px;text-align:right" onclick="evolOrdenar('inicio')" title="Ordenar pelo valor inicial">Jan/2026 <span id="evol-arrow-inicio"></span></th>
                 <th style="padding:9px 12px;text-align:right" onclick="evolOrdenar('atual')" title="Ordenar pelo valor atual">Atual <span id="evol-arrow-atual"></span></th>
+                <th style="padding:9px 12px;text-align:right;cursor:pointer" onclick="evolOrdenar('faturamento')" title="Digite ou envie a planilha de faturamento — não é salvo">Faturamento <span id="evol-arrow-faturamento"></span></th>
+                <th style="padding:9px 12px;text-align:right;cursor:pointer" onclick="evolOrdenar('endividamento')" title="D60 Atual ÷ Faturamento informado">% Endiv. <span id="evol-arrow-endividamento"></span></th>
                 <th style="padding:9px 12px;text-align:right;cursor:pointer" onclick="evolOrdenar('repr')" title="% do total D60 atual — representa o peso desta filial no portfólio">Repr. % <span id="evol-arrow-repr"></span></th>
                 <th style="padding:9px 12px;text-align:right" onclick="evolOrdenar('delta')" title="Ordenar por variação R$">Variação R$ <span id="evol-arrow-delta"></span></th>
                 <th style="padding:9px 12px;text-align:right" onclick="evolOrdenar('deltapct')" title="Ordenar por variação %">Var % <span id="evol-arrow-deltapct"></span></th>
@@ -908,6 +972,7 @@
             <tbody id="evol-tbody"></tbody>
           </table>
         </div>
+        </details>
       </div>
 
     </div>
@@ -1104,6 +1169,8 @@
 
           <div id="prov-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px"></div>
 
+          <div id="prov-projecao" style="margin-bottom:16px"></div>
+
           <div id="prov-table-wrap" style="background:var(--bg-card);border-radius:10px;overflow:hidden;box-shadow:var(--sombra)">
             <div style="overflow-x:auto">
               <table id="prov-table" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">
@@ -1142,6 +1209,26 @@
 
 <div id="toast"></div>
 <div id="evol-row-tooltip"></div>
+<div id="global-dropzone-overlay"><div class="dropzone-msg">📥 Solte a planilha aqui para importar</div></div>
+
+<!-- MODAL: SEMANA DE REFERÊNCIA DA IMPORTAÇÃO — calendário com atalhos de seta -->
+<div id="semana-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:10010;align-items:center;justify-content:center">
+  <div style="background:var(--bg-card);border:1px solid var(--cinza-bd);border-radius:12px;padding:24px;width:92%;max-width:380px;color:var(--texto)">
+    <div style="font-weight:700;font-size:15px;color:var(--accent-text);margin-bottom:4px">📅 Semana de referência</div>
+    <div style="font-size:12px;color:var(--texto-mut);margin-bottom:4px">Data desta atualização de vencidos — cria uma nova semana no histórico D60.</div>
+    <div id="semana-modal-arquivo" style="font-size:11px;color:var(--texto-ter);margin-bottom:14px;word-break:break-all"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px">
+      <button onclick="_semanaAjustar(-7)" title="7 dias antes" style="width:38px;height:38px;flex-shrink:0;border-radius:8px;border:1px solid var(--cinza-bd);background:var(--bg-input);color:var(--texto);font-size:16px;cursor:pointer">◀</button>
+      <input type="date" id="semana-modal-data" style="flex:1;min-width:0;padding:9px;border:1.5px solid var(--cinza-bd);border-radius:8px;background:var(--bg-input);color:var(--texto);font-size:14px;text-align:center">
+      <button onclick="_semanaAjustar(7)" title="7 dias depois" style="width:38px;height:38px;flex-shrink:0;border-radius:8px;border:1px solid var(--cinza-bd);background:var(--bg-input);color:var(--texto);font-size:16px;cursor:pointer">▶</button>
+    </div>
+    <div style="font-size:10px;color:var(--texto-mut);margin:-12px 0 16px">💡 As setas aqui do lado movem 7 dias (uma semana). Clique no campo pra abrir o calendário ou usar as setas do teclado (dia a dia).</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="_semanaCancelar()" style="padding:8px 16px;border:1px solid var(--cinza-bd);background:var(--bg-input);color:var(--texto);border-radius:6px;cursor:pointer">Cancelar</button>
+      <button onclick="_semanaConfirmar()" style="padding:8px 16px;background:#2563EB;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <div id="config-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--bg-card);border:1px solid var(--cinza-bd);border-radius:10px;padding:24px;min-width:340px;max-width:440px;color:var(--texto)">
@@ -1153,10 +1240,32 @@
     <button onclick="criarBinVencidos()" style="width:100%;padding:7px;background:var(--azul-bg);color:var(--accent-text);border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:14px">⚡ Criar bin automaticamente (usa a Master Key abaixo)</button>
     <label style="font-size:12px;color:#C3D2EA;display:block;margin-bottom:4px">JSONbin Master Key (Vencidos):</label>
     <input id="cfg-ven-key" type="password" placeholder="Master key" style="width:100%;padding:8px;border:1px solid var(--cinza-bd);border-radius:6px;font-size:13px;margin-bottom:14px;background:var(--bg-input);color:var(--texto)">
-    <button onclick="abrirHistorico()" style="width:100%;padding:7px;background:var(--azul-bg);color:var(--accent-text);border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:16px">🗂️ Histórico de Importações (editar/excluir semanas)</button>
+    <button onclick="abrirHistorico()" style="width:100%;padding:7px;background:var(--azul-bg);color:var(--accent-text);border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:10px">🗂️ Histórico de Importações (editar/excluir semanas)</button>
+    <button onclick="abrirLogImportacoes()" style="width:100%;padding:7px;background:var(--azul-bg);color:var(--accent-text);border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:16px">📋 Rastro de quem importou (usuário/data)</button>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button onclick="fecharConfig()" style="padding:8px 16px;border:1px solid var(--cinza-bd);background:var(--bg-input);color:var(--texto);border-radius:6px;cursor:pointer">Cancelar</button>
       <button onclick="salvarConfig()" style="padding:8px 16px;background:#2563EB;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RASTRO DE IMPORTAÇÕES (quem/quando — oculto, só via Configurações) -->
+<div id="log-import-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:var(--bg-card);border:1px solid var(--cinza-bd);border-radius:10px;padding:20px;width:94%;max-width:620px;max-height:80vh;display:flex;flex-direction:column;color:var(--texto)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:700;font-size:15px;color:var(--accent-text)">📋 Rastro de Importações</div>
+      <button onclick="fecharLogImportacoes()" style="background:transparent;border:none;color:var(--texto-sec);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="font-size:11.5px;opacity:.75;margin-bottom:10px">Quem subiu cada planilha de vencidos, e quando. Sincronizado entre dispositivos junto com os vencidos.</div>
+    <div style="overflow:auto;border:1px solid var(--cinza-bd);border-radius:8px;flex:1">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--azul);color:#fff;font-size:10px;text-transform:uppercase">
+          <th style="padding:7px 10px;text-align:left">Usuário</th>
+          <th style="padding:7px 10px;text-align:left">Arquivo</th>
+          <th style="padding:7px 10px;text-align:left">Data/Hora</th>
+        </tr></thead>
+        <tbody id="log-import-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1247,6 +1356,7 @@ let semanaAtual  = null;    // '2026-06-12'
 let auditorias   = {};      // {lj: [{auditor, data, d60_ref, pontuou, semana_ref}]}
 let filialSel    = null;
 let dadosTabela  = [];
+let logImportacoes = []; // [{usuario, arquivo, ts}] — rastro de quem importou os vencidos, sincronizado na nuvem
 
 // ════════════════════════════════════════════════════════════════════
 // LOGIN — perfis salvos
@@ -1428,7 +1538,7 @@ async function salvarNuvem() {
 async function salvarVencidosNuvem() {
   if (!JSONBIN_VEN_ID || !JSONBIN_VEN_KEY) return;
   try {
-    const payload = JSON.stringify({ vencidosData, semanaAtual, d60Hist: D60_HIST, ts: new Date().toISOString() });
+    const payload = JSON.stringify({ vencidosData, semanaAtual, d60Hist: D60_HIST, log: logImportacoes, ts: new Date().toISOString() });
     const comprimido = LZString.compressToBase64(payload);
     const r = await fetch('https://api.jsonbin.io/v3/b/' + JSONBIN_VEN_ID, {
       method: 'PUT',
@@ -1450,6 +1560,19 @@ function mesclarD60Hist(cloudHist) {
   });
 }
 
+// Mescla (não sobrescreve) para não perder o rastro de importações feitas em outro
+// dispositivo entre duas sincronizações.
+function mesclarLogImportacoes(cloudLog) {
+  if (!Array.isArray(cloudLog)) return;
+  const vistos = new Set(logImportacoes.map(l => l.ts + '|' + l.arquivo));
+  cloudLog.forEach(l => {
+    const chave = l.ts + '|' + l.arquivo;
+    if (!vistos.has(chave)) { logImportacoes.push(l); vistos.add(chave); }
+  });
+  logImportacoes.sort((a,b) => (a.ts < b.ts ? 1 : -1));
+  if (logImportacoes.length > 100) logImportacoes = logImportacoes.slice(0, 100);
+}
+
 async function carregarVencidosNuvem() {
   if (!JSONBIN_VEN_ID || !JSONBIN_VEN_KEY) return;
   try {
@@ -1466,6 +1589,7 @@ async function carregarVencidosNuvem() {
         vencidosData = registro.vencidosData;
         semanaAtual  = registro.semanaAtual || semanaAtual;
         mesclarD60Hist(registro.d60Hist);
+        mesclarLogImportacoes(registro.log);
         const ts = registro.ts ? new Date(registro.ts).toLocaleDateString('pt-BR') : '—';
         document.getElementById('import-status').innerHTML = '<span class="import-status">☁️ Vencidos da nuvem (' + ts + ')</span>';
         document.getElementById('import-date-info').textContent = 'Semana de referência: ' + formatarData(semanaAtual);
@@ -1479,15 +1603,44 @@ async function carregarVencidosNuvem() {
 // ════════════════════════════════════════════════════════════════════
 // IMPORTAR VENCIDOS
 // ════════════════════════════════════════════════════════════════════
+let _pendingImportFile = null;
+
 function importarVencidos(input) {
   const file = input.files[0];
+  input.value = ''; // permite reselecionar o mesmo arquivo depois, mesmo se cancelar
   if (!file) return;
-  const semanaNova = prompt('Data de referência desta atualização (semana atual):', hoje());
-  if (!semanaNova) { input.value = ''; return; }
+  _pendingImportFile = file;
+  const sugestao = semanaAtual ? _somarDiasISO(semanaAtual, 7) : hoje();
+  const campoData = document.getElementById('semana-modal-data');
+  campoData.value = sugestao;
+  campoData.max = hoje();
+  document.getElementById('semana-modal-arquivo').textContent = file.name;
+  document.getElementById('semana-modal').style.display = 'flex';
+}
+
+function _semanaAjustar(dias) {
+  const el = document.getElementById('semana-modal-data');
+  if (el.value) el.value = _somarDiasISO(el.value, dias);
+}
+
+function _semanaCancelar() {
+  _pendingImportFile = null;
+  document.getElementById('semana-modal').style.display = 'none';
+}
+
+function _semanaConfirmar() {
+  const semanaNova = document.getElementById('semana-modal-data').value;
+  const file = _pendingImportFile;
+  if (!semanaNova || !file) { _semanaCancelar(); return; }
   if (!confirm('Isso cria a semana ' + formatarData(semanaNova) + ' no histórico D60 (a partir da soma dos títulos do arquivo) e mantém o histórico anterior. Deseja seguir?')) {
-    input.value = '';
-    return;
+    return; // mantém o modal aberto pra escolher outra data, sem precisar reanexar o arquivo
   }
+  document.getElementById('semana-modal').style.display = 'none';
+  _processarImportacaoVencidos(file, semanaNova);
+  _pendingImportFile = null;
+}
+
+function _processarImportacaoVencidos(file, semanaNova) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
@@ -1556,6 +1709,7 @@ function importarVencidos(input) {
         const vencto = _normDate(r['VENCTO'] || r['Vencto'] || '');
         vencidosData[lj].push({
           representante: (r['REPRESENTANTE: '] || r['REPRESENTANTE:'] || r['REPRESENTANTE'] || '').trim(),
+          codRepresentante: r['CÓDIGO_REPRE'] || r['CODIGO_REPRE'] || '',
           cliente:       (r['CLIENTE'] || '').trim(),
           codCliente:    r['CÓDIGO_CLIENT'] || r['CODIGO_CLIENT'] || r['CÓDIGO_CLIENTE'] || r['CODIGO_CLIENTE'] || '',
           praca:         (r['PRAÇA PAGTO'] || r['PRACA PAGTO'] || '').trim(),
@@ -1600,6 +1754,8 @@ function importarVencidos(input) {
       const btnRev = document.getElementById('btn-reverter');
       if (btnRev) btnRev.style.display = localStorage.getItem('ven_backup') ? 'inline-block' : 'none';
       renderTabela();
+      logImportacoes.unshift({ usuario: AUDITOR_ATUAL || '—', arquivo: file.name, ts: new Date().toISOString() });
+      if (logImportacoes.length > 100) logImportacoes = logImportacoes.slice(0, 100);
       salvarVencidosNuvem();
     } catch(err) {
       toast('⚠️ Erro ao ler o arquivo: ' + err.message);
@@ -1798,6 +1954,7 @@ function trocarAba(aba) {
   // global filtros-bar only applies to Painel/Relatório/Evolução
   const filtrosBar = document.querySelector('.filtros-bar');
   if (filtrosBar) filtrosBar.style.display = ['recebimentos','novostiulos','provvenc'].includes(aba) ? 'none' : '';
+  if (aba === 'relatorio')    renderRelatorioGeral();
   if (aba === 'evolucao')     renderEvolucao();
   if (aba === 'recebimentos') renderRecebimentos();
   if (aba === 'novostiulos')  renderNovosTitulos();
@@ -1826,7 +1983,9 @@ function dadosRelatorioGeral() {
       const d60ant = semAnt && hist[semAnt] !== undefined ? hist[semAnt] : null;
       const varVal = (d60a !== null && d60ant !== null) ? d60a - d60ant : null;
       const varPct = (varVal !== null && d60ant) ? varVal / d60ant * 100 : null;
-      return { b, d60a, d60ant, varVal, varPct };
+      const fat = faturamentoPorFilial[b.lj];
+      const endividamento = (fat && d60a !== null) ? (d60a / fat * 100) : null;
+      return { b, d60a, d60ant, varVal, varPct, fat, endividamento };
     });
   if (sortRelState.col) {
     linhas = linhas.slice().sort((x, y) => {
@@ -1858,6 +2017,8 @@ function valorOrdenacaoRel(row, col) {
     case 'anterior': return row.d60ant === null ? -Infinity : row.d60ant;
     case 'atual':    return row.d60a   === null ? -Infinity : row.d60a;
     case 'variacao': return row.varVal === null ? -Infinity : row.varVal;
+    case 'faturamento':    return row.fat           === null || row.fat           === undefined ? -Infinity : row.fat;
+    case 'endividamento':  return row.endividamento  === null                                   ? -Infinity : row.endividamento;
     default: return 0;
   }
 }
@@ -1887,12 +2048,15 @@ function renderRelatorioGeral() {
   const semAnt = getSemanaAnterior(semanaAtual);
 
   let totAnt = 0, totAtual = 0, totVar = 0;
-  linhas.forEach(({ d60a, d60ant, varVal }) => {
+  let totFatEndiv = 0, totD60ComFat = 0, qtdComFat = 0;
+  linhas.forEach(({ d60a, d60ant, varVal, fat, endividamento }) => {
     if (d60a !== null)   totAtual += d60a;
     if (d60ant !== null) totAnt   += d60ant;
     if (varVal !== null) totVar   += varVal;
+    if (fat && d60a !== null) { totFatEndiv += fat; totD60ComFat += d60a; qtdComFat++; }
   });
   const totVarPct = totAnt ? totVar / totAnt * 100 : null;
+  const totEndivPct = totFatEndiv > 0 ? (totD60ComFat / totFatEndiv * 100) : null;
 
   let html = '<div style="border-bottom:3px solid #1E3A8A;padding-bottom:12px;margin-bottom:16px">';
   html += '<div style="font-size:11px;letter-spacing:2px;color:#1E3A8A;font-weight:700">AGROQUIMA · AUDITORIA D60</div>';
@@ -1908,10 +2072,12 @@ function renderRelatorioGeral() {
   html += '<th class="th-sort" data-col="auditor" onclick="ordenarRelatorio(\'auditor\')">Auditor<span class="sort-arrow"></span></th>';
   html += '<th class="th-sort" data-col="anterior" style="text-align:right" onclick="ordenarRelatorio(\'anterior\')">D60 ' + formatarDataCurta(semAnt) + '<span class="sort-arrow"></span></th>';
   html += '<th class="th-sort" data-col="atual" style="text-align:right" onclick="ordenarRelatorio(\'atual\')">D60 ' + formatarDataCurta(semanaAtual) + '<span class="sort-arrow"></span></th>';
+  html += '<th class="th-sort" data-col="faturamento" style="text-align:right" onclick="ordenarRelatorio(\'faturamento\')">Faturamento<span class="sort-arrow"></span></th>';
+  html += '<th class="th-sort" data-col="endividamento" style="text-align:right" onclick="ordenarRelatorio(\'endividamento\')">% Endiv.<span class="sort-arrow"></span></th>';
   html += '<th class="th-sort" data-col="variacao" style="text-align:right" onclick="ordenarRelatorio(\'variacao\')">Variação<span class="sort-arrow"></span></th>';
   html += '</tr></thead><tbody>';
 
-  linhas.forEach(({ b, d60a, d60ant, varVal, varPct }) => {
+  linhas.forEach(({ b, d60a, d60ant, varVal, varPct, fat, endividamento }) => {
     const corVar = varVal === null ? '#374151' : (varVal < 0 ? '#065F46' : (varVal > 0 ? '#991B1B' : '#374151'));
     const varTxt = varVal !== null
       ? (varVal > 0 ? '+' : '') + formatMoeda(varVal) + (varPct !== null ? ' (' + (varPct > 0 ? '+' : '') + varPct.toFixed(1) + '%)' : '')
@@ -1924,6 +2090,8 @@ function renderRelatorioGeral() {
     html += '<td>' + b.auditor + '</td>';
     html += '<td style="text-align:right">' + (d60ant !== null ? formatMoeda(d60ant) : '—') + '</td>';
     html += '<td style="text-align:right;font-weight:700">' + (d60a !== null ? formatMoeda(d60a) : '—') + '</td>';
+    html += '<td style="text-align:right">' + (fat ? formatMoeda(fat) : '—') + '</td>';
+    html += '<td style="text-align:right;font-weight:700">' + (endividamento !== null ? endividamento.toFixed(2) + '%' : '—') + '</td>';
     html += '<td style="text-align:right;color:' + corVar + ';font-weight:700">' + varTxt + '</td>';
     html += '</tr>';
   });
@@ -1935,6 +2103,8 @@ function renderRelatorioGeral() {
   html += '<td colspan="5">TOTAL</td>';
   html += '<td style="text-align:right">' + formatMoeda(totAnt) + '</td>';
   html += '<td style="text-align:right">' + formatMoeda(totAtual) + '</td>';
+  html += '<td style="text-align:right">' + (qtdComFat ? formatMoeda(totFatEndiv) : '—') + '</td>';
+  html += '<td style="text-align:right">' + (totEndivPct !== null ? totEndivPct.toFixed(2) + '%' : '—') + '</td>';
   html += '<td style="text-align:right;color:' + corTotVar + '">' + totVarTxt + '</td>';
   html += '</tr>';
 
@@ -1950,22 +2120,25 @@ function exportarRelatorioXLSX() {
     ['AGROQUIMA — RELATÓRIO GERAL D60'],
     ['D60 Sem. Anterior', semAnt ? formatarData(semAnt) : '—', 'D60 Sem. Atual', semanaAtual ? formatarData(semanaAtual) : '—'],
     [],
-    ['LJ','Filial','Regional','Gerente','Auditor','D60 ' + formatarDataCurta(semAnt),'D60 ' + formatarDataCurta(semanaAtual),'Variação (R$)','Variação (%)'],
+    ['LJ','Filial','Regional','Gerente','Auditor','D60 ' + formatarDataCurta(semAnt),'D60 ' + formatarDataCurta(semanaAtual),'Faturamento','% Endividamento','Variação (R$)','Variação (%)'],
   ];
   let totAnt = 0, totAtual = 0, totVar = 0;
-  linhas.forEach(({ b, d60a, d60ant, varVal, varPct }) => {
+  let totFatEndiv = 0, totD60ComFat = 0;
+  linhas.forEach(({ b, d60a, d60ant, varVal, varPct, fat, endividamento }) => {
     if (d60a !== null)   totAtual += d60a;
     if (d60ant !== null) totAnt   += d60ant;
     if (varVal !== null) totVar   += varVal;
+    if (fat && d60a !== null) { totFatEndiv += fat; totD60ComFat += d60a; }
     aoa.push([
       b.lj, b.loja, b.regional, b.gerente, b.auditor,
-      d60ant, d60a, varVal,
+      d60ant, d60a, fat || '', endividamento !== null ? endividamento.toFixed(2) + '%' : '—', varVal,
       varPct !== null ? varPct.toFixed(2) + '%' : '—',
     ]);
   });
   const totVarPct = totAnt ? (totVar / totAnt * 100).toFixed(2) + '%' : '—';
+  const totEndivPct = totFatEndiv > 0 ? (totD60ComFat / totFatEndiv * 100).toFixed(2) + '%' : '—';
   aoa.push([]);
-  aoa.push(['TOTAL', '', '', '', '', totAnt, totAtual, totVar, totVarPct]);
+  aoa.push(['TOTAL', '', '', '', '', totAnt, totAtual, totFatEndiv || '', totEndivPct, totVar, totVarPct]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Relatório Geral');
   XLSX.writeFile(wb, 'D60_Relatorio_Geral_' + hoje() + '.xlsx');
@@ -2148,8 +2321,8 @@ function renderDetalhe(lj) {
       html += '<div class="titulo-item">';
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
       html += '<div style="flex:1">';
-      html += '<div class="titulo-cliente">' + (t.cliente || '—') + '</div>';
-      if (t.representante) html += '<div class="titulo-meta" style="color:#A9BBD9;font-size:10px">Rep: ' + t.representante + '</div>';
+      html += '<div class="titulo-cliente">' + comCodigo(t.codCliente, t.cliente) + '</div>';
+      if (t.representante) html += '<div class="titulo-meta" style="color:#A9BBD9;font-size:10px">Rep: ' + comCodigo(t.codRepresentante, t.representante) + '</div>';
       html += '<div class="titulo-meta">Venc: ' + formatarData(t.vencto) + (t.emissao ? ' · Emis: ' + formatarData(t.emissao) : '') + ' · ' + t.atraso + ' dias · ' + t.sit + '</div>';
       if (t.nf) html += '<div class="titulo-meta">NF: ' + t.nf + (t.lote ? ' · Lote: ' + t.lote : '') + '</div>';
       html += '</div>';
@@ -2206,8 +2379,8 @@ function renderDetalhe(lj) {
     html += '<tr style="background:#E8EFF8"><th style="text-align:left;padding:4px 6px;color:#0A1628">Cliente</th><th style="text-align:left;padding:4px 6px;color:#0A1628">Representante</th><th style="text-align:center;padding:4px 6px;color:#0A1628">Vencimento</th><th style="text-align:center;padding:4px 6px;color:#0A1628">Atraso</th><th style="text-align:right;padding:4px 6px;color:#0A1628">Valor</th></tr>';
     titulosEx.forEach((t,i) => {
       html += '<tr style="border-bottom:1px solid #E5E7EB;background:' + (i%2===0?'#fff':'#F9FAFB') + '">';
-      html += '<td style="padding:4px 6px">' + (t.cliente||'—') + '</td>';
-      html += '<td style="padding:4px 6px;font-size:10px;color:#555">' + (t.representante||'—') + '</td>';
+      html += '<td style="padding:4px 6px">' + comCodigo(t.codCliente, t.cliente) + '</td>';
+      html += '<td style="padding:4px 6px;font-size:10px;color:#555">' + comCodigo(t.codRepresentante, t.representante) + '</td>';
       html += '<td style="padding:4px 6px;text-align:center">' + formatarData(t.vencto) + '</td>';
       html += '<td style="padding:4px 6px;text-align:center">' + t.atraso + 'd</td>';
       html += '<td style="padding:4px 6px;text-align:right;font-weight:700">' + formatMoeda(t.valor) + '</td></tr>';
@@ -2255,7 +2428,7 @@ function exportarXLSX(lj) {
   // Sheet 2: Títulos
   const titulosEx = (vencidosData[lj] || []).slice().sort((a,b) => b.valor - a.valor);
   const titSheet = [['Cliente','Representante','Vencimento','Atraso (dias)','Emissão','NF','Lote','Valor','Situação']];
-  titulosEx.forEach(t => titSheet.push([t.cliente, t.representante, t.vencto, t.atraso, t.emissao, t.nf, t.lote, t.valor, t.sit]));
+  titulosEx.forEach(t => titSheet.push([comCodigo(t.codCliente, t.cliente), comCodigo(t.codRepresentante, t.representante), t.vencto, t.atraso, t.emissao, t.nf, t.lote, t.valor, t.sit]));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(titSheet), 'Títulos');
 
   XLSX.writeFile(wb, 'D60_LJ' + lj + '_' + base.loja.replace(/\s/g,'_') + '.xlsx');
@@ -2535,6 +2708,13 @@ function formatMoeda(v) {
   if (v === null || v === undefined || isNaN(v)) return '—';
   return 'R$ ' + parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+// Padrão único de exibição em toda a aplicação: "código - nome" (cliente/representante).
+function comCodigo(codigo, nome) {
+  const n = String(nome ?? '').trim();
+  const c = String(codigo ?? '').trim();
+  if (!n) return '—';
+  return c ? c + ' - ' + n : n;
+}
 function formatarData(s) {
   if (!s) return '—';
   const p = s.split('-');
@@ -2557,6 +2737,12 @@ function _diasEntre(isoFim, isoInicio) {
   const [y1,m1,d1] = isoFim.split('-').map(Number);
   const [y2,m2,d2] = isoInicio.split('-').map(Number);
   return Math.round((Date.UTC(y1,m1-1,d1) - Date.UTC(y2,m2-1,d2)) / 86400000);
+}
+function _somarDiasISO(iso, dias) {
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m-1, d));
+  dt.setUTCDate(dt.getUTCDate() + dias);
+  return dt.toISOString().slice(0,10);
 }
 
 // Identidade de um registro de auditoria (ts é gerado no push e é único).
@@ -2643,6 +2829,121 @@ function calcEvolucao() {
   });
 }
 
+// ════════════════════════════════════════════════════════════════════
+// FATURAMENTO POR FILIAL (aba Evolução) — análise avulsa, não persiste:
+// digitado ou importado aqui some ao recarregar a página (nada é salvo).
+// ════════════════════════════════════════════════════════════════════
+let faturamentoPorFilial = {}; // {lj: valorRealizado}
+let faturamentoInfo      = null; // {arquivo, qtd, naoIdentificados}
+
+function _normTexto(s) {
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+}
+
+function _parseValorBR(s) {
+  if (typeof s === 'number') return s;
+  let str = String(s||'').replace(/R\$/gi,'').trim();
+  if (!str) return 0;
+  str = str.replace(/\.(?=\d{3}(\D|$))/g,'').replace(',', '.');
+  const v = parseFloat(str);
+  return isNaN(v) ? 0 : v;
+}
+
+// Relatório de faturamento identifica a filial pela cidade (após "...VENDA"),
+// não pelo nome do gerente (o "responsável" que aparece antes pode divergir do
+// gerente cadastrado em BASE_REGIONAIS — já visto em dados reais). A Matriz é
+// listada como "Goiânia".
+function _filialPorCidade() {
+  const map = {};
+  BASE_REGIONAIS.forEach(b => { map[_normTexto(b.loja)] = b.lj; });
+  map['GOIANIA'] = 1;
+  return map;
+}
+
+function importarFaturamento(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+      if (rows.length < 2) { toast('⚠️ Planilha de faturamento vazia.'); return; }
+
+      const mapaCidade      = _filialPorCidade();
+      const resultado       = {};
+      const naoIdentificados = [];
+      for (let i = 1; i < rows.length; i++) {
+        const bruto = String(rows[i][0] || '').trim();
+        if (!bruto) continue;
+        const idx    = bruto.toUpperCase().lastIndexOf('VENDA');
+        const cidade = idx >= 0 ? bruto.slice(idx + 5) : bruto;
+        const lj     = mapaCidade[_normTexto(cidade)];
+        const valor  = _parseValorBR(rows[i][1]);
+        if (!lj) { naoIdentificados.push(bruto); continue; }
+        resultado[lj] = (resultado[lj] || 0) + valor;
+      }
+
+      if (!Object.keys(resultado).length) {
+        toast('⚠️ Não consegui identificar nenhuma filial nesta planilha.');
+        return;
+      }
+
+      faturamentoPorFilial = resultado;
+      faturamentoInfo = { arquivo: file.name, qtd: Object.keys(resultado).length, naoIdentificados };
+      renderEvolucao();
+      toast('✅ Faturamento carregado: ' + Object.keys(resultado).length + ' filial(is)' +
+        (naoIdentificados.length ? ' — ' + naoIdentificados.length + ' linha(s) não identificada(s)' : ''));
+    } catch(err) {
+      toast('⚠️ Erro ao ler o arquivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function limparFaturamento() {
+  faturamentoPorFilial = {};
+  faturamentoInfo = null;
+  renderEvolucao();
+}
+
+function onFaturamentoInput(lj, val) {
+  const v = _parseValorBR(val);
+  if (v > 0) faturamentoPorFilial[lj] = v; else delete faturamentoPorFilial[lj];
+  const atual = getD60Atual(lj);
+  const pctEl = document.getElementById('fat-pct-' + lj);
+  if (pctEl) pctEl.textContent = (v > 0 && atual !== null) ? (atual / v * 100).toFixed(2) + '%' : '—';
+  _renderKpiEndividamentoGeral();
+}
+
+function _renderKpiEndividamentoGeral() {
+  const el = document.getElementById('fat-kpi-geral');
+  if (!el) return;
+  const ljsComFaturamento = Object.keys(faturamentoPorFilial).map(Number).filter(lj => faturamentoPorFilial[lj] > 0);
+  if (!ljsComFaturamento.length) { el.textContent = ''; return; }
+  const totalFat = ljsComFaturamento.reduce((s,lj) => s + faturamentoPorFilial[lj], 0);
+  const totalD60 = ljsComFaturamento.reduce((s,lj) => s + (getD60Atual(lj) || 0), 0);
+  const pct = totalFat > 0 ? (totalD60 / totalFat * 100) : null;
+  el.innerHTML = pct !== null
+    ? '📊 <b>' + ljsComFaturamento.length + '</b> filial(is) com faturamento informado · D60/Faturamento: <b style="color:var(--accent-text)">' + pct.toFixed(2) + '%</b>'
+    : '';
+}
+
+function _atualizarFaturamentoUI() {
+  const info = document.getElementById('fat-import-info');
+  const btn  = document.getElementById('fat-btn-limpar');
+  if (info) {
+    info.textContent = faturamentoInfo
+      ? '✅ ' + faturamentoInfo.arquivo + ' — ' + faturamentoInfo.qtd + ' filial(is)' +
+        (faturamentoInfo.naoIdentificados.length ? ' (' + faturamentoInfo.naoIdentificados.length + ' não identificada(s))' : '')
+      : '';
+  }
+  if (btn) btn.style.display = faturamentoInfo ? 'inline-block' : 'none';
+  _renderKpiEndividamentoGeral();
+}
+
 function sparklineSVG(valores, status) {
   const W = 100, H = 28, pad = 2;
   if (!valores || valores.length < 2) {
@@ -2662,6 +2963,71 @@ function sparklineSVG(valores, status) {
   return '<svg class="evol-spark" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
     '<polyline points="' + pts + '" fill="none" stroke="' + cor + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' +
     '</svg>';
+}
+
+const EVOL_STATUS_COR   = { 'zero-total':'#A78BFA', excel:'#60A5FA', reducao:'#22C55E', estavel:'#EAB308', crescimento:'#EF4444', 'sem-dados':'#9CA3AF' };
+const EVOL_STATUS_LABEL = { 'zero-total':'Nunca registrou', excel:'Hist. mínimo', reducao:'Em redução', estavel:'Estável', crescimento:'Em crescimento', 'sem-dados':'Sem dados' };
+
+// D60 por filial, maior para o menor — substitui a leitura da tabela como visão principal
+function _evolRenderRiskBars(linhas) {
+  const el = document.getElementById('evol-risk-list');
+  if (!el) return;
+  const comVal = linhas.filter(e => e.valAtual !== null).slice().sort((a,b) => b.valAtual - a.valAtual);
+  el.innerHTML = comVal.length ? (() => {
+    const maxVal = comVal[0].valAtual || 1;
+    return comVal.map(e => `
+      <div class="evol-bar-row" title="${e.base.loja} — ${EVOL_STATUS_LABEL[e.status]}">
+        <div class="nome"><b>${e.base.lj}</b> ${e.base.loja}</div>
+        <div class="evol-bar-track"><div class="evol-bar-fill" style="width:${(e.valAtual/maxVal*100).toFixed(1)}%;background:${EVOL_STATUS_COR[e.status]}"></div></div>
+        <div class="val">${formatMoeda(e.valAtual)}</div>
+      </div>`).join('');
+  })() : '<div style="font-size:11.5px;color:var(--texto-mut);padding:8px 0">Sem dados para este filtro.</div>';
+
+  const usados = [...new Set(comVal.map(e => e.status))];
+  document.getElementById('evol-risk-legend').innerHTML = usados.map(s => `
+    <div class="item"><span class="dot" style="background:${EVOL_STATUS_COR[s]}"></span>${EVOL_STATUS_LABEL[s]}</div>`).join('');
+
+  const semMovimento = linhas.filter(e => e.valAtual === null && e.status === 'zero-total');
+  document.getElementById('evol-risk-note').innerHTML = semMovimento.length
+    ? '⭐ <b>' + semMovimento.map(e => e.base.lj + ' ' + e.base.loja).join(', ') + '</b> — nunca registrou título vencido no período: excelência, não falta de dado.'
+    : '';
+}
+
+// % Endividamento por filial — ranking simples (substitui o cruzamento faturamento×D60)
+function _evolRenderEndivBars(linhas) {
+  const el = document.getElementById('evol-endiv-list');
+  const empty = document.getElementById('evol-endiv-empty');
+  if (!el) return;
+  const comFat = linhas
+    .filter(e => faturamentoPorFilial[e.base.lj] && e.valAtual !== null)
+    .map(e => ({ e, pct: e.valAtual / faturamentoPorFilial[e.base.lj] * 100 }))
+    .sort((a,b) => b.pct - a.pct);
+  if (!comFat.length) { el.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  const maxPct = comFat[0].pct || 1;
+  el.innerHTML = comFat.map(({ e, pct }) => `
+    <div class="evol-bar-row" title="${e.base.loja}">
+      <div class="nome"><b>${e.base.lj}</b> ${e.base.loja}</div>
+      <div class="evol-bar-track"><div class="evol-bar-fill" style="width:${(pct/maxPct*100).toFixed(1)}%;background:${EVOL_STATUS_COR[e.status]}"></div></div>
+      <div class="val">${pct.toFixed(2)}%</div>
+    </div>`).join('');
+}
+
+// Tendência por filial — pequenos múltiplos, pra comparar a evolução sem abrir a tabela
+function _evolRenderSparkGrid(linhas) {
+  const el = document.getElementById('evol-spark-grid');
+  if (!el) return;
+  const comVal = linhas.filter(e => e.valAtual !== null).slice().sort((a,b) => b.valAtual - a.valAtual);
+  el.innerHTML = comVal.map(e => {
+    const cor = EVOL_STATUS_COR[e.status];
+    const pctCor = e.deltaPct === null ? 'var(--texto-mut)' : (e.deltaPct > 0.5 ? '#EF4444' : (e.deltaPct < -0.5 ? '#22C55E' : 'var(--texto-mut)'));
+    const pctTxt = e.deltaPct !== null ? (e.deltaPct > 0 ? '+' : '') + e.deltaPct.toFixed(1) + '%' : '—';
+    return `<div class="evol-spark-card" title="${e.base.loja}">
+      <div class="top"><div class="nome">${e.base.lj} · ${e.base.loja}</div><span class="dot" style="background:${cor}"></span></div>
+      ${sparklineSVG(e.valores, e.status)}
+      <div class="foot"><div class="val">${formatMoeda(e.valAtual)}</div><div class="pct" style="color:${pctCor}">${pctTxt}</div></div>
+    </div>`;
+  }).join('');
 }
 
 function evolOrdenar(col) {
@@ -2826,6 +3192,12 @@ function renderEvolucao() {
   // Renderiza mapa de concentração (sem filtro de status — mostra universo completo)
   renderMapaConcentracao(evFiltrado, totalAtualFiltrado);
 
+  // Rankings visuais que substituem a tabela como visão principal (tabela continua
+  // disponível, recolhida, pra conferência e export)
+  _evolRenderRiskBars(linhas);
+  _evolRenderEndivBars(linhas);
+  _evolRenderSparkGrid(linhas);
+
   // Ordenação
   const { col, dir } = evolSortState;
   linhas = linhas.slice().sort((a, b) => {
@@ -2836,6 +3208,13 @@ function renderEvolucao() {
       case 'regional': va = a.base.regional; vb = b.base.regional; break;
       case 'inicio':   va = a.valInicio||0;  vb = b.valInicio||0;  break;
       case 'atual':    va = a.valAtual||0;   vb = b.valAtual||0;   break;
+      case 'faturamento': va = faturamentoPorFilial[a.base.lj] || 0; vb = faturamentoPorFilial[b.base.lj] || 0; break;
+      case 'endividamento': {
+        const fa = faturamentoPorFilial[a.base.lj], fb = faturamentoPorFilial[b.base.lj];
+        va = (fa && a.valAtual !== null) ? a.valAtual / fa : -Infinity;
+        vb = (fb && b.valAtual !== null) ? b.valAtual / fb : -Infinity;
+        break;
+      }
       case 'repr':     va = totalAtualFiltrado > 0 ? (a.valAtual||0)/totalAtualFiltrado : 0;
                        vb = totalAtualFiltrado > 0 ? (b.valAtual||0)/totalAtualFiltrado : 0; break;
       case 'delta':    va = a.delta||0;      vb = b.delta||0;      break;
@@ -2851,7 +3230,7 @@ function renderEvolucao() {
   });
 
   // Atualiza setas
-  ['lj','loja','regional','inicio','atual','repr','delta','deltapct','status'].forEach(c => {
+  ['lj','loja','regional','inicio','atual','faturamento','endividamento','repr','delta','deltapct','status'].forEach(c => {
     const el = document.getElementById('evol-arrow-' + c);
     if (el) el.textContent = evolSortState.col === c ? (evolSortState.dir === 1 ? '▲' : '▼') : '';
   });
@@ -2872,6 +3251,11 @@ function renderEvolucao() {
 
     const ini  = e.valInicio !== null ? formatMoeda(e.valInicio) : '—';
     const atu  = e.valAtual  !== null ? formatMoeda(e.valAtual)  : '—';
+    const fatVal     = faturamentoPorFilial[e.base.lj];
+    const fatInputVal = (fatVal !== undefined && fatVal !== null)
+      ? fatVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '';
+    const pctEndiv = (fatVal && e.valAtual !== null) ? (e.valAtual / fatVal * 100) : null;
     const dR   = e.delta !== null ? (e.delta > 0 ? '+' : '') + formatMoeda(e.delta) : '—';
     const dP   = e.deltaPct !== null ? (e.deltaPct > 0 ? '+' : '') + e.deltaPct.toFixed(1) + '%' : '—';
     const dCor = e.delta === null ? '#CBD5E1' : e.delta < 0 ? '#22C55E' : e.delta > 0 ? '#EF4444' : '#EAB308';
@@ -2902,6 +3286,8 @@ function renderEvolucao() {
       '<td style="padding:8px 12px;font-size:11px;color:#B7C6E0">' + e.base.regional + '</td>' +
       '<td style="padding:8px 12px;text-align:right;color:#CBD5E1">' + ini + '</td>' +
       '<td style="padding:8px 12px;text-align:right;font-weight:600;color:#CBD5E1">' + atu + '</td>' +
+      '<td style="padding:4px 8px;text-align:right"><input type="text" inputmode="decimal" id="fat-input-' + e.base.lj + '" value="' + fatInputVal + '" placeholder="R$" oninput="onFaturamentoInput(' + e.base.lj + ', this.value)" style="width:110px;text-align:right;padding:4px 6px;border:1px solid var(--cinza-bd);border-radius:5px;background:var(--bg-input);color:var(--texto);font-size:11px"></td>' +
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--accent-text)" id="fat-pct-' + e.base.lj + '">' + (pctEndiv !== null ? pctEndiv.toFixed(2) + '%' : '—') + '</td>' +
       '<td style="padding:8px 12px;text-align:right">' + reprCell + '</td>' +
       '<td style="padding:8px 12px;text-align:right;font-weight:700;color:' + dCor + '">' + dR + '</td>' +
       '<td style="padding:8px 12px;text-align:right;font-weight:700;color:' + dCor + '">' + dP + '</td>' +
@@ -2910,6 +3296,7 @@ function renderEvolucao() {
       '<td style="padding:8px 12px;text-align:center"><span class="evol-status-badge ' + statusClass[e.status] + '">' + statusLabel[e.status] + '</span></td>' +
       '</tr>';
   }).join('');
+  _atualizarFaturamentoUI();
 }
 
 function mostrarTooltipLinha(evt, dataStr) {
@@ -3485,8 +3872,13 @@ function _popularFiltros(items, prefixo) {
 
   // ── Rep: SOMENTE itens do regional+filial selecionados (cascata) ──
   const itemsParaRep = itemsParaFil.filter(i => !curFil || String(i.lj) === curFil);
-  const reps = [...new Set(itemsParaRep.map(i => (i.t.representante||'').trim()).filter(Boolean))].sort();
-  selRep.innerHTML = '<option value="">Todos os Reps.</option>' + reps.map(r => `<option value="${r}">${r}</option>`).join('');
+  const repCodigos = new Map();
+  itemsParaRep.forEach(i => {
+    const nm = (i.t.representante||'').trim();
+    if (nm && !repCodigos.has(nm)) repCodigos.set(nm, i.t.codRepresentante || '');
+  });
+  const reps = [...repCodigos.keys()].sort();
+  selRep.innerHTML = '<option value="">Todos os Reps.</option>' + reps.map(r => `<option value="${r}">${comCodigo(repCodigos.get(r), r)}</option>`).join('');
   selRep.value = prevRep;
   // Se o rep anterior não pertence ao filtro atual, select volta para ""
 
@@ -3574,8 +3966,8 @@ function _renderTabMovimentos(tbodyId, emptyId, theadId, items, sortState, corVa
     const bg    = idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-input)';
     const nome  = base ? base.loja : 'LJ'+lj;
     const reg   = base ? base.regional : '—';
-    const rep   = t.representante || '—';
-    const cli   = t.cliente || '—';
+    const rep   = comCodigo(t.codRepresentante, t.representante);
+    const cli   = comCodigo(t.codCliente, t.cliente);
     const titNF = [t.titulo, t.nf].filter(Boolean).join('/') || '—';
     const ven   = t.vencto ? formatarData(t.vencto) : '—';
     html += `<tr style="background:${bg}">
@@ -3657,13 +4049,13 @@ function _exportMovimentosXLS(getFn, periodo, sheetName, filePrefix, titulo) {
     return true;
   });
   const total = filtrados.reduce((s,i) => s+(i.t.valor||0), 0);
-  const header = ['LJ','Filial','Regional','Representante','Cliente','Cód. Cliente','Título','NF','Emissão','Vencimento','Atraso','Valor'];
+  const header = ['LJ','Filial','Regional','Representante','Cliente','Título','NF','Emissão','Vencimento','Atraso','Valor'];
   const rows = filtrados.map(({ lj, base, t }) => [
     lj, base ? base.loja : 'LJ'+lj, base ? base.regional : '',
-    t.representante||'', t.cliente||'', t.codCliente||'',
+    comCodigo(t.codRepresentante, t.representante), comCodigo(t.codCliente, t.cliente),
     t.titulo||'', t.nf||'', t.emissao||'', t.vencto||'', t.atraso||'', t.valor||0,
   ]);
-  rows.push(['','','','','','','','','','TOTAL','', total]);
+  rows.push(new Array(header.length - 2).fill('').concat(['TOTAL', total]));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([[titulo],[`Período: ${semDe ? formatarData(semDe) : '?'} → ${semAte ? formatarData(semAte) : '?'}`],[],header,...rows]);
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -3755,6 +4147,7 @@ function importarProxVencimentos(input) {
         dados.push({
           lj, base: BASE_REGIONAIS.find(b => b.lj === lj),
           representante: (r['REPRESENTANTE: '] || r['REPRESENTANTE:'] || r['REPRESENTANTE'] || '').trim(),
+          codRepresentante: r['CÓDIGO_REPRE'] || r['CODIGO_REPRE'] || '',
           cliente:       (r['CLIENTE'] || '').trim(),
           codCliente:    r['CÓDIGO_CLIENT'] || r['CODIGO_CLIENT'] || r['CÓDIGO_CLIENTE'] || r['CODIGO_CLIENTE'] || '',
           titulo:        r['TÍTULO'] || r['TITULO'] || '',
@@ -3935,7 +4328,7 @@ function provMostrarDetalheCliente(idx) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px">
       <div>
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter)">Detalhe do cliente — por que aparece mais de uma vez</div>
-        <div style="font-size:17px;font-weight:800;color:var(--accent-text)">${row.cliente || '—'}</div>
+        <div style="font-size:17px;font-weight:800;color:var(--accent-text)">${comCodigo(row.codCliente, row.cliente)}</div>
         <div style="font-size:11px;color:var(--texto-mut)">${row.base ? row.base.loja : 'LJ'+row.lj} · ${relacionados.length} título(s) neste levantamento</div>
       </div>
       <button class="btn-limpar" style="width:auto;padding:4px 10px" onclick="provFecharModal()">✕</button>
@@ -3971,7 +4364,8 @@ function provFecharModal() {
 function _provRenderContexto(filtrados) {
   const el = document.getElementById('prov-contexto');
   if (!el) return;
-  const b = provFiliaisSel.size === 1 ? BASE_REGIONAIS.find(x => provFiliaisSel.has(x.lj)) : null;
+  const ljs = _provEscopoLjs();
+  const b = ljs.length === 1 ? BASE_REGIONAIS.find(x => x.lj === ljs[0]) : null;
   if (!b) { el.style.display = 'none'; return; }
 
   const critico      = filtrados.filter(d => _provFaixa(d.dias).k === '46-59');
@@ -4055,8 +4449,8 @@ function _provRenderTabela(filtrados) {
     html += `<tr style="background:${f.corBg}30;border-left:3px solid ${f.cor}">
       <td style="padding:7px 12px;font-weight:700;color:var(--azul)">${d.lj}</td>
       <td style="padding:7px 12px;font-weight:600;color:var(--texto)">${nome}</td>
-      <td style="padding:7px 12px;color:var(--texto-sec)">${d.representante || '—'}</td>
-      <td style="padding:7px 12px;color:var(--texto)">${d.cliente || '—'}${reincid}</td>
+      <td style="padding:7px 12px;color:var(--texto-sec)">${comCodigo(d.codRepresentante, d.representante)}</td>
+      <td style="padding:7px 12px;color:var(--texto)">${comCodigo(d.codCliente, d.cliente)}${reincid}</td>
       <td style="padding:7px 12px;color:var(--texto-ter);font-size:11px">${[d.titulo, d.nf].filter(Boolean).join('/') || '—'}</td>
       <td style="padding:7px 12px;text-align:right;color:var(--texto-sec)">${formatarData(d.vencto)}</td>
       <td style="padding:7px 12px;text-align:right"><span style="display:inline-block;padding:2px 9px;border-radius:20px;background:${f.cor};color:#fff;font-weight:700;font-size:11px">${d.dias}d</span></td>
@@ -4070,6 +4464,88 @@ function _provRenderTabela(filtrados) {
   tbody.innerHTML = html;
 }
 
+// Universo de filiais sob os filtros de filial/auditor/região atualmente marcados
+// (independente de terem ou não título na janela de 0-59 dias) — usado pra somar o
+// D60 atual corretamente como ponto de partida da projeção.
+// Universo de filiais: só as que realmente aparecem na planilha carregada (nunca a
+// empresa inteira), intersectado com os filtros de filial/auditor/região marcados.
+// Crítico: sem isso, o D60 "atual" da projeção acabava somando todas as ~27 filiais
+// mesmo quando a planilha trazia títulos de uma única loja.
+function _provEscopoLjs() {
+  const ljsNaPlanilha = new Set(provVencData.map(d => d.lj));
+  return BASE_REGIONAIS.filter(b => {
+    if (FILIAIS_SEM_VENDA.has(b.lj)) return false;
+    if (!ljsNaPlanilha.has(b.lj)) return false;
+    if (provFiliaisSel.size   && !provFiliaisSel.has(b.lj))      return false;
+    if (provAuditoresSel.size && !provAuditoresSel.has(b.auditor)) return false;
+    if (provRegioesSel.size   && !provRegioesSel.has(b.regiao))    return false;
+    return true;
+  }).map(b => b.lj);
+}
+
+// Monta um "degrau" D60 hoje → +15 → +30 → +45 → +60 para um conjunto de títulos
+// (uma filial, ou o total consolidado), a partir de um D60 atual já calculado.
+function _provStaircaseHTML(label, d60Atual, titulosDoEscopo) {
+  const pontos = [
+    { label: 'D60 hoje', minDias: null },
+    { label: '+15 dias', minDias: 45 },
+    { label: '+30 dias', minDias: 30 },
+    { label: '+45 dias', minDias: 15 },
+    { label: '+60 dias', minDias: 0  },
+  ];
+  let html = `<div style="margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--texto);margin-bottom:6px">${label}</div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;align-items:stretch">`;
+  pontos.forEach((p, i) => {
+    const valor = p.minDias === null
+      ? d60Atual
+      : d60Atual + titulosDoEscopo.filter(d => d.dias >= p.minDias).reduce((s,d) => s + (d.valor||0), 0);
+    const cor = i === 0 ? 'var(--azul-med)' : (i === pontos.length - 1 ? '#DC2626' : '#D97706');
+    html += `<div style="flex:1;min-width:120px;background:var(--bg-card);border-radius:10px;padding:10px 12px;border-top:3px solid ${cor};box-shadow:var(--sombra)">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--texto-ter);margin-bottom:4px">${p.label}</div>
+      <div style="font-size:14px;font-weight:800;color:${cor}">${formatMoeda(valor)}</div>
+      ${i > 0 ? `<div style="font-size:9px;color:var(--texto-mut);margin-top:2px">+${formatMoeda(valor - d60Atual)}</div>` : ''}
+    </div>`;
+    if (i < pontos.length - 1) html += `<div style="display:flex;align-items:center;color:var(--texto-mut);font-size:14px">→</div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+// Projeção: quanto do D60 atual + o que está nesta janela (0-59 dias) viraria D60
+// em +15/+30/+45/+60 dias, se nada for cobrado. Um título com "dias" vencido hoje
+// completa 60 dias em (60-dias) dias — por isso o corte usa dias >= 60-N.
+// Identifica a(s) filial(is) da planilha carregada: uma única filial mostra um
+// degrau só, mais de uma mostra um degrau por filial + um total consolidado no
+// final — nunca mistura tudo num número só sem dizer de onde ele vem.
+function _provRenderProjecao(baseFiltrada) {
+  const el = document.getElementById('prov-projecao');
+  if (!el) return;
+  const ljs = _provEscopoLjs();
+  if (!ljs.length) { el.innerHTML = ''; return; }
+
+  let html = `
+    <div style="font-size:12px;font-weight:700;color:var(--accent-text);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">📈 Projeção de D60 — se nada for cobrado</div>
+    <div style="font-size:10px;color:var(--texto-mut);margin-bottom:10px">D60 atual de cada filial + os títulos desta janela (0–59 dias) que completariam 60 dias em cada prazo.</div>`;
+
+  if (ljs.length === 1) {
+    const b = BASE_REGIONAIS.find(x => x.lj === ljs[0]);
+    const d60Atual = getD60Atual(ljs[0]) || 0;
+    html += _provStaircaseHTML(b ? b.lj + ' — ' + b.loja : 'LJ' + ljs[0], d60Atual, baseFiltrada.filter(d => d.lj === ljs[0]));
+  } else {
+    ljs.forEach(lj => {
+      const b = BASE_REGIONAIS.find(x => x.lj === lj);
+      const d60Atual = getD60Atual(lj) || 0;
+      html += _provStaircaseHTML(b ? b.lj + ' — ' + b.loja : 'LJ' + lj, d60Atual, baseFiltrada.filter(d => d.lj === lj));
+    });
+    const d60AtualTotal = ljs.reduce((s,lj) => s + (getD60Atual(lj) || 0), 0);
+    html += '<div style="border-top:1px dashed var(--cinza-bd);margin:4px 0 12px"></div>';
+    html += _provStaircaseHTML('🧮 TOTAL CONSOLIDADO (' + ljs.length + ' filiais)', d60AtualTotal, baseFiltrada.filter(d => ljs.includes(d.lj)));
+  }
+
+  el.innerHTML = html;
+}
+
 function renderProxVencimentos() {
   if (!provVencData.length) return;
   const base      = _provFiltrarBase();
@@ -4077,6 +4553,7 @@ function renderProxVencimentos() {
   _provAtualizarBadgeFiltros();
   _provRenderContexto(filtrados);
   _provRenderKpis(base, filtrados);
+  _provRenderProjecao(base);
   _provRenderTabela(filtrados);
 }
 
@@ -4089,7 +4566,7 @@ function exportarProxVencimentosXLS() {
   const header = ['LJ','Filial','Representante','Cliente','Título','NF','Vencimento','Dias Vencido','Faixa','Ocorrências','Valor'];
   const rows = filtrados.map(d => [
     d.lj, d.base ? d.base.loja : 'LJ'+d.lj,
-    d.representante||'', d.cliente||'', d.titulo||'', d.nf||'', d.vencto||'',
+    comCodigo(d.codRepresentante, d.representante), comCodigo(d.codCliente, d.cliente), d.titulo||'', d.nf||'', d.vencto||'',
     d.dias, _provFaixa(d.dias).label, d.ocorrencias||1, d.valor||0,
   ]);
   const total = filtrados.reduce((s,d) => s + (d.valor||0), 0);
@@ -4632,6 +5109,24 @@ function fecharHistorico() {
   document.getElementById('hist-modal').style.display = 'none';
 }
 
+function abrirLogImportacoes() {
+  fecharConfig();
+  const tbody = document.getElementById('log-import-tbody');
+  if (tbody) {
+    tbody.innerHTML = logImportacoes.length
+      ? logImportacoes.map(l => '<tr>' +
+          '<td style="padding:6px 10px">' + (l.usuario || '—') + '</td>' +
+          '<td style="padding:6px 10px">' + (l.arquivo || '—') + '</td>' +
+          '<td style="padding:6px 10px">' + new Date(l.ts).toLocaleString('pt-BR') + '</td>' +
+          '</tr>').join('')
+      : '<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--texto-mut)">Nenhuma importação registrada ainda.</td></tr>';
+  }
+  document.getElementById('log-import-modal').style.display = 'flex';
+}
+function fecharLogImportacoes() {
+  document.getElementById('log-import-modal').style.display = 'none';
+}
+
 function renderHistorico() {
   const semanas = [...new Set(Object.values(D60_HIST).flatMap(h => Object.keys(h)))].sort();
   const thead = document.querySelector('#hist-table thead');
@@ -4728,6 +5223,50 @@ function excluirSemanaHist(semana) {
     localStorage.setItem('d60-tema', next);
     _aplicarTema(next);
   }
+
+  // ── DRAG & DROP — arrasta o arquivo pra onde quiser na tela; a importação
+  // acontece no input certo pra aba que estiver aberta no momento. Clicar e
+  // escolher o arquivo continua funcionando normalmente, igual antes.
+  function _inputAtivoParaDrop() {
+    const abaAtiva = document.querySelector('.tab-page.active');
+    if (!abaAtiva) return null;
+    if (abaAtiva.id === 'tab-painel')    return document.getElementById('file-input');
+    if (abaAtiva.id === 'tab-evolucao')  return document.getElementById('fat-file-input');
+    if (abaAtiva.id === 'tab-provvenc') {
+      const content = document.getElementById('prov-content');
+      const jaCarregado = content && getComputedStyle(content).display !== 'none';
+      return document.getElementById(jaCarregado ? 'prov-file-input-2' : 'prov-file-input');
+    }
+    return null;
+  }
+
+  (function initDragDrop() {
+    const overlay = document.getElementById('global-dropzone-overlay');
+    if (!overlay) return;
+    let contador = 0;
+    window.addEventListener('dragenter', e => {
+      if (!_inputAtivoParaDrop()) return;
+      e.preventDefault();
+      contador++;
+      overlay.classList.add('ativo');
+    });
+    window.addEventListener('dragover', e => { if (_inputAtivoParaDrop()) e.preventDefault(); });
+    window.addEventListener('dragleave', () => {
+      contador = Math.max(0, contador - 1);
+      if (contador === 0) overlay.classList.remove('ativo');
+    });
+    window.addEventListener('drop', e => {
+      const input = _inputAtivoParaDrop();
+      if (!input) return;
+      e.preventDefault();
+      contador = 0;
+      overlay.classList.remove('ativo');
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      input.files = files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  })();
 
 </script>
 </body>
