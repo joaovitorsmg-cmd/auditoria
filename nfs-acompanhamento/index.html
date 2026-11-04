@@ -829,7 +829,7 @@ function renderConsol(){
     </div>`;
   }).join('');
 
-  const ['Pendente Lançamento','Pend. Escrita Fiscal','Regularizado'].map(s=>{
+  ['Pendente Lançamento','Pend. Escrita Fiscal','Regularizado'].map(s=>{
     const n=DATA.filter(r=>r.SitNorm===s).length;
     const p=total?Math.round(n/total*100):0;
     const col=SIT_COLORS[s];
