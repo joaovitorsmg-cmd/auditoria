@@ -344,6 +344,10 @@ select.mini:focus,input.mini:focus{border-color:var(--pri-lt);}
         <option value="CTE">CTE — Conhecimento de Transporte (Mod.57)</option>
         <option value="NFSE">NFSE — Nota de Serviço (Mod.99)</option>
       </select>
+      <input type="text" class="mini" id="f-forn" placeholder="🔍 Fornecedor (código, CNPJ ou nome)"
+        oninput="renderFiliais();renderFornecedores()"
+        data-tip="Filtrar por fornecedor: código interno, CNPJ (qualquer parte) ou nome"
+        style="min-width:220px;">
     </div>
   </div>
 
@@ -358,6 +362,17 @@ select.mini:focus,input.mini:focus{border-color:var(--pri-lt);}
     </div>
   </div>
   <div class="consol-grid" id="consol-grid"></div>
+
+  <!-- RESUMO POR FORNECEDOR -->
+  <div id="forn-sec" style="display:none;margin-top:8px;">
+    <div class="sec-header">
+      <div>
+        <div class="sec-title">Resumo por Fornecedor</div>
+        <div class="sec-sub">Agrupado pelo CNPJ da chave de acesso · ordenado por pendências</div>
+      </div>
+    </div>
+    <div id="forn-grid"></div>
+  </div>
 
 </div>
 
@@ -410,6 +425,28 @@ const SIT_COLORS = {'Pendente Lançamento':'#dc2626','Pend. Escrita Fiscal':'#d9
 
 // Normalizar situações no raw data
 let DATA = RAW_DATA.map(r=>({...r, 'SitNorm': SIT_MAP[r['Situação']]||r['Situação']}));
+
+// ═══ PARCEIROS (CNPJ lookup) ══════════════════════════════
+let PARCEIROS = {}; // {cnpj14: nome}
+
+function cnpjFromChave(chave){
+  const c=String(chave||'').replace(/\s/g,'');
+  return c.length>=44 ? c.substring(6,20) : '';
+}
+
+async function fetchParceiros(cnpjs){
+  const uniq=[...new Set(cnpjs.filter(Boolean))];
+  if(!uniq.length||!SB_URL||!SB_KEY) return;
+  for(let i=0;i<uniq.length;i+=300){
+    const batch=uniq.slice(i,i+300).join(',');
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/parceiros_qive?select=cpf_cnpj,nome,codigo&cpf_cnpj=in.(${batch})`,{
+        headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
+      });
+      if(r.ok)(await r.json()).forEach(p=>{ PARCEIROS[p.cpf_cnpj]={nome:p.nome,codigo:p.codigo||''}; });
+    }catch(e){ console.warn('parceiros fetch',e); }
+  }
+}
 
 // ═══ TEMA ═════════════════════════════════════════════════
 function initTheme(){
@@ -585,6 +622,11 @@ function loadFile(e){
       DATA=newData.map(r=>({...r,'SitNorm':SIT_MAP[r['Situação']]||r['Situação']}));
       renderAll();
       alert(`✅ ${DATA.length} registros carregados (${Object.keys(FILIAIS_META).length} filiais). Observações preservadas.`);
+      // Fetch supplier names async (re-renders open detail + resumo when done)
+      fetchParceiros(DATA.map(r=>cnpjFromChave(r['Chave Acesso']))).then(()=>{
+        if(openFilial) renderDetalhe(openFilial);
+        renderFornecedores();
+      });
     }catch(err){ alert('Erro ao ler arquivo: '+err.message); }
   };
   if(isXls) reader.readAsArrayBuffer(f);
@@ -633,9 +675,15 @@ let detRows=[], detSortCol=null, detSortDir=1, detPage=1;
 function getFilteredData(){
   const sit=document.getElementById('f-sit').value;
   const orig=document.getElementById('f-orig').value;
+  const fornQ=(document.getElementById('f-forn')?.value||'').trim().toLowerCase();
   return DATA.filter(r=>{
     if(sit&&r.SitNorm!==sit)return false;
     if(orig&&r['Origem Doc']!==orig)return false;
+    if(fornQ){
+      const cnpj=cnpjFromChave(r['Chave Acesso']);
+      const p=PARCEIROS[cnpj];
+      if(!(cnpj.includes(fornQ)||(p?.codigo||'').toLowerCase().includes(fornQ)||(p?.nome||'').toLowerCase().includes(fornQ))) return false;
+    }
     return true;
   });
 }
@@ -729,10 +777,16 @@ function renderDetalhe(fil){
     const cls=SIT_CLS[r.SitNorm]||'';
     const origTip=r['Origem Doc']==='NFE'?'Nota Fiscal Eletrônica':r['Origem Doc']==='CTE'?'Conhecimento de Transporte Eletrônico':'Nota Fiscal de Serviço';
     const lancTip=r['Lançamento']?`Lançamento via ${r['Lançamento']}`:'Sem lançamento registrado — indica que a nota nunca foi processada';
+    const cnpj=cnpjFromChave(r['Chave Acesso']);
+    const p=PARCEIROS[cnpj];
+    const fornLabel=p?(p.codigo?p.codigo+' - ':'')+p.nome:'';
+    const cnpjFmt=cnpj?cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'):r['Chave Acesso']||'—';
+    const fornTip=`${cnpjFmt}${p?' · '+p.nome:''}`;
     return `<tr>
-      <td data-tip="Número da nota fiscal">${r['Número NF']}</td>
+      <td data-tip="Chave: ${r['Chave Acesso']||'—'}">${r['Número NF']}</td>
       <td data-tip="Modelo do documento fiscal: 55=NFe, 57=CTe, 99=NFSe">${r['Modelo']}</td>
       <td data-tip="${origTip}">${r['Origem Doc']}</td>
+      <td data-tip="${fornTip}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fornLabel||`<span style="color:var(--muted);font-size:11px">${cnpj||'—'}</span>`}</td>
       <td data-tip="${lancTip}">${r['Lançamento']||'<span style="color:var(--red);font-size:11px">Sem lançamento</span>'}</td>
       <td>${`<span class="sit-badge ${cls}">${r.SitNorm}</span>`}</td>
       <td data-tip="Data de recebimento da nota no Qive">${r['Dt. Recebimento']||'—'}</td>
@@ -768,9 +822,10 @@ function renderDetalhe(fil){
     <div class="dtable-wrap">
       <table class="dtable">
         <thead><tr>
-          <th onclick="sortDetalhe('Número NF',this,${fil})" data-tip="Número da nota fiscal emitida">Nº NF</th>
+          <th onclick="sortDetalhe('Número NF',this,${fil})" data-tip="Número da nota fiscal — passe o mouse na linha para ver a chave de acesso completa">Nº NF</th>
           <th onclick="sortDetalhe('Modelo',this,${fil})" data-tip="Modelo do documento: 55=NFe · 57=CTe · 99=NFSe">Mod.</th>
-          <th onclick="sortDetalhe('Origem Doc',this,${fil})" data-tip="Tipo de documento fiscal">Origem/Doc</th>
+          <th onclick="sortDetalhe('Origem Doc',this,${fil})" data-tip="Tipo de documento fiscal">Origem</th>
+          <th data-tip="Fornecedor identificado pelo CNPJ da chave de acesso (posições 6-19)">Fornecedor</th>
           <th onclick="sortDetalhe('Lançamento',this,${fil})" data-tip="Como a nota foi processada: Qive/Xml=automático · Manual=digitado · vazio=nunca processada">Lançamento</th>
           <th onclick="sortDetalhe('SitNorm',this,${fil})" data-tip="Situação atual da nota no sistema Qive">Situação</th>
           <th onclick="sortDetalhe('Dt. Recebimento',this,${fil})" data-tip="Data em que a nota foi recebida no Qive">Dt. Receb.</th>
@@ -875,12 +930,75 @@ function renderConsol(){
     </div>`;
 }
 
+// ═══ RESUMO POR FORNECEDOR ════════════════════════════════
+function renderFornecedores(){
+  const sec=document.getElementById('forn-sec');
+  const grid=document.getElementById('forn-grid');
+  if(!DATA.length){ sec.style.display='none'; return; }
+
+  const fd=getFilteredData();
+  const byForn={};
+  fd.forEach(r=>{
+    const cnpj=cnpjFromChave(r['Chave Acesso']);
+    if(!cnpj) return;
+    if(!byForn[cnpj]) byForn[cnpj]={cnpj,n:0,p:0,ok:0};
+    if(r.SitNorm==='Pendente Lançamento') byForn[cnpj].n++;
+    else if(r.SitNorm==='Pend. Escrita Fiscal') byForn[cnpj].p++;
+    else byForn[cnpj].ok++;
+  });
+
+  const list=Object.values(byForn).sort((a,b)=>(b.n+b.p)-(a.n+a.p));
+  if(!list.length){ sec.style.display='none'; return; }
+
+  sec.style.display='';
+  const rows=list.map(f=>{
+    const p=PARCEIROS[f.cnpj];
+    const nome=p?p.nome:'—';
+    const cod=p?.codigo||'';
+    const total=f.n+f.p+f.ok;
+    const pct=total?Math.round((f.n+f.p)/total*100):0;
+    const cnpjFmt=f.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5');
+    return `<tr>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap;">${cod}</td>
+      <td style="font-size:11px;white-space:nowrap;" data-tip="${cnpjFmt}">${cnpjFmt}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nome}</td>
+      <td style="color:var(--red);text-align:center;font-weight:700;">${f.n||''}</td>
+      <td style="color:var(--amb);text-align:center;font-weight:700;">${f.p||''}</td>
+      <td style="color:var(--grn);text-align:center;">${f.ok||''}</td>
+      <td style="text-align:center;font-weight:700;">${total}</td>
+      <td style="min-width:70px;">
+        <div style="height:6px;border-radius:3px;background:var(--brd);overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${pct>50?'#dc2626':pct>20?'#d97706':'#16a34a'};border-radius:3px;"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  grid.innerHTML=`
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="border-bottom:2px solid var(--brd);color:var(--muted);">
+          <th style="padding:6px 8px;text-align:left;white-space:nowrap;">Código</th>
+          <th style="padding:6px 8px;text-align:left;white-space:nowrap;">CNPJ</th>
+          <th style="padding:6px 8px;text-align:left;">Fornecedor</th>
+          <th style="padding:6px 8px;text-align:center;" data-tip="Pendente Lançamento">⚠ P.Lanç.</th>
+          <th style="padding:6px 8px;text-align:center;" data-tip="Pend. Escrita Fiscal">📝 Escrita</th>
+          <th style="padding:6px 8px;text-align:center;" data-tip="Regularizado">✅ OK</th>
+          <th style="padding:6px 8px;text-align:center;">Total</th>
+          <th style="padding:6px 8px;" data-tip="% de pendências sobre o total deste fornecedor">% Pend.</th>
+        </tr></thead>
+        <tbody style="line-height:2;">${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 // ═══ BOOT ═════════════════════════════════════════════════
 function renderAll(){
   const empty = DATA.length===0;
   document.getElementById('clear-btn').style.display = empty?'none':'';
   if(empty){
     document.getElementById('kpi-strip').style.display='none';
+    document.getElementById('forn-sec').style.display='none';
     document.getElementById('filial-grid').innerHTML=
       `<div style="grid-column:1/-1;padding:40px 20px;text-align:center;color:var(--muted);">
         <div style="font-size:40px;margin-bottom:12px;">📂</div>
@@ -896,12 +1014,13 @@ function renderAll(){
   renderKpis();
   renderFiliais();
   renderConsol();
+  renderFornecedores();
   if(openFilial) renderDetalhe(openFilial);
 }
 
 function clearData(){
   if(!confirm('Limpar todos os dados do painel?')) return;
-  DATA=[];
+  DATA=[]; PARCEIROS={};
   openFilial=null;
   document.getElementById('filial-detalhe').classList.remove('open');
   document.getElementById('filial-detalhe').innerHTML='';
