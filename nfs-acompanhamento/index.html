@@ -453,7 +453,16 @@ const SIT_COLORS = {'Pendente Lançamento':'#dc2626','Pend. Escrita Fiscal':'#d9
 let DATA = RAW_DATA.map(r=>({...r, 'SitNorm': SIT_MAP[r['Situação']]||r['Situação']}));
 
 // ═══ PARCEIROS (CNPJ lookup) ══════════════════════════════
-let PARCEIROS = {}; // {cnpj14: nome}
+let PARCEIROS = {}; // {cnpj14: {nome, codigo}}
+let PARCEIROS_ROOT = {}; // {raiz8dígitos: parceiro} — fallback por raiz CNPJ
+
+function lookupParceiro(cnpj){
+  if(!cnpj) return null;
+  if(PARCEIROS[cnpj]) return PARCEIROS[cnpj];
+  // Fallback: mesma raiz CNPJ (primeiros 8 dígitos) → mesmo parceiro, filial diferente
+  const root=cnpj.substring(0,8);
+  return PARCEIROS_ROOT[root]||null;
+}
 
 function cnpjFromChave(chave, origemDoc){
   const c=String(chave||'').replace(/\s/g,'');
@@ -478,7 +487,17 @@ async function fetchParceiros(cnpjs){
       });
       if(r.ok){
         fetchOk=true;
-        (await r.json()).forEach(p=>{ PARCEIROS[p.cpf_cnpj]={nome:p.nome,codigo:p.codigo||''}; });
+        (await r.json()).forEach(p=>{
+          const entry={nome:p.nome,codigo:p.codigo||''};
+          PARCEIROS[p.cpf_cnpj]=entry;
+          // Índice por raiz (primeiros 8 dígitos) — apenas CNPJs de 14 dígitos
+          if(p.cpf_cnpj&&p.cpf_cnpj.length===14){
+            const root=p.cpf_cnpj.substring(0,8);
+            // Prefere o registro com código preenchido
+            if(!PARCEIROS_ROOT[root]||(entry.codigo&&!PARCEIROS_ROOT[root].codigo))
+              PARCEIROS_ROOT[root]=entry;
+          }
+        });
       } else {
         lastErr=`HTTP ${r.status}`;
         console.error('parceiros fetch error',r.status,await r.text());
@@ -746,7 +765,7 @@ function getFilteredData(){
     if(GFILTER.filial&&String(r.Filial)!==GFILTER.filial) return false;
     if(GFILTER.forn){
       const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
-      const p=PARCEIROS[cnpj];
+      const p=lookupParceiro(cnpj);
       if(!(cnpj.includes(GFILTER.forn)||(p?.codigo||'').toLowerCase().includes(GFILTER.forn)||(p?.nome||'').toLowerCase().includes(GFILTER.forn))) return false;
     }
     return true;
@@ -794,7 +813,7 @@ function getFilteredData(){
     if(GFILTER.filial&&String(r.Filial)!==GFILTER.filial) return false;
     if(GFILTER.forn){
       const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
-      const p=PARCEIROS[cnpj];
+      const p=lookupParceiro(cnpj);
       if(!(cnpj.includes(GFILTER.forn)||(p?.codigo||'').toLowerCase().includes(GFILTER.forn)||(p?.nome||'').toLowerCase().includes(GFILTER.forn))) return false;
     }
     return true;
@@ -889,7 +908,7 @@ function renderDetalhe(fil){
   const q=detFornFilter.trim().toLowerCase();
   const visRows=q ? detRows.filter(r=>{
     const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
-    const p=PARCEIROS[cnpj];
+    const p=lookupParceiro(cnpj);
     return cnpj.includes(q)||(p?.nome||'').toLowerCase().includes(q)||(p?.codigo||'').toLowerCase().includes(q);
   }) : detRows;
 
@@ -902,7 +921,7 @@ function renderDetalhe(fil){
     const origTip=r['Origem Doc']==='NFE'?'Nota Fiscal Eletrônica':r['Origem Doc']==='CTE'?'Conhecimento de Transporte Eletrônico':'Nota Fiscal de Serviço';
     const lancTip=r['Lançamento']?`Lançamento via ${r['Lançamento']}`:'Sem lançamento registrado — indica que a nota nunca foi processada';
     const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
-    const p=PARCEIROS[cnpj];
+    const p=lookupParceiro(cnpj);
     const cnpjFmt=cnpj?cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'):r['Chave Acesso']||'—';
     const fornTip=`${cnpjFmt}${p?' · '+p.nome:''}`;
     let fornCell='';
@@ -990,7 +1009,7 @@ function sortDetalhe(col, th, fil){
     detRows.sort((a,b)=>{
       const ca=cnpjFromChave(a['Chave Acesso'],a['Origem Doc']);
       const cb=cnpjFromChave(b['Chave Acesso'],b['Origem Doc']);
-      const pa=PARCEIROS[ca], pb=PARCEIROS[cb];
+      const pa=lookupParceiro(ca), pb=lookupParceiro(cb);
       const va=pa?(pa.nome||ca):ca, vb=pb?(pb.nome||cb):cb;
       return String(va).localeCompare(String(vb),'pt-BR')*detSortDir;
     });
@@ -1088,7 +1107,7 @@ function renderFornecedores(){
 
   sec.style.display='';
   const rows=list.map(f=>{
-    const p=PARCEIROS[f.cnpj];
+    const p=lookupParceiro(f.cnpj);
     const nome=p?p.nome:'—';
     const cod=p?.codigo||'';
     const total=f.n+f.p+f.ok;
@@ -1168,7 +1187,7 @@ function renderAll(){
 
 function clearData(){
   if(!confirm('Limpar todos os dados do painel?')) return;
-  DATA=[]; PARCEIROS={};
+  DATA=[]; PARCEIROS={}; PARCEIROS_ROOT={};
   GFILTER={sits:new Set(),origens:new Set(),filial:'',forn:''};
   openFilial=null;
   document.getElementById('filial-detalhe').classList.remove('open');
