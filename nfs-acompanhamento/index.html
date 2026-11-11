@@ -429,22 +429,39 @@ let DATA = RAW_DATA.map(r=>({...r, 'SitNorm': SIT_MAP[r['Situação']]||r['Situa
 // ═══ PARCEIROS (CNPJ lookup) ══════════════════════════════
 let PARCEIROS = {}; // {cnpj14: nome}
 
-function cnpjFromChave(chave){
+function cnpjFromChave(chave, origemDoc){
   const c=String(chave||'').replace(/\s/g,'');
+  if(!c) return '';
+  // NFS-e: Qive usa formato proprietário — CNPJ nas posições 7-20 (prefixo de 7 chars)
+  if(origemDoc==='NFSE'){
+    return c.length>=21 ? c.substring(7,21) : '';
+  }
+  // NF-e (mod.55) e CT-e (mod.57): chave SEFAZ padrão 44 dígitos — CNPJ nas posições 6-19
   return c.length>=44 ? c.substring(6,20) : '';
 }
 
 async function fetchParceiros(cnpjs){
   const uniq=[...new Set(cnpjs.filter(Boolean))];
   if(!uniq.length||!SB_URL||!SB_KEY) return;
+  let fetchOk=false, lastErr='';
   for(let i=0;i<uniq.length;i+=300){
     const batch=uniq.slice(i,i+300).join(',');
     try{
       const r=await fetch(`${SB_URL}/rest/v1/parceiros_qive?select=cpf_cnpj,nome,codigo&cpf_cnpj=in.(${batch})`,{
         headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}
       });
-      if(r.ok)(await r.json()).forEach(p=>{ PARCEIROS[p.cpf_cnpj]={nome:p.nome,codigo:p.codigo||''}; });
-    }catch(e){ console.warn('parceiros fetch',e); }
+      if(r.ok){
+        fetchOk=true;
+        (await r.json()).forEach(p=>{ PARCEIROS[p.cpf_cnpj]={nome:p.nome,codigo:p.codigo||''}; });
+      } else {
+        lastErr=`HTTP ${r.status}`;
+        console.error('parceiros fetch error',r.status,await r.text());
+      }
+    }catch(e){ lastErr=e.message; console.warn('parceiros fetch',e); }
+  }
+  if(!fetchOk && lastErr){
+    const el=document.getElementById('sync-status');
+    if(el){ el.textContent='🔴 Erro fornecedores'; el.setAttribute('data-tip','Falha ao buscar nomes: '+lastErr+'. Verifique a chave Supabase (clique 5× no logo).'); }
   }
 }
 
@@ -495,9 +512,16 @@ async function saveSettings(){
   setTimeout(()=>document.getElementById('sb-status').style.display='none',3000);
 }
 
+function isValidJwt(k){ return typeof k==='string' && k.split('.').length===3 && k.length>50; }
 function initSupabase(){
+  let storedKey=localStorage.getItem('qive-sb-key');
+  if(storedKey && !isValidJwt(storedKey)){
+    // Chave corrompida no localStorage — limpa e usa default
+    localStorage.removeItem('qive-sb-key');
+    storedKey=null;
+  }
   SB_URL=localStorage.getItem('qive-sb-url')||_SB_URL_DEFAULT;
-  SB_KEY=localStorage.getItem('qive-sb-key')||_SB_KEY_DEFAULT;
+  SB_KEY=storedKey||_SB_KEY_DEFAULT;
   if(SB_URL&&SB_KEY){ loadObsFromSupabase().then(()=>updateSyncStatus(true)).catch(()=>updateSyncStatus(false)); }
 }
 
@@ -623,7 +647,7 @@ function loadFile(e){
       renderAll();
       alert(`✅ ${DATA.length} registros carregados (${Object.keys(FILIAIS_META).length} filiais). Observações preservadas.`);
       // Fetch supplier names async (re-renders open detail + resumo when done)
-      fetchParceiros(DATA.map(r=>cnpjFromChave(r['Chave Acesso']))).then(()=>{
+      fetchParceiros(DATA.map(r=>cnpjFromChave(r['Chave Acesso'],r['Origem Doc']))).then(()=>{
         if(openFilial) renderDetalhe(openFilial);
         renderFornecedores();
       });
@@ -670,7 +694,7 @@ function pct_s(n,t){ return t?`${Math.round(n/t*100)}% do total`:'—'; }
 
 // ═══ FILIAIS ══════════════════════════════════════════════
 let openFilial=null;
-let detRows=[], detSortCol=null, detSortDir=1, detPage=1;
+let detRows=[], detSortCol=null, detSortDir=1, detPage=1, detFornFilter='';
 
 function getFilteredData(){
   const sit=document.getElementById('f-sit').value;
@@ -680,7 +704,7 @@ function getFilteredData(){
     if(sit&&r.SitNorm!==sit)return false;
     if(orig&&r['Origem Doc']!==orig)return false;
     if(fornQ){
-      const cnpj=cnpjFromChave(r['Chave Acesso']);
+      const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
       const p=PARCEIROS[cnpj];
       if(!(cnpj.includes(fornQ)||(p?.codigo||'').toLowerCase().includes(fornQ)||(p?.nome||'').toLowerCase().includes(fornQ))) return false;
     }
@@ -750,7 +774,7 @@ function toggleFilial(fil){
 
 function openFilialSit(fil, sitFilter){
   openFilial=String(fil);
-  detSortCol=null; detSortDir=1; detPage=1;
+  detSortCol=null; detSortDir=1; detPage=1; detFornFilter='';
   detRows=DATA.filter(r=>String(r.Filial)===String(fil)&&(!sitFilter||r.SitNorm===sitFilter));
   renderFiliais();
   renderDetalhe(fil);
@@ -769,24 +793,39 @@ function closeDetalhe(){
 function renderDetalhe(fil){
   const m=FILIAIS_META[String(fil)];
   const obs=OBS[String(fil)]||'';
+
+  // Aplica filtro por fornecedor sobre detRows
+  const q=detFornFilter.trim().toLowerCase();
+  const visRows=q ? detRows.filter(r=>{
+    const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
+    const p=PARCEIROS[cnpj];
+    return cnpj.includes(q)||(p?.nome||'').toLowerCase().includes(q)||(p?.codigo||'').toLowerCase().includes(q);
+  }) : detRows;
+
   const PSZ=25, start=(detPage-1)*PSZ;
-  const slice=detRows.slice(start,start+PSZ);
-  const tot=Math.ceil(detRows.length/PSZ)||1;
+  const slice=visRows.slice(start,start+PSZ);
+  const tot=Math.ceil(visRows.length/PSZ)||1;
 
   const rows=slice.map(r=>{
     const cls=SIT_CLS[r.SitNorm]||'';
     const origTip=r['Origem Doc']==='NFE'?'Nota Fiscal Eletrônica':r['Origem Doc']==='CTE'?'Conhecimento de Transporte Eletrônico':'Nota Fiscal de Serviço';
     const lancTip=r['Lançamento']?`Lançamento via ${r['Lançamento']}`:'Sem lançamento registrado — indica que a nota nunca foi processada';
-    const cnpj=cnpjFromChave(r['Chave Acesso']);
+    const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
     const p=PARCEIROS[cnpj];
-    const fornLabel=p?(p.codigo?p.codigo+' - ':'')+p.nome:'';
     const cnpjFmt=cnpj?cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'):r['Chave Acesso']||'—';
     const fornTip=`${cnpjFmt}${p?' · '+p.nome:''}`;
+    let fornCell='';
+    if(p){
+      const cod=p.codigo?`<span style="font-weight:600;color:var(--accent)">${p.codigo}</span> · `:'';
+      fornCell=`${cod}<span style="font-size:12px">${p.nome}</span>`;
+    } else {
+      fornCell=`<span style="color:var(--muted);font-size:11px">${cnpj||'—'}</span>`;
+    }
     return `<tr>
       <td data-tip="Chave: ${r['Chave Acesso']||'—'}">${r['Número NF']}</td>
       <td data-tip="Modelo do documento fiscal: 55=NFe, 57=CTe, 99=NFSe">${r['Modelo']}</td>
       <td data-tip="${origTip}">${r['Origem Doc']}</td>
-      <td data-tip="${fornTip}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fornLabel||`<span style="color:var(--muted);font-size:11px">${cnpj||'—'}</span>`}</td>
+      <td data-tip="${fornTip}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fornCell}</td>
       <td data-tip="${lancTip}">${r['Lançamento']||'<span style="color:var(--red);font-size:11px">Sem lançamento</span>'}</td>
       <td>${`<span class="sit-badge ${cls}">${r.SitNorm}</span>`}</td>
       <td data-tip="Data de recebimento da nota no Qive">${r['Dt. Recebimento']||'—'}</td>
@@ -796,12 +835,14 @@ function renderDetalhe(fil){
   let pagerHTML='';
   if(tot>1){
     pagerHTML=`<div class="det-pager">
-      <span class="det-pager-info">${Math.min(start+1,detRows.length)}–${Math.min(start+PSZ,detRows.length)} de ${detRows.length} notas</span>`;
+      <span class="det-pager-info">${Math.min(start+1,visRows.length)}–${Math.min(start+PSZ,visRows.length)} de ${visRows.length} nota${visRows.length!==1?'s':''}${q?' (filtradas)':''}</span>`;
     for(let i=Math.max(1,detPage-2);i<=Math.min(tot,detPage+2);i++){
       pagerHTML+=`<button class="pb${i===detPage?' act':''}" onclick="detGoPage(${i},${fil})">${i}</button>`;
     }
     if(detPage<tot) pagerHTML+=`<button class="pb" onclick="detGoPage(${detPage+1},${fil})">›</button>`;
     pagerHTML+='</div>';
+  } else if(visRows.length>0){
+    pagerHTML=`<div class="det-pager"><span class="det-pager-info">${visRows.length} nota${visRows.length!==1?'s':''}${q?' (filtradas)':''}</span></div>`;
   }
 
   const det=document.getElementById('filial-detalhe');
@@ -819,13 +860,22 @@ function renderDetalhe(fil){
       </div>
       <button class="close-btn" onclick="closeDetalhe()">✕ Fechar</button>
     </div>
+    <div style="padding:6px 12px 4px;display:flex;align-items:center;gap:8px;">
+      <input id="det-forn-filter" type="text" value="${detFornFilter.replace(/"/g,'&quot;')}"
+        placeholder="🔍 Filtrar por fornecedor (código, CNPJ ou nome)…"
+        oninput="detFornFilter=this.value;detPage=1;renderDetalhe(${fil})"
+        style="flex:1;padding:5px 10px;border:1px solid var(--brd);border-radius:6px;background:var(--bg);color:var(--fg);font-size:13px;"
+        data-tip="Filtra as notas desta filial por código, CNPJ ou nome do fornecedor">
+      ${detFornFilter?`<button onclick="detFornFilter='';detPage=1;renderDetalhe(${fil})" style="padding:4px 10px;border:1px solid var(--brd);border-radius:6px;cursor:pointer;font-size:12px;">✕ Limpar</button>`:''}
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${visRows.length} de ${detRows.length} notas</span>
+    </div>
     <div class="dtable-wrap">
       <table class="dtable">
         <thead><tr>
           <th onclick="sortDetalhe('Número NF',this,${fil})" data-tip="Número da nota fiscal — passe o mouse na linha para ver a chave de acesso completa">Nº NF</th>
           <th onclick="sortDetalhe('Modelo',this,${fil})" data-tip="Modelo do documento: 55=NFe · 57=CTe · 99=NFSe">Mod.</th>
           <th onclick="sortDetalhe('Origem Doc',this,${fil})" data-tip="Tipo de documento fiscal">Origem</th>
-          <th data-tip="Fornecedor identificado pelo CNPJ da chave de acesso (posições 6-19)">Fornecedor</th>
+          <th onclick="sortDetalhe('_forn',this,${fil})" data-tip="Clique para ordenar por fornecedor (NF-e/CT-e: pos 6-19 · NFS-e: pos 7-20)" style="cursor:pointer;">Fornecedor</th>
           <th onclick="sortDetalhe('Lançamento',this,${fil})" data-tip="Como a nota foi processada: Qive/Xml=automático · Manual=digitado · vazio=nunca processada">Lançamento</th>
           <th onclick="sortDetalhe('SitNorm',this,${fil})" data-tip="Situação atual da nota no sistema Qive">Situação</th>
           <th onclick="sortDetalhe('Dt. Recebimento',this,${fil})" data-tip="Data em que a nota foi recebida no Qive">Dt. Receb.</th>
@@ -845,11 +895,21 @@ function sortDetalhe(col, th, fil){
   detSortCol=col;
   document.querySelectorAll('.dtable th').forEach(t=>t.classList.remove('asc','desc'));
   th.classList.add(detSortDir===1?'asc':'desc');
-  detRows.sort((a,b)=>{
-    const va=a[col]??'',vb=b[col]??'';
-    if(typeof va==='number') return (va-vb)*detSortDir;
-    return String(va).localeCompare(String(vb),'pt-BR')*detSortDir;
-  });
+  if(col==='_forn'){
+    detRows.sort((a,b)=>{
+      const ca=cnpjFromChave(a['Chave Acesso'],a['Origem Doc']);
+      const cb=cnpjFromChave(b['Chave Acesso'],b['Origem Doc']);
+      const pa=PARCEIROS[ca], pb=PARCEIROS[cb];
+      const va=pa?(pa.nome||ca):ca, vb=pb?(pb.nome||cb):cb;
+      return String(va).localeCompare(String(vb),'pt-BR')*detSortDir;
+    });
+  } else {
+    detRows.sort((a,b)=>{
+      const va=a[col]??'',vb=b[col]??'';
+      if(typeof va==='number') return (va-vb)*detSortDir;
+      return String(va).localeCompare(String(vb),'pt-BR')*detSortDir;
+    });
+  }
   detPage=1; renderDetalhe(fil);
 }
 
@@ -939,7 +999,7 @@ function renderFornecedores(){
   const fd=getFilteredData();
   const byForn={};
   fd.forEach(r=>{
-    const cnpj=cnpjFromChave(r['Chave Acesso']);
+    const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
     if(!cnpj) return;
     if(!byForn[cnpj]) byForn[cnpj]={cnpj,n:0,p:0,ok:0};
     if(r.SitNorm==='Pendente Lançamento') byForn[cnpj].n++;
