@@ -209,6 +209,32 @@ select.mini:focus,input.mini:focus{border-color:var(--pri-lt);}
 .prog-fill{height:100%;border-radius:3px;}
 .consol-pct{font-size:10px;color:var(--muted);min-width:30px;text-align:right;}
 
+/* ═══ FILTER BAR ═════════════════════════════════════════ */
+.gfilter-bar{
+  background:var(--surf);border-bottom:2px solid var(--brd);
+  padding:8px 16px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  position:sticky;top:50px;z-index:190;
+}
+.gfilter-sep{width:1px;height:20px;background:var(--brd);margin:0 2px;flex-shrink:0;}
+.gfilter-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);white-space:nowrap;}
+.fpill{
+  height:26px;padding:0 10px;border:1px solid var(--brd);border-radius:13px;
+  background:var(--surf2);color:var(--txt2);font-size:11px;font-weight:600;
+  cursor:pointer;transition:.12s;white-space:nowrap;
+}
+.fpill:hover{border-color:var(--pri-lt);color:var(--txt);}
+.fpill.fpill-n{border-color:var(--red);background:var(--red-bg);color:var(--red);}
+.fpill.fpill-p{border-color:var(--amb);background:var(--amb-bg);color:var(--amb);}
+.fpill.fpill-o{border-color:var(--grn);background:var(--grn-bg);color:var(--grn);}
+.fpill.fpill-b{border-color:var(--pri);background:var(--pri-xlt);color:var(--pri);}
+.fpill-clear{
+  height:26px;padding:0 10px;border:1px solid var(--red-brd);border-radius:13px;
+  background:var(--red-bg);color:var(--red);font-size:11px;font-weight:700;
+  cursor:pointer;transition:.12s;white-space:nowrap;margin-left:auto;
+}
+.fpill-clear:hover{background:var(--red);color:#fff;}
+#gf-active-txt{font-size:11px;font-weight:600;color:var(--pri);white-space:nowrap;}
+
 /* ═══ SETTINGS PANEL ══════════════════════════════════════ */
 .settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;}
 .settings-overlay.open{display:flex;align-items:center;justify-content:center;}
@@ -288,6 +314,26 @@ select.mini:focus,input.mini:focus{border-color:var(--pri-lt);}
   </div>
 </div>
 
+<!-- FILTER BAR GLOBAL -->
+<div class="gfilter-bar" id="gfilter-bar" style="display:none;">
+  <span class="gfilter-label">Situação</span>
+  <button class="fpill" id="fpill-n" onclick="toggleGFilter('sit','Pendente Lançamento')">⚠ P.Lançamento</button>
+  <button class="fpill" id="fpill-p" onclick="toggleGFilter('sit','Pend. Escrita Fiscal')">📝 Escrita Fiscal</button>
+  <button class="fpill" id="fpill-o" onclick="toggleGFilter('sit','Regularizado')">✅ Regularizado</button>
+  <div class="gfilter-sep"></div>
+  <span class="gfilter-label">Origem</span>
+  <button class="fpill" id="fpill-nfe" onclick="toggleGFilter('orig','NFE')">NFE</button>
+  <button class="fpill" id="fpill-cte" onclick="toggleGFilter('orig','CTE')">CTE</button>
+  <button class="fpill" id="fpill-nfse" onclick="toggleGFilter('orig','NFSE')">NFSE</button>
+  <div class="gfilter-sep"></div>
+  <select class="mini" id="gf-filial" onchange="setGFilterFilial(this.value)" style="max-width:180px;">
+    <option value="">Todas as filiais</option>
+  </select>
+  <input type="text" class="mini" id="gf-forn" placeholder="🔍 Fornecedor (código, CNPJ ou nome)" oninput="setGFilterForn(this.value)" style="min-width:200px;">
+  <span id="gf-active-txt" style="display:none;"></span>
+  <button class="fpill-clear" id="gf-clear" onclick="clearGFilters()" style="display:none;">✕ Limpar filtros</button>
+</div>
+
 <!-- MAIN -->
 <div class="main">
 
@@ -328,26 +374,6 @@ select.mini:focus,input.mini:focus{border-color:var(--pri-lt);}
     <div>
       <div class="sec-title">Pendências por Filial</div>
       <div class="sec-sub">Clique em um número para ver as notas · Observações salvas automaticamente</div>
-    </div>
-    <div class="filter-row">
-      <select class="mini" id="f-sit" onchange="renderFiliais()"
-        data-tip="Filtrar todos os cards por situação">
-        <option value="">Todas as situações</option>
-        <option value="Pendente Lançamento">⚠ Pendente Lançamento</option>
-        <option value="Pend. Escrita Fiscal">📝 Pend. Escrita Fiscal</option>
-        <option value="Estoque Atualizado">✅ Regularizado</option>
-      </select>
-      <select class="mini" id="f-orig" onchange="renderFiliais()"
-        data-tip="Filtrar por tipo de documento fiscal">
-        <option value="">Todas as origens</option>
-        <option value="NFE">NFE — Nota Fiscal Eletrônica (Mod.55)</option>
-        <option value="CTE">CTE — Conhecimento de Transporte (Mod.57)</option>
-        <option value="NFSE">NFSE — Nota de Serviço (Mod.99)</option>
-      </select>
-      <input type="text" class="mini" id="f-forn" placeholder="🔍 Fornecedor (código, CNPJ ou nome)"
-        oninput="renderFiliais();renderFornecedores()"
-        data-tip="Filtrar por fornecedor: código interno, CNPJ (qualquer parte) ou nome"
-        style="min-width:220px;">
     </div>
   </div>
 
@@ -658,29 +684,87 @@ function loadFile(e){
   e.target.value='';
 }
 
-// ═══ KPI STRIP ════════════════════════════════════════════
-let activeKpiFilter='';
-function filterByKpi(sit){
-  activeKpiFilter=activeKpiFilter===sit?'':sit;
-  document.querySelectorAll('.kpi').forEach(k=>k.classList.remove('active'));
-  if(activeKpiFilter){
-    const map={'Pendente Lançamento':'kpi-nao','Pend. Escrita Fiscal':'kpi-pend','Regularizado':'kpi-ok',''   :'kpi-total'};
-    document.getElementById(map[activeKpiFilter]||'kpi-total')?.classList.add('active');
+// ═══ FILTRO GLOBAL ════════════════════════════════════════
+let GFILTER={sits:new Set(),origens:new Set(),filial:'',forn:''};
+
+function toggleGFilter(type,val){
+  if(type==='sit'){
+    if(GFILTER.sits.has(val)) GFILTER.sits.delete(val); else GFILTER.sits.add(val);
+  } else {
+    if(GFILTER.origens.has(val)) GFILTER.origens.delete(val); else GFILTER.origens.add(val);
   }
-  if(activeKpiFilter){ document.getElementById('f-sit').value=activeKpiFilter; }
-  else{ document.getElementById('f-sit').value=''; }
-  renderFiliais();
+  applyGFilters();
+}
+function setGFilterFilial(val){ GFILTER.filial=val; applyGFilters(); }
+function setGFilterForn(val){ GFILTER.forn=val.trim().toLowerCase(); applyGFilters(); }
+function clearGFilters(){
+  GFILTER={sits:new Set(),origens:new Set(),filial:'',forn:''};
+  document.getElementById('gf-filial').value='';
+  document.getElementById('gf-forn').value='';
+  applyGFilters();
+}
+function applyGFilters(){
+  // Update pill styles
+  const sMap={'Pendente Lançamento':['fpill-n','fpill-n'],'Pend. Escrita Fiscal':['fpill-p','fpill-p'],'Regularizado':['fpill-o','fpill-o']};
+  ['fpill-n','fpill-p','fpill-o'].forEach(id=>{ const el=document.getElementById(id); if(el){el.className='fpill';} });
+  GFILTER.sits.forEach(s=>{
+    const id=s==='Pendente Lançamento'?'fpill-n':s==='Pend. Escrita Fiscal'?'fpill-p':'fpill-o';
+    const cls=s==='Pendente Lançamento'?'fpill-n':s==='Pend. Escrita Fiscal'?'fpill-p':'fpill-o';
+    document.getElementById(id)?.classList.add(cls);
+  });
+  ['fpill-nfe','fpill-cte','fpill-nfse'].forEach(id=>{ const el=document.getElementById(id); if(el){el.className='fpill';} });
+  GFILTER.origens.forEach(o=>{
+    document.getElementById('fpill-'+o.toLowerCase())?.classList.add('fpill-b');
+  });
+  // Show/hide clear + counter
+  const hasFilter=GFILTER.sits.size||GFILTER.origens.size||GFILTER.filial||GFILTER.forn;
+  document.getElementById('gf-clear').style.display=hasFilter?'':'none';
+  const activeTxt=document.getElementById('gf-active-txt');
+  if(hasFilter){
+    const parts=[];
+    if(GFILTER.sits.size) parts.push([...GFILTER.sits].join(', '));
+    if(GFILTER.origens.size) parts.push([...GFILTER.origens].join('+'));
+    if(GFILTER.filial) parts.push('Filial '+GFILTER.filial);
+    if(GFILTER.forn) parts.push('"'+GFILTER.forn+'"');
+    activeTxt.textContent='Filtro: '+parts.join(' · ');
+    activeTxt.style.display='';
+  } else {
+    activeTxt.style.display='none';
+  }
+  renderAll();
+}
+
+// Compatibilidade com cliques antigos no resumo consolidado
+function filterByKpi(sit){
+  toggleGFilter('sit',sit);
+}
+
+function getFilteredData(){
+  return DATA.filter(r=>{
+    if(GFILTER.sits.size&&!GFILTER.sits.has(r.SitNorm)) return false;
+    if(GFILTER.origens.size&&!GFILTER.origens.has(r['Origem Doc'])) return false;
+    if(GFILTER.filial&&String(r.Filial)!==GFILTER.filial) return false;
+    if(GFILTER.forn){
+      const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
+      const p=PARCEIROS[cnpj];
+      if(!(cnpj.includes(GFILTER.forn)||(p?.codigo||'').toLowerCase().includes(GFILTER.forn)||(p?.nome||'').toLowerCase().includes(GFILTER.forn))) return false;
+    }
+    return true;
+  });
 }
 
 function renderKpis(){
-  const total=DATA.length;
-  const nao=DATA.filter(r=>r.SitNorm==='Pendente Lançamento').length;
-  const pend=DATA.filter(r=>r.SitNorm==='Pend. Escrita Fiscal').length;
-  const ok=DATA.filter(r=>r.SitNorm==='Regularizado').length;
+  const fd=getFilteredData();
+  const total=fd.length;
+  const nao=fd.filter(r=>r.SitNorm==='Pendente Lançamento').length;
+  const pend=fd.filter(r=>r.SitNorm==='Pend. Escrita Fiscal').length;
+  const ok=fd.filter(r=>r.SitNorm==='Regularizado').length;
   const urg=nao+pend;
   const pct=total?Math.round(urg/total*100):0;
+  const hasFilter=GFILTER.sits.size||GFILTER.origens.size||GFILTER.filial||GFILTER.forn;
 
   document.getElementById('kpi-total-n').textContent=total;
+  document.getElementById('kpi-total-s').textContent=hasFilter?`${Object.keys(groupByFilial(fd)).length} filial(is) · filtrado`:`${Object.keys(FILIAIS_META).length} filiais`;
   document.getElementById('kpi-nao-n').textContent=nao;
   document.getElementById('kpi-nao-s').textContent=pct_s(nao,total);
   document.getElementById('kpi-pend-n').textContent=pend;
@@ -689,7 +773,14 @@ function renderKpis(){
   document.getElementById('kpi-ok-s').textContent=pct_s(ok,total);
   document.getElementById('banner-pct').textContent=pct+'%';
   document.getElementById('banner-urg').textContent=urg;
+  // Highlight active KPIs
+  document.querySelectorAll('.kpi').forEach(k=>k.classList.remove('active'));
+  GFILTER.sits.forEach(s=>{
+    const map={'Pendente Lançamento':'kpi-nao','Pend. Escrita Fiscal':'kpi-pend','Regularizado':'kpi-ok'};
+    document.getElementById(map[s])?.classList.add('active');
+  });
 }
+function groupByFilial(rows){ const o={}; rows.forEach(r=>o[r.Filial]=1); return o; }
 function pct_s(n,t){ return t?`${Math.round(n/t*100)}% do total`:'—'; }
 
 // ═══ FILIAIS ══════════════════════════════════════════════
@@ -697,16 +788,14 @@ let openFilial=null;
 let detRows=[], detSortCol=null, detSortDir=1, detPage=1, detFornFilter='';
 
 function getFilteredData(){
-  const sit=document.getElementById('f-sit').value;
-  const orig=document.getElementById('f-orig').value;
-  const fornQ=(document.getElementById('f-forn')?.value||'').trim().toLowerCase();
   return DATA.filter(r=>{
-    if(sit&&r.SitNorm!==sit)return false;
-    if(orig&&r['Origem Doc']!==orig)return false;
-    if(fornQ){
+    if(GFILTER.sits.size&&!GFILTER.sits.has(r.SitNorm)) return false;
+    if(GFILTER.origens.size&&!GFILTER.origens.has(r['Origem Doc'])) return false;
+    if(GFILTER.filial&&String(r.Filial)!==GFILTER.filial) return false;
+    if(GFILTER.forn){
       const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
       const p=PARCEIROS[cnpj];
-      if(!(cnpj.includes(fornQ)||(p?.codigo||'').toLowerCase().includes(fornQ)||(p?.nome||'').toLowerCase().includes(fornQ))) return false;
+      if(!(cnpj.includes(GFILTER.forn)||(p?.codigo||'').toLowerCase().includes(GFILTER.forn)||(p?.nome||'').toLowerCase().includes(GFILTER.forn))) return false;
     }
     return true;
   });
@@ -775,7 +864,9 @@ function toggleFilial(fil){
 function openFilialSit(fil, sitFilter){
   openFilial=String(fil);
   detSortCol=null; detSortDir=1; detPage=1; detFornFilter='';
-  detRows=DATA.filter(r=>String(r.Filial)===String(fil)&&(!sitFilter||r.SitNorm===sitFilter));
+  // Filtra as linhas do detalhe com base nos filtros globais + situação clicada
+  const base=GFILTER.sits.size||GFILTER.origens.size||GFILTER.forn ? getFilteredData() : DATA;
+  detRows=base.filter(r=>String(r.Filial)===String(fil)&&(!sitFilter||r.SitNorm===sitFilter));
   renderFiliais();
   renderDetalhe(fil);
   setTimeout(()=>{
@@ -926,43 +1017,32 @@ function handleObsChange(fil){
 
 // ═══ RESUMO CONSOLIDADO ═══════════════════════════════════
 function renderConsol(){
-  const total=DATA.length;
-  const byOrig={'NFE':DATA.filter(r=>r['Origem Doc']==='NFE'),
-                'CTE':DATA.filter(r=>r['Origem Doc']==='CTE'),
-                'NFSE':DATA.filter(r=>r['Origem Doc']==='NFSE')};
-  const origDesc={'NFE':'Nota Fiscal Eletrônica — mercadorias e produtos (Mod.55)',
-                  'CTE':'Conhecimento de Transporte Eletrônico (Mod.57)',
-                  'NFSE':'Nota Fiscal de Serviço Eletrônica (Mod.99)'};
-  const origHTML=Object.entries(byOrig).map(([o,rows])=>{
-    const n=rows.length,p=total?Math.round(n/total*100):0;
+  const fd=getFilteredData();
+  const total=fd.length;
+  const hasFilter=GFILTER.sits.size||GFILTER.origens.size||GFILTER.filial||GFILTER.forn;
+  const origDesc={'NFE':'NFE — Nota Fiscal Eletrônica (Mod.55)','CTE':'CTE — Conhecimento de Transporte (Mod.57)','NFSE':'NFSE — Nota de Serviço (Mod.99)'};
+  const origHTML=['NFE','CTE','NFSE'].map(o=>{
+    const rows=fd.filter(r=>r['Origem Doc']===o);
+    const n=rows.length, p=total?Math.round(n/total*100):0;
     const nao=rows.filter(r=>r.SitNorm==='Pendente Lançamento').length;
     const pend=rows.filter(r=>r.SitNorm==='Pend. Escrita Fiscal').length;
-    return `<div class="consol-row" data-tip="${origDesc[o]} — ${nao} pendentes lançamento, ${pend} pend. escrita">
+    const isActive=GFILTER.origens.has(o);
+    return `<div class="consol-row" onclick="toggleGFilter('orig','${o}')"
+      style="${isActive?'background:var(--pri-xlt);border-radius:5px;':''}"
+      data-tip="${origDesc[o]} — ${nao} pendentes lançamento, ${pend} pend. escrita · Clique para filtrar">
       <span class="consol-label"><b>${o}</b></span>
       <div class="prog"><div class="prog-fill" style="width:${p}%;background:var(--pri)"></div></div>
       <span class="consol-pct">${p}%</span>
       <span class="consol-val">${n}</span>
     </div>`;
   }).join('');
-
-  ['Pendente Lançamento','Pend. Escrita Fiscal','Regularizado'].map(s=>{
-    const n=DATA.filter(r=>r.SitNorm===s).length;
-    const p=total?Math.round(n/total*100):0;
-    const col=SIT_COLORS[s];
-    return `<div class="consol-row" onclick="filterByKpi('${s}')"
-      data-tip="${s==='Pendente Lançamento'?'Risco alto — nota sem lançamento no ERP':s==='Pend. Escrita Fiscal'?'Risco médio — importada mas escrita incompleta':'Situação regularizada — sem ação necessária'} · Clique para filtrar">
-      <span class="sit-badge ${SIT_CLS[s]}" style="font-size:11px">${s}</span>
-      <div class="prog" style="flex:0 0 100px"><div class="prog-fill" style="width:${p}%;background:${col}"></div></div>
-      <span class="consol-pct">${p}%</span>
-      <span class="consol-val" style="color:${col}">${n}</span>
-    </div>`;
-  });
-
   const sitHTML=['Pendente Lançamento','Pend. Escrita Fiscal','Regularizado'].map(s=>{
-    const n=DATA.filter(r=>r.SitNorm===s).length;
+    const n=fd.filter(r=>r.SitNorm===s).length;
     const p=total?Math.round(n/total*100):0;
     const col=SIT_COLORS[s];
-    return `<div class="consol-row" onclick="filterByKpi('${s}')"
+    const isActive=GFILTER.sits.has(s);
+    return `<div class="consol-row" onclick="toggleGFilter('sit','${s}')"
+      style="${isActive?'background:var(--surf2);border-radius:5px;':''}"
       data-tip="${s==='Pendente Lançamento'?'Risco alto — nota sem lançamento no ERP':s==='Pend. Escrita Fiscal'?'Risco médio — importada mas escrita incompleta':'Situação regularizada — sem ação necessária'} · Clique para filtrar">
       <span class="sit-badge ${SIT_CLS[s]}">${s}</span>
       <div class="prog" style="flex:0 0 90px"><div class="prog-fill" style="width:${p}%;background:${col}"></div></div>
@@ -970,23 +1050,19 @@ function renderConsol(){
       <span class="consol-val" style="color:${col}">${n}</span>
     </div>`;
   }).join('');
-
+  const pend=fd.filter(r=>r.SitNorm!=='Regularizado').length;
   document.getElementById('consol-grid').innerHTML=`
     <div class="consol-card">
       <h3>📋 Por Situação — clique para filtrar</h3>
       ${sitHTML}
       <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--brd);font-size:11px;color:var(--muted);">
-        <b style="color:var(--red)">${DATA.filter(r=>r.SitNorm!=='Regularizado').length}</b> de <b>${total}</b> notas com alguma pendência 
-        (<b>${total?Math.round(DATA.filter(r=>r.SitNorm!=='Regularizado').length/total*100):0}%</b>)
+        <b style="color:var(--red)">${pend}</b> de <b>${total}</b> notas com alguma pendência
+        (<b>${total?Math.round(pend/total*100):0}%</b>)${hasFilter?' <i>— dados filtrados</i>':''}
       </div>
     </div>
     <div class="consol-card">
-      <h3>📄 Por Origem / Tipo de Documento</h3>
+      <h3>📄 Por Origem / Tipo de Documento — clique para filtrar</h3>
       ${origHTML}
-      <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--brd);font-size:11px;color:var(--muted);"
-        data-tip="CTe (Transporte) tem a maior taxa proporcional de Pend. Escrita Fiscal — 60% das CTes estão com escrita pendente">
-        ⚠ CTe tem maior taxa de pend. escrita fiscal (60%)
-      </div>
     </div>`;
 }
 
@@ -1053,9 +1129,20 @@ function renderFornecedores(){
 }
 
 // ═══ BOOT ═════════════════════════════════════════════════
+function populateFilialDropdown(){
+  const sel=document.getElementById('gf-filial');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todas as filiais</option>'+
+    Object.values(FILIAIS_META).sort((a,b)=>a.filial-b.filial).map(m=>
+      `<option value="${m.filial}">${m.filial} · ${m.loja||m.sigla}</option>`
+    ).join('');
+  sel.value=cur;
+}
+
 function renderAll(){
   const empty = DATA.length===0;
   document.getElementById('clear-btn').style.display = empty?'none':'';
+  document.getElementById('gfilter-bar').style.display = empty?'none':'';
   if(empty){
     document.getElementById('kpi-strip').style.display='none';
     document.getElementById('forn-sec').style.display='none';
@@ -1071,6 +1158,7 @@ function renderAll(){
   }
   document.getElementById('kpi-strip').style.display='';
   document.getElementById('urgency-banner').style.display='';
+  populateFilialDropdown();
   renderKpis();
   renderFiliais();
   renderConsol();
@@ -1081,6 +1169,7 @@ function renderAll(){
 function clearData(){
   if(!confirm('Limpar todos os dados do painel?')) return;
   DATA=[]; PARCEIROS={};
+  GFILTER={sits:new Set(),origens:new Set(),filial:'',forn:''};
   openFilial=null;
   document.getElementById('filial-detalhe').classList.remove('open');
   document.getElementById('filial-detalhe').innerHTML='';
