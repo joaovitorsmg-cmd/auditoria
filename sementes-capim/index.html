@@ -281,8 +281,8 @@ table.main td{padding:6px 9px;vertical-align:middle}
     <select class="f-sel" id="sel-produto" onchange="render()"><option value="">Todos</option></select>
     <div class="f-sep"></div>
     <input type="text" class="f-inp" id="busca" placeholder="Pedido / cliente / código…" oninput="render()">
-    <button style="padding:5px 12px;border-radius:6px;border:none;background:#ECEFF1;color:var(--ci);font-size:12px;font-weight:600;cursor:pointer" onclick="limpar()">Limpar</button>
-    <button style="padding:5px 12px;border-radius:6px;border:none;background:var(--az);color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="baixar()">⬇ Baixar</button>
+    <button style="padding:5px 12px;border-radius:6px;border:none;background:#ECEFF1;color:var(--ci);font-size:12px;font-weight:600;cursor:pointer" onclick="limpar()">Limpar filtros</button>
+    <button style="padding:5px 12px;border-radius:6px;border:none;background:#1B5E20;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="exportarCarteira()" title="Exportar linhas visíveis para Excel">⬇ Excel</button>
   </div>
 </div>
 
@@ -322,7 +322,8 @@ table.main td{padding:6px 9px;vertical-align:middle}
 <div class="panel-est on" id="panel-cart">
   <div class="tbox" id="tbox-main">
     <div class="t-info">
-      <span>Exibindo <strong id="res-count">—</strong> linhas &nbsp;·&nbsp; <strong id="res-sc-ap" style="color:#1B5E20">— sc ap.</strong> &nbsp;·&nbsp; <strong id="res-sc-dig" style="color:#E65100">— sc dig.</strong></span><span id="res-qtd" style="font-weight:700;color:#0D47A1"></span>
+      <span>Exibindo <strong id="res-count">—</strong> linhas &nbsp;·&nbsp; <strong id="res-sc-ap" style="color:#1B5E20">— sc ap.</strong> &nbsp;·&nbsp; <strong id="res-sc-dig" style="color:#E65100">— sc dig.</strong></span>
+      <span style="display:flex;align-items:center;gap:8px"><span id="res-qtd" style="font-weight:700;color:#0D47A1"></span><button onclick="exportarCarteira()" style="padding:3px 10px;border-radius:5px;border:none;background:#1B5E20;color:#fff;font-size:10px;font-weight:700;cursor:pointer" title="Exportar linhas visíveis para Excel">⬇ Excel</button></span>
     </div>
     <div style="overflow-x:auto;max-height:440px;overflow-y:auto">
       <table class="main" id="main-table">
@@ -349,6 +350,9 @@ table.main td{padding:6px 9px;vertical-align:middle}
 
 <!-- PAINEL ESTOQUE -->
 <div class="panel-est" id="panel-est">
+  <div style="padding:8px 0 6px;display:flex;justify-content:flex-end">
+    <button onclick="exportarEstoque()" style="padding:5px 14px;border-radius:6px;border:none;background:#1B5E20;color:#fff;font-size:11px;font-weight:700;cursor:pointer">⬇ Exportar Estoque Excel</button>
+  </div>
   <div class="est-grid" id="est-grid"></div>
 </div>
 
@@ -392,6 +396,7 @@ table.ptable td{padding:6px 9px;vertical-align:middle}
   <div class="ptable-info" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
     <span><span id="label-nprod">—</span> produtos com produção aprovada necessária &nbsp;·&nbsp; <strong id="label-cenario">Revestidas: 250 Sc/dia · Não revestidas: 500 Sc/dia</strong></span>
     <span style="display:flex;align-items:center;gap:6px">
+      <button onclick="exportarProducao()" style="padding:4px 12px;border-radius:6px;border:none;background:#1B5E20;color:#fff;font-size:10px;font-weight:700;cursor:pointer">⬇ Excel</button>
       <span style="font-size:10px;color:#546E7A;font-weight:600">Cenário:</span>
       <span id="btn-cen-a" onclick="setCenario('A')"
         style="padding:4px 12px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;border:1.5px solid #1B5E20;background:#1B5E20;color:#fff">A — Atual</span>
@@ -1134,12 +1139,74 @@ function limpar(){
   render();
 }
 
-function baixar(){
-  const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
-  a.download='Painel_Carteira_Agroquima.html';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+function baixar(){ exportarCarteira(); }
+
+// ── EXPORTAÇÕES EXCEL ──
+function _xlsxDate(){ return new Date().toLocaleDateString('pt-BR').replace(/\//g,'-'); }
+
+function exportarCarteira(){
+  const vis=ordenar(filtrar(RESUMO));
+  if(!vis.length){alert('Nenhum dado para exportar.');return;}
+  const rows=vis.map(r=>({
+    'Código':r.cod,
+    'Produto':r.produto.replace('SEM.AGR.','').trim(),
+    'Sc':r.quant,
+    'Peso (kg)':+(r.peso||0).toFixed(1),
+    'Pedido':r.pedido,
+    'Tipo':r.tipo,
+    'Situação':r.situacao,
+    'Entrega':r.tipo_entrega,
+    'Data Digitação':r.dt_dig,
+    'Idade (d)':r.idade,
+    'Vendedor':r.vendedor,
+    'Filial':r.loja_ped,
+    'Cliente':r.cliente
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Carteira');
+  XLSX.writeFile(wb,'Carteira_Capim_'+_xlsxDate()+'.xlsx');
+}
+
+function exportarEstoque(){
+  if(!LOTE.length){alert('Nenhum dado de estoque carregado.');return;}
+  const rows=[...LOTE].sort((a,b)=>a.filial.localeCompare(b.filial,'pt-BR',{numeric:true})||b.saldo-a.saldo).map(r=>({
+    'Filial':r.filial,
+    'Código':r.cod,
+    'Produto':r.descricao.replace('SEM.AGR.','').trim(),
+    'Estoque (sc)':r.estoque,
+    'Saldo (sc)':r.saldo,
+    'Entrega Futura (sc)':r.ent_futura||0
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Estoque');
+  XLSX.writeFile(wb,'Estoque_Capim_'+_xlsxDate()+'.xlsx');
+}
+
+function exportarProducao(){
+  const dados=calcularCenario(cenarioAtivo);
+  if(!dados.length){alert('Nenhum dado de produção disponível.');return;}
+  const rows=[...dados].sort((a,b)=>a.prioridade-b.prioridade).map(r=>({
+    'Prioridade':r.prioridade,
+    'Código':r.cod,
+    'Produto':r.produto,
+    'Tipo':r.classificacao,
+    'Estoque (sc)':r.estoque,
+    'Cart. Aprovada (sc)':r.cart_ap,
+    'Prod. Necessária (sc)':r.prod_nec,
+    'Sc/Batida':r.sc_batida,
+    'Batidas':r.batidas,
+    'Sc Produzidos':r.sc_produzidos,
+    'Sc/Dia':r.sc_dia,
+    'Dias Produção':r.dias_prod,
+    'Saldo Final (sc)':r.saldo_final,
+    'Peso Cart. (kg)':+(r.peso_ap||0).toFixed(1)
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Producao_'+cenarioAtivo);
+  XLSX.writeFile(wb,'Producao_Capim_Cen'+cenarioAtivo+'_'+_xlsxDate()+'.xlsx');
 }
 
 // ── UPLOAD E REPROCESSAMENTO COM SHEETJS ──
@@ -1438,10 +1505,22 @@ async function executarLimpar(){
   document.getElementById('modal-limpar-2').style.display='none';
   RESUMO=[];
   LOTE=[];
-  limpar();
-  document.getElementById('ref-date').textContent='Carregado em: —';
+  // Reset selects dinâmicos
+  document.getElementById('sel-filial').innerHTML='<option value="">Todas</option>';
+  document.getElementById('sel-produto').innerHTML='<option value="">Todos</option>';
   document.getElementById('mes-checks').innerHTML='';
   atualizarBotaoMes();
+  // Limpa filtros e volta para aba carteira
+  kpiAtivo='total'; sitAtiva=new Set();
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  document.querySelector('.pill[data-sit="all"]').classList.add('on');
+  ['sel-tipo','sel-entrega','sel-filial','sel-produto'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('busca').value='';
+  setTabEst('cart');
+  document.getElementById('ref-date').textContent='Carregado em: —';
+  // Renderiza tudo zerado
+  render();
+  renderEstoque();
   renderProd();
   await sbLimparMeta();
 }
