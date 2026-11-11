@@ -113,11 +113,16 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/icon-192.png" -o agenda-jvm/icon-192.png
           curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/Agenda-JVM/main/icon-512.png" -o agenda-jvm/icon-512.png
 
+      - name: Baixar NFS Acompanhamento
+        run: |
+          mkdir -p nfs-acompanhamento
+          curl -fsSL "https://raw.githubusercontent.com/joaovitorsmg-cmd/NFS-acompanhamento/main/index.html" -o nfs-acompanhamento/index.html
+
       - name: Publicar se houver mudança
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal analise-compra-agricola agenda-jvm
+          git add controledelote ranking-auditoria controle-emprestimos entrega-futura vencidos-agroquima progresso-d60 mapadespesa alvaras-e-licencas contagem-agroquima agenda-agroquima auditoria-semanal analise-compra-agricola agenda-jvm nfs-acompanhamento
           if git diff --cached --quiet; then
             echo "Nada novo para publicar."
           else
