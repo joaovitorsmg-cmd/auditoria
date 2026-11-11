@@ -370,15 +370,17 @@ select.mini:focus,input.mini:focus{border-color:var(--pri-lt);}
   </div>
 
   <!-- FILIAIS -->
-  <div class="sec-header">
+  <div class="sec-header" onclick="toggleFilialSec()" style="cursor:pointer;" data-tip="Clique para expandir ou recolher as filiais">
     <div>
-      <div class="sec-title">Pendências por Filial</div>
-      <div class="sec-sub">Clique em um número para ver as notas · Observações salvas automaticamente</div>
+      <div class="sec-title">Pendências por Filial <span id="filial-sec-chev" style="font-size:11px;color:var(--muted);margin-left:4px;">▶</span></div>
+      <div class="sec-sub" id="filial-sec-sub">Clique aqui para ver as filiais</div>
     </div>
   </div>
 
-  <div id="filial-grid" class="filial-grid"></div>
-  <div id="filial-detalhe" class="fdetail"></div>
+  <div id="filial-sec-body" style="display:none;">
+    <div id="filial-grid" class="filial-grid"></div>
+    <div id="filial-detalhe" class="fdetail"></div>
+  </div>
 
   <!-- RESUMO CONSOLIDADO -->
   <div class="sec-header" style="margin-top:8px;">
@@ -758,20 +760,6 @@ function filterByKpi(sit){
   toggleGFilter('sit',sit);
 }
 
-function getFilteredData(){
-  return DATA.filter(r=>{
-    if(GFILTER.sits.size&&!GFILTER.sits.has(r.SitNorm)) return false;
-    if(GFILTER.origens.size&&!GFILTER.origens.has(r['Origem Doc'])) return false;
-    if(GFILTER.filial&&String(r.Filial)!==GFILTER.filial) return false;
-    if(GFILTER.forn){
-      const cnpj=cnpjFromChave(r['Chave Acesso'],r['Origem Doc']);
-      const p=lookupParceiro(cnpj);
-      if(!(cnpj.includes(GFILTER.forn)||(p?.codigo||'').toLowerCase().includes(GFILTER.forn)||(p?.nome||'').toLowerCase().includes(GFILTER.forn))) return false;
-    }
-    return true;
-  });
-}
-
 function renderKpis(){
   const fd=getFilteredData();
   const total=fd.length;
@@ -804,7 +792,26 @@ function pct_s(n,t){ return t?`${Math.round(n/t*100)}% do total`:'—'; }
 
 // ═══ FILIAIS ══════════════════════════════════════════════
 let openFilial=null;
+let filialSecOpen=false;
 let detRows=[], detSortCol=null, detSortDir=1, detPage=1, detFornFilter='';
+
+function toggleFilialSec(){
+  filialSecOpen=!filialSecOpen;
+  document.getElementById('filial-sec-body').style.display=filialSecOpen?'':'none';
+  document.getElementById('filial-sec-chev').textContent=filialSecOpen?'▼':'▶';
+  _updateFilialSecSub();
+}
+function _updateFilialSecSub(){
+  const sub=document.getElementById('filial-sec-sub'); if(!sub) return;
+  if(filialSecOpen){
+    sub.textContent='Clique em um número para ver as notas · Observações salvas automaticamente';
+  } else if(GFILTER.filial){
+    sub.textContent='Filial '+GFILTER.filial+' selecionada — clique para expandir';
+  } else {
+    const n=DATA.length?new Set(DATA.map(r=>r.Filial)).size:0;
+    sub.textContent=n?n+' filia'+(n===1?'l':'is')+' — clique para expandir':'Clique aqui para ver as filiais';
+  }
+}
 
 function getFilteredData(){
   return DATA.filter(r=>{
@@ -876,18 +883,28 @@ function renderFiliais(){
 }
 
 function toggleFilial(fil){
-  if(openFilial===String(fil)){ closeDetalhe(); return; }
-  openFilialSit(fil, '');
+  if(openFilial===String(fil)){
+    openFilial=null;
+    document.getElementById('filial-detalhe').classList.remove('open');
+    document.getElementById('filial-detalhe').innerHTML='';
+    GFILTER.filial='';
+    const sel=document.getElementById('gf-filial'); if(sel) sel.value='';
+    applyGFilters(); _updateFilialSecSub();
+    return;
+  }
+  openFilialSit(fil,'');
 }
 
 function openFilialSit(fil, sitFilter){
+  GFILTER.filial=String(fil);
+  const sel=document.getElementById('gf-filial'); if(sel) sel.value=String(fil);
   openFilial=String(fil);
   detSortCol=null; detSortDir=1; detPage=1; detFornFilter='';
-  // Filtra as linhas do detalhe com base nos filtros globais + situação clicada
-  const base=GFILTER.sits.size||GFILTER.origens.size||GFILTER.forn ? getFilteredData() : DATA;
+  const base=GFILTER.sits.size||GFILTER.origens.size||GFILTER.forn
+    ? DATA.filter(r=>{ if(GFILTER.sits.size&&!GFILTER.sits.has(r.SitNorm))return false; if(GFILTER.origens.size&&!GFILTER.origens.has(r['Origem Doc']))return false; return true; })
+    : DATA;
   detRows=base.filter(r=>String(r.Filial)===String(fil)&&(!sitFilter||r.SitNorm===sitFilter));
-  renderFiliais();
-  renderDetalhe(fil);
+  applyGFilters(); _updateFilialSecSub();
   setTimeout(()=>{
     document.getElementById('fdet-'+fil)?.scrollIntoView({behavior:'smooth',block:'nearest'});
   },80);
@@ -897,7 +914,9 @@ function closeDetalhe(){
   openFilial=null;
   document.getElementById('filial-detalhe').classList.remove('open');
   document.getElementById('filial-detalhe').innerHTML='';
-  renderFiliais();
+  GFILTER.filial='';
+  const sel=document.getElementById('gf-filial'); if(sel) sel.value='';
+  applyGFilters(); _updateFilialSecSub();
 }
 
 function renderDetalhe(fil){
@@ -1173,6 +1192,7 @@ function renderAll(){
       </div>`;
     document.getElementById('consol-grid').innerHTML='';
     document.getElementById('urgency-banner').style.display='none';
+    _updateFilialSecSub();
     return;
   }
   document.getElementById('kpi-strip').style.display='';
@@ -1183,13 +1203,16 @@ function renderAll(){
   renderConsol();
   renderFornecedores();
   if(openFilial) renderDetalhe(openFilial);
+  _updateFilialSecSub();
 }
 
 function clearData(){
   if(!confirm('Limpar todos os dados do painel?')) return;
   DATA=[]; PARCEIROS={}; PARCEIROS_ROOT={};
   GFILTER={sits:new Set(),origens:new Set(),filial:'',forn:''};
-  openFilial=null;
+  openFilial=null; filialSecOpen=false;
+  document.getElementById('filial-sec-body').style.display='none';
+  document.getElementById('filial-sec-chev').textContent='▶';
   document.getElementById('filial-detalhe').classList.remove('open');
   document.getElementById('filial-detalhe').innerHTML='';
   renderAll();
