@@ -2434,7 +2434,7 @@ function renderAbaCronograma() {
       <div style="font-size:10.5px;color:var(--text3);margin-top:6px;">* Ritmo esperado = quantas auditorias o auditor já deveria ter feito até hoje (${Math.round(dados.fracaoAno*100)}% do ano ${anoSel} decorrido) para cumprir a meta de cada filial até 31/12 — ${CRONO_META}/filial, ou ${CRONO_META_CONFIANCA} para as filiais de confiança da diretoria (Cristalina, Jataí, Uberlândia e Cuiabá). Projeção = total estimado ao fim do ano mantendo o ritmo atual.</div>
     </div>
 
-    <div class="secao"><div class="secao-titulo">Detalhe por Filial</div>
+    <div class="secao"><div class="secao-titulo">Detalhe por Filial<button id="btn-ocultar-confianca" onclick="_cronoToggleOcultarConfianca()" title="Ocultar filiais de confiança que já completaram a meta anual" style="background:none;border:1px solid transparent;cursor:pointer;padding:1px 5px;border-radius:4px;font-size:12px;color:var(--text3);opacity:0.3;line-height:1.4;letter-spacing:0;text-transform:none;transition:opacity .15s,background .15s,border-color .15s;" onmouseover="this.style.opacity='1'" onmouseout="if(!_cronoOcultarConfiancaConcluida)this.style.opacity='0.3'">🤝</button></div>
       <div class="filtros-bar">
         <input class="busca" id="busca-crono" placeholder="Buscar filial/auditor..." oninput="renderTabelaCronograma()">
         <select class="sel-sm" id="fil-auditor-crono" onchange="renderTabelaCronograma()"><option value="">Todos os Auditores</option>${[...new Set(dados.porFilial.map(f=>f.auditor))].sort().map(a=>`<option>${a}</option>`).join('')}</select>
@@ -2716,6 +2716,7 @@ function _cronoSortDetalhe(col) {
 // nada do Ranking Anual).
 let _cronoSomenteAtrasadas = false;
 let _cronoFaixaNota = '';
+let _cronoOcultarConfiancaConcluida = false;
 
 function _cronoToggleSomenteAtrasadas() {
   _cronoSomenteAtrasadas = !_cronoSomenteAtrasadas;
@@ -2736,13 +2737,27 @@ function _cronoFaixaNotaCombina(nota) {
   return true;
 }
 
+function _cronoToggleOcultarConfianca() {
+  _cronoOcultarConfiancaConcluida = !_cronoOcultarConfiancaConcluida;
+  const btn = document.getElementById('btn-ocultar-confianca');
+  if (btn) {
+    btn.style.opacity = _cronoOcultarConfiancaConcluida ? '1' : '0.3';
+    btn.style.background = _cronoOcultarConfiancaConcluida ? 'var(--bg3)' : 'none';
+    btn.style.border = _cronoOcultarConfiancaConcluida ? '1px solid var(--border2)' : '1px solid transparent';
+  }
+  renderTabelaCronograma();
+}
+
 function _cronoLimparFiltrosDetalhe() {
   _cronoSomenteAtrasadas = false;
   _cronoFaixaNota = '';
+  _cronoOcultarConfiancaConcluida = false;
   document.getElementById('ptag-crono-atrasadas')?.classList.remove('ativo');
   const selNota=document.getElementById('fil-nota-crono'); if (selNota) selNota.value='';
   const busca=document.getElementById('busca-crono'); if (busca) busca.value='';
   const filAud=document.getElementById('fil-auditor-crono'); if (filAud) filAud.value='';
+  const btn=document.getElementById('btn-ocultar-confianca');
+  if (btn) { btn.style.opacity='0.3'; btn.style.background='none'; btn.style.border='1px solid transparent'; }
   renderTabelaCronograma();
 }
 
@@ -2757,9 +2772,10 @@ function renderTabelaCronograma() {
     if (busca && !(f.filial.includes(busca) || f.filialNome.toUpperCase().includes(busca) || f.auditor.toUpperCase().includes(busca))) return false;
     if (_cronoSomenteAtrasadas && f.noRitmo) return false;
     if (!_cronoFaixaNotaCombina(f.notaMedia)) return false;
+    if (_cronoOcultarConfiancaConcluida && f.confianca && f.faltam===0) return false;
     return true;
   }).sort((a,b)=>_cronoCompareDetalhe(a,b,col,dir));
-  const filtroAtivo=_cronoSomenteAtrasadas||_cronoFaixaNota||busca||filAud;
+  const filtroAtivo=_cronoSomenteAtrasadas||_cronoFaixaNota||busca||filAud||_cronoOcultarConfiancaConcluida;
   const btnLimpar=document.getElementById('ptag-crono-limpar');
   if (btnLimpar) btnLimpar.style.display=filtroAtivo?'inline-block':'none';
   body.innerHTML = lista.map(f=>`<tr class="crono-row-click" onclick="_cronoAbrirDetalheFilial('${f.filial}')" title="Ver histórico de auditorias de ${f.filialNome}">

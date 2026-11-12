@@ -1225,25 +1225,27 @@ renderAll();
 // ═══ DRAG & DROP ══════════════════════════════════════════
 let _dragCount=0;
 document.addEventListener('dragenter',e=>{
-  if(!e.dataTransfer.types.includes('Files')) return;
+  e.preventDefault(); // obrigatório para autorizar o drop no Chrome/Windows
+  if(!e.dataTransfer?.types?.includes('Files')) return;
   _dragCount++;
   document.getElementById('drop-overlay').classList.add('active');
 });
-document.addEventListener('dragleave',()=>{
-  _dragCount--;
-  if(_dragCount<=0){ _dragCount=0; document.getElementById('drop-overlay').classList.remove('active'); }
+document.addEventListener('dragleave',e=>{
+  if(e.relatedTarget&&document.contains(e.relatedTarget)) return; // dentro da página
+  _dragCount=0;
+  document.getElementById('drop-overlay').classList.remove('active');
 });
-document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
 document.addEventListener('drop',e=>{
   e.preventDefault();
   _dragCount=0;
   document.getElementById('drop-overlay').classList.remove('active');
-  const f=e.dataTransfer.files[0];
-  if(!f) return;
+  const f=e.dataTransfer?.files?.[0];
+  if(!f){ alert('Nenhum arquivo detectado. Solte o arquivo diretamente sobre a página ou use o botão "Nova planilha".'); return; }
   if(!/\.(xls|xlsx|json)$/i.test(f.name)){
-    alert('Formato não suportado. Use XLS, XLSX ou JSON.'); return;
+    alert('Formato não suportado. Use XLS, XLSX ou JSON do Qive.'); return;
   }
-  loadFile({target:{files:[f],value:''}});
+  loadFile({target:{files:e.dataTransfer.files,value:''}});
 });
 </script>
 </body>
