@@ -6,6 +6,7 @@
 <title>Banco de Horas — Agroquima</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --bg: #f0f2f5;
@@ -85,13 +86,17 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,.2);
 }
 .header-logo {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  color: #fff;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
-.header-logo span { color: #64b5f6; }
+.header-logo img {
+  height: 38px;
+  background: #fff;
+  padding: 4px 10px;
+  border-radius: 7px;
+  display: block;
+}
 .header-title {
   font-size: 13px;
   font-weight: 500;
@@ -107,6 +112,13 @@ body {
   color: #fff;
 }
 .header-actions { display: flex; gap: 8px; align-items: center; }
+.btn-clear-all { background:none;border:none;cursor:pointer;font-size:14px;opacity:.08;transition:opacity .3s;padding:4px 6px;border-radius:6px;color:var(--text);line-height:1; }
+.btn-clear-all:hover { opacity:.5;background:rgba(255,255,255,.1); }
+.cp-auditor-group td { background:var(--bg);border-top:2px solid var(--accent);padding:8px 12px;position:sticky;top:0;z-index:1; }
+.cp-porteiro-btn { position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:14px;cursor:pointer;opacity:.15;transition:opacity .25s, border-color .25s;z-index:200;display:none }
+.cp-porteiro-btn:hover { opacity:.6; }
+.cp-porteiro-btn.active { opacity:.9;border-color:var(--accent); }
+tr.row-porteiro td { opacity:.5;font-style:italic; }
 .btn-icon {
   background: rgba(255,255,255,.15);
   border: none;
@@ -465,6 +477,124 @@ textarea:focus { border-color: var(--accent); }
 }
 .section-title span { font-size: 12px; font-weight: 400; color: var(--text2); }
 
+/* ── TABS ── */
+.tab-nav { background: var(--surface); border-bottom: 2px solid var(--border); padding: 0 20px; display: flex; align-items: flex-end; gap: 4px; }
+.tab-btn { background: none; border: none; border-bottom: 3px solid transparent; padding: 10px 18px; font-size: 13px; font-weight: 700; color: var(--text2); cursor: pointer; transition: all .15s; margin-bottom: -2px; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.tab-btn:hover { color: var(--accent); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-light); border-radius: 6px 6px 0 0; }
+.tab-badge { background: var(--red); color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 10px; font-weight: 800; min-width: 18px; text-align: center; }
+.tab-badge.yellow { background: var(--yellow); }
+
+/* ── CP (CARTÃO DE PONTO) ── */
+#cp-upload-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 112px); padding: 40px 24px; gap: 24px; }
+#cp-main { display: none; padding: 16px 24px 32px; }
+.cp-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.cp-violation-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vbadge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+.vbadge-he-crit { background: var(--red-border); color: var(--red); }
+.vbadge-he-atenc { background: var(--yellow-border); color: var(--yellow); }
+.vbadge-interval { background: var(--orange-border); color: var(--orange); }
+.vbadge-marcacao { background: #f3e5f5; color: #7b1fa2; }
+.vbadge-falta { background: #fce4ec; color: #c62828; }
+.vbadge-atraso { background: #fff8e1; color: #e65100; }
+.vbadge-semmark { background: var(--border); color: var(--text2); }
+.cp-day-grid { display: grid; gap: 6px; margin-top: 12px; }
+.cp-day-row { background: var(--surface2); border-radius: 6px; padding: 8px 12px; border-left: 4px solid var(--border); font-size: 12px; display: grid; grid-template-columns: 60px 90px 1fr auto; gap: 10px; align-items: center; }
+.cp-day-row.crit { border-left-color: var(--red); background: var(--red-bg); }
+.cp-day-row.atenc { border-left-color: var(--yellow); background: var(--yellow-bg); }
+.cp-day-row.interv { border-left-color: var(--orange); background: var(--orange-bg); }
+.cp-day-row.ok { border-left-color: var(--green); background: var(--green-bg); }
+.cp-day-marcacoes { font-family: monospace; font-size: 11px; color: var(--text2); }
+.cp-day-he { font-weight: 800; }
+.cp-modal { max-width: 680px !important; }
+.cp-emp-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.cp-emp-info { flex: 1; }
+.cp-emp-name { font-size: 16px; font-weight: 800; }
+.cp-emp-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.cp-stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+.cp-stat { background: var(--surface2); border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border); }
+.cp-stat-num { font-size: 24px; font-weight: 900; }
+.cp-stat-label { font-size: 10px; color: var(--text2); font-weight: 600; margin-top: 2px; }
+.filial-unknown { font-size: 10px; color: var(--text3); font-style: italic; }
+@media (max-width: 700px) { .cp-kpi-row { grid-template-columns: repeat(2,1fr); } .cp-day-row { grid-template-columns: 50px 1fr; } }
+
+/* ── SYNC INDICATOR ── */
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,.4);
+  display: inline-block;
+  margin-right: 2px;
+  transition: background .3s;
+}
+.sync-dot.ok { background: #69f0ae; }
+.sync-dot.err { background: #ff5252; }
+.sync-dot.loading { background: #ffd740; animation: pulse .8s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── MODO APRESENTAÇÃO ── */
+body.presentation .warning-banner { display: none !important; }
+body.presentation .filter-bar { display: none !important; }
+body.presentation #sup-section { display: none !important; }
+body.presentation .kpi-value { font-size: 52px !important; }
+body.presentation .kpi-card { padding: 20px 18px !important; }
+body.presentation .kpi-row { margin-bottom: 20px !important; }
+body.presentation td, body.presentation th { font-size: 13px !important; padding: 10px 12px !important; }
+body.presentation .table-title { font-size: 15px !important; }
+.presentation-banner {
+  display: none;
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+  padding: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+body.presentation .presentation-banner { display: block; }
+
+/* ── AUDITOR CHART ── */
+.auditor-chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; margin-bottom: 16px; }
+.auditor-card { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.auditor-name { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .3px; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.bar-label { font-size: 10px; font-weight: 700; width: 56px; flex-shrink: 0; }
+.bar-track { flex: 1; background: var(--surface2); border-radius: 3px; height: 10px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.bar-count { font-size: 11px; font-weight: 800; width: 20px; text-align: right; flex-shrink: 0; }
+.kpi-trend { font-size: 10px; font-weight: 600; margin-top: 4px; min-height: 14px; }
+
+/* ── OPENING SLIDE ── */
+#pres-slide {
+  position: fixed; inset: 0; z-index: 300;
+  background: linear-gradient(135deg, #0D47A1 0%, #1565C0 60%, #0a2d6b 100%);
+  color: #fff; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px; cursor: pointer; text-align: center; padding: 40px;
+}
+.ps-logo { height: 56px; background: #fff; padding: 8px 20px; border-radius: 10px; }
+.ps-title { font-size: 32px; font-weight: 800; letter-spacing: -.5px; }
+.ps-period { font-size: 18px; opacity: .75; font-weight: 500; }
+.ps-kpis { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.ps-kpi-item { text-align: center; }
+.ps-kpi-num { font-size: 88px; font-weight: 900; line-height: 1; }
+.ps-kpi-label { font-size: 14px; opacity: .8; margin-top: 6px; font-weight: 600; letter-spacing: .3px; }
+.ps-hint { font-size: 12px; opacity: .5; margin-top: 16px; }
+.ps-shortcut-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.55); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 500; letter-spacing: .3px; white-space: nowrap; }
+body:not(.presentation) .ps-shortcut-bar { display: none; }
+
+/* ── PRINT ── */
+@media print {
+  .header { position: relative !important; box-shadow: none !important; }
+  .header-actions, .btn-capture, .btn-upload, .warning-banner,
+  .filter-bar, #sup-section, #auditor-chart,
+  .modal-overlay, #pres-slide, .presentation-banner, .ps-shortcut-bar { display: none !important; }
+  body { background: #fff !important; }
+  .kpi-card { break-inside: avoid; border: 2px solid #ccc !important; box-shadow: none !important; }
+  .table-wrapper { break-inside: avoid; box-shadow: none !important; }
+  tr.row-green { display: none !important; }
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 700px) {
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
@@ -477,29 +607,196 @@ textarea:focus { border-color: var(--accent); }
 
 <!-- HEADER -->
 <header class="header">
-  <img src="data:image/png;base64,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" alt="Agroquima" style="height:36px;width:auto;object-fit:contain;filter:brightness(0) invert(1);">
+  <div class="header-logo"><img src="assets/logo.png" alt="Agroquima"></div>
   <div class="header-title">Painel · Banco de Horas</div>
   <div class="header-period" id="header-period" style="display:none">—</div>
   <div class="header-actions">
+    <span class="sync-dot" id="sync-dot" title="Sincronização Supabase"></span>
+    <button class="btn-icon" id="btn-presentation" onclick="togglePresentation()" title="Modo Apresentação">📊 Apresentação</button>
     <button class="btn-icon" onclick="toggleTheme()" title="Alternar tema">🌓</button>
     <button class="btn-icon btn-danger" id="btn-reset" style="display:none" onclick="confirmReset()">🔄 Atualizar Base</button>
+    <button class="btn-clear-all" id="btn-clear-all" onclick="showClearAll()" title="Limpeza geral de dados">⚙</button>
   </div>
 </header>
 
+<!-- MODAL LIMPEZA GERAL -->
+<div id="clearall-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;max-width:400px;width:90%;text-align:center">
+    <div id="clearall-step1">
+      <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--red)">Limpeza Geral</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5">Isso apagará <strong>todos os dados</strong> do painel:<br>arquivos carregados, observações salvas na nuvem e dados do Cartão de Ponto.<br><br>Esta ação é irreversível.</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="closeClearAll()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:13px">Cancelar</button>
+        <button onclick="clearAllStep2()" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-weight:700;font-size:13px">Continuar →</button>
+      </div>
+    </div>
+    <div id="clearall-step2" style="display:none">
+      <div style="font-size:36px;margin-bottom:12px">🗑️</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--red)">Confirmar exclusão total</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Digite <strong>LIMPAR</strong> para confirmar:</div>
+      <input id="clearall-input" type="text" placeholder="LIMPAR" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;text-align:center;text-transform:uppercase;margin-bottom:16px;box-sizing:border-box" oninput="const b=document.getElementById('clearall-btn-confirm');const ok=this.value.trim().toUpperCase()==='LIMPAR';b.disabled=!ok;b.style.opacity=ok?'1':'.4'">
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="closeClearAll()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:13px">Cancelar</button>
+        <button id="clearall-btn-confirm" onclick="executeFullClear()" disabled style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-weight:700;font-size:13px;opacity:.4" onmouseenter="this.style.opacity=this.disabled?'.4':'1'" onmouseleave="this.style.opacity=this.disabled?'.4':'.9'">🗑️ Apagar tudo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="presentation-banner">▶ MODO APRESENTAÇÃO — pressione ESC para sair</div>
+
+<!-- OPENING SLIDE -->
+<div id="pres-slide" onclick="document.getElementById('pres-slide').style.display='none'">
+  <img src="assets/logo.png" class="ps-logo" alt="Agroquima">
+  <div class="ps-title">Banco de Horas</div>
+  <div class="ps-period" id="ps-period">—</div>
+  <div class="ps-kpis" id="ps-kpis"></div>
+  <div class="ps-hint">clique para ver detalhes</div>
+</div>
+<div class="ps-shortcut-bar">P apresentação · 1-4 filtro KPI · 0 limpar · C capturar · E excel · Ctrl+P imprimir</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav" id="tab-nav">
+  <button class="tab-btn active" id="tab-btn-bh" onclick="switchTab('bh')">🏦 Banco de Horas <span class="tab-badge" id="tab-badge-bh" style="display:none">0</span></button>
+  <button class="tab-btn" id="tab-btn-cp" onclick="switchTab('cp')">📋 Marcações Irregulares <span class="tab-badge" id="tab-badge-cp" style="display:none">0</span></button>
+</div>
+
 <!-- WARNING BANNER -->
-<div class="warning-banner">
+<div class="warning-banner" id="bh-warning">
   ⚠️ &nbsp;Emita o relatório na <strong>quarta-feira após o expediente</strong> para garantir saldo completo de todos os colaboradores.
+</div>
+
+<!-- CP UPLOAD SCREEN -->
+<div id="cp-upload-screen">
+  <div class="upload-card" id="cp-drop-zone">
+    <label for="cp-file-input" style="display:block;cursor:pointer">
+      <div class="upload-icon">📋</div>
+      <h2>Cartão de Ponto — Marcações</h2>
+      <p>Arraste e solte o arquivo .xlsx aqui, ou clique para selecionar.<br>Identifica HE &gt; 2h, intervalos irregulares e marcações incorretas.</p>
+      <span class="btn-upload">📂 Selecionar arquivo .xlsx</span>
+    </label>
+    <input type="file" id="cp-file-input" accept=".xlsx,.xls" onchange="handleCPFile(this.files[0])">
+    <div class="upload-hint">Arquivo: Relatorio_CartaoDePontoLayout1_*.xlsx</div>
+  </div>
+</div>
+
+<!-- CP MAIN CONTENT -->
+<div id="cp-main">
+  <div class="filter-bar" id="cp-filter-bar">
+    <span class="filter-label">Região</span>
+    <select class="filter-select" id="cpf-regiao" onchange="onCPRegiaoChange()">
+      <option value="">Todas</option>
+      <option value="SUL">SUL</option>
+      <option value="NORTE">NORTE</option>
+    </select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Auditor</span>
+    <select class="filter-select" id="cpf-auditor" onchange="onCPAuditorChange()"></select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Filial</span>
+    <select class="filter-select" id="cpf-filial" onchange="applyCPFilters()"></select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Cargo</span>
+    <select class="filter-select" id="cpf-cargo" onchange="applyCPFilters()"></select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Violação</span>
+    <select class="filter-select" id="cpf-violacao" onchange="applyCPFilters()">
+      <option value="">Todas</option>
+      <option value="he_crit">HE &gt; 2h</option>
+      <option value="he_atenc">HE 1–2h</option>
+      <option value="intervalo">Intervalo irregular</option>
+      <option value="marcacao">Marcação irregular</option>
+      <option value="sem_marcacao">Sem marcação</option>
+      <option value="falta">Falta</option>
+      <option value="atraso">Entrada em atraso</option>
+    </select>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn-capture" onclick="exportCPExcel()">📊 Exportar Excel</button>
+      <button class="btn-icon btn-danger" style="font-size:12px;padding:5px 10px" onclick="confirmResetCP()">🔄 Novo arquivo</button>
+    </div>
+  </div>
+
+  <div class="cp-kpi-row">
+    <div class="kpi-card red" onclick="filterCPByKPI('he_crit')" id="cpkpi-crit">
+      <div class="kpi-label">🔴 HE &gt; 2h no dia</div>
+      <div class="kpi-value" id="cpkv-crit">0</div>
+      <div class="kpi-sub">Colaboradores com ocorrência crítica</div>
+    </div>
+    <div class="kpi-card yellow" onclick="filterCPByKPI('intervalo')" id="cpkpi-interv">
+      <div class="kpi-label">🟡 Intervalo irregular</div>
+      <div class="kpi-value" id="cpkv-interv">0</div>
+      <div class="kpi-sub">Intervalo &lt; 60 min registrado</div>
+    </div>
+    <div class="kpi-card orange" onclick="filterCPByKPI('marcacao')" id="cpkpi-marc">
+      <div class="kpi-label">🟠 Marcação irregular</div>
+      <div class="kpi-value" id="cpkv-marc">0</div>
+      <div class="kpi-sub">Ponto incorreto ou sem marcação</div>
+    </div>
+    <div class="kpi-card" style="border-color:var(--border)" onclick="filterCPByKPI('falta')" id="cpkpi-falta">
+      <div class="kpi-label" style="color:var(--text2)">⚫ Faltas / Atrasos</div>
+      <div class="kpi-value" style="color:var(--text2)" id="cpkv-falta">0</div>
+      <div class="kpi-sub">Registros de falta ou entrada em atraso</div>
+    </div>
+  </div>
+
+  <div class="table-wrapper">
+    <div class="table-header-row">
+      <span class="table-title">Colaboradores com Irregularidades</span>
+      <span class="table-count" id="cp-table-count"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="cp-table">
+        <thead>
+          <tr>
+            <th onclick="sortCPTable(0)">Colaborador <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(1)">Filial / Auditor <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(2)">HE &gt;2h <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(3)">HE 1-2h <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(4)">Intervalo <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(5)">Sem marcação <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(6)">Faltas <span class="sort-arrow">↕</span></th>
+            <th onclick="sortCPTable(7)">Max HE/dia <span class="sort-arrow">↕</span></th>
+            <th>Violations</th>
+          </tr>
+        </thead>
+        <tbody id="cp-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <button class="cp-porteiro-btn" id="cp-porteiro-btn" onclick="togglePorteiros()" title="Porteiros (ocultos da análise)">🚪</button>
+</div>
+
+<!-- CP MODAL -->
+<div class="modal-overlay" id="cp-modal-overlay" onclick="closeCPModal(event)">
+  <div class="modal cp-modal">
+    <button class="modal-close" onclick="closeCPModal()">✕</button>
+    <div class="cp-emp-header">
+      <div class="cp-emp-info">
+        <div class="cp-emp-name" id="cpm-nome"></div>
+        <div class="cp-emp-meta" id="cpm-meta"></div>
+      </div>
+    </div>
+    <div class="cp-stats-row">
+      <div class="cp-stat"><div class="cp-stat-num" style="color:var(--red)" id="cpm-s-crit">0</div><div class="cp-stat-label">Dias HE&gt;2h</div></div>
+      <div class="cp-stat"><div class="cp-stat-num" style="color:var(--yellow)" id="cpm-s-interv">0</div><div class="cp-stat-label">Intervalo irr.</div></div>
+      <div class="cp-stat"><div class="cp-stat-num" style="color:var(--orange)" id="cpm-s-marc">0</div><div class="cp-stat-label">Marcação irr.</div></div>
+      <div class="cp-stat"><div class="cp-stat-num" style="color:var(--text2)" id="cpm-s-falta">0</div><div class="cp-stat-label">Faltas/Atrasos</div></div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Detalhe por Dia</div>
+    <div class="cp-day-grid" id="cpm-dias" style="max-height:340px;overflow-y:auto"></div>
+  </div>
 </div>
 
 <!-- UPLOAD SCREEN -->
 <div id="upload-screen">
   <div class="upload-card" id="drop-zone">
-    <div class="upload-icon">📊</div>
-    <h2>Conta Corrente Banco de Horas</h2>
-    <p>Arraste e solte o arquivo .xlsx aqui, ou clique para selecionar.<br>Os dados ficam salvos localmente nesta máquina.</p>
-    <button class="btn-upload" onclick="document.getElementById('file-input').click()">
-      📂 Selecionar arquivo .xlsx
-    </button>
+    <label for="file-input" style="display:block;cursor:pointer">
+      <div class="upload-icon">📊</div>
+      <h2>Conta Corrente Banco de Horas</h2>
+      <p>Arraste e solte o arquivo .xlsx aqui, ou clique em qualquer lugar para selecionar.<br>Os dados ficam salvos localmente nesta máquina.</p>
+      <span class="btn-upload">📂 Selecionar arquivo .xlsx</span>
+    </label>
     <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
     <div class="upload-hint">Arquivo: Relatorio_ContaCorrenteBancoDeHorasResumo_*.xlsx</div>
   </div>
@@ -544,22 +841,32 @@ textarea:focus { border-color: var(--accent); }
       <div class="kpi-label">🔴 Críticos &gt; 6h</div>
       <div class="kpi-value" id="kv-critico">0</div>
       <div class="kpi-sub">Exigem observação urgente</div>
+      <div class="kpi-trend" id="kt-critico"></div>
     </div>
     <div class="kpi-card yellow" onclick="filterByKPI('atencao')" id="kpi-atencao">
       <div class="kpi-label">🟡 Atenção 4h–6h</div>
       <div class="kpi-value" id="kv-atencao">0</div>
       <div class="kpi-sub">Zona de alerta</div>
+      <div class="kpi-trend" id="kt-atencao"></div>
     </div>
     <div class="kpi-card green" onclick="filterByKPI('ok')" id="kpi-ok">
       <div class="kpi-label">🟢 OK &lt; 4h</div>
       <div class="kpi-value" id="kv-ok">0</div>
       <div class="kpi-sub">Positivos regulares</div>
+      <div class="kpi-trend" id="kt-ok"></div>
     </div>
     <div class="kpi-card orange" onclick="filterByKPI('supervisor')" id="kpi-sup">
       <div class="kpi-label">🟠 Supervisores positivos</div>
       <div class="kpi-value" id="kv-sup">0</div>
       <div class="kpi-sub">Cobrados diretamente</div>
+      <div class="kpi-trend" id="kt-supervisor"></div>
     </div>
+  </div>
+
+  <!-- AUDITOR CHART -->
+  <div id="auditor-chart" style="display:none">
+    <div class="section-title">📊 Situação por Auditor <span>(atalhos: P=apresentação 1-4=filtro C=capturar E=excel)</span></div>
+    <div class="auditor-chart-grid" id="auditor-chart-inner"></div>
   </div>
 
   <!-- TABLE -->
@@ -658,6 +965,242 @@ textarea:focus { border-color: var(--accent); }
 
 <script>
 // ══════════════════════════════════════════════
+//  SUPABASE
+// ══════════════════════════════════════════════
+const SB_URL = 'https://yeburvkopwbmnfcmthtz.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllYnVydmtvcHdibW5mY210aHR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2ODk5NDMsImV4cCI6MjEwODI2NTk0M30.3t-4Q8SM9XV0OdQLHktMUmKNItg1byBkyv0HGN3B-74';
+let sb = null;
+
+function initSupabase() {
+  try {
+    sb = supabase.createClient(SB_URL, SB_KEY);
+    setSyncDot('ok');
+  } catch(e) { setSyncDot('err'); }
+}
+
+function setSyncDot(state) {
+  const d = document.getElementById('sync-dot');
+  if (d) { d.className = 'sync-dot ' + state; }
+}
+
+async function loadObsSupabase(periodo) {
+  if (!sb || !periodo) return;
+  setSyncDot('loading');
+  try {
+    const { data, error } = await sb.from('banco_horas_obs')
+      .select('matricula,periodo,texto,auditor')
+      .eq('periodo', periodo);
+    if (error) throw error;
+    if (data && data.length) {
+      data.forEach(row => {
+        localStorage.setItem('aq_obs_'+row.matricula, JSON.stringify({
+          text: row.texto,
+          date: new Date().toLocaleDateString('pt-BR'),
+          semana: row.periodo,
+          auditor: row.auditor
+        }));
+      });
+    }
+    setSyncDot('ok');
+    return data || [];
+  } catch(e) { setSyncDot('err'); return []; }
+}
+
+async function upsertObsSupabase(matricula, periodo, texto, auditor) {
+  if (!sb) return;
+  setSyncDot('loading');
+  try {
+    const { error } = await sb.from('banco_horas_obs')
+      .upsert({ matricula, periodo, texto, auditor: auditor||'' },
+               { onConflict: 'matricula,periodo' });
+    if (error) throw error;
+    setSyncDot('ok');
+  } catch(e) { setSyncDot('err'); }
+}
+
+async function deleteObsSupabase(matricula, periodo) {
+  if (!sb) return;
+  try {
+    await sb.from('banco_horas_obs')
+      .delete()
+      .match({ matricula, periodo });
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+//  SNAPSHOTS — histórico semanal
+// ══════════════════════════════════════════════
+let prevSnapshot = null;
+
+function buildAuditorStats(data) {
+  const stats = {};
+  data.forEach(d => {
+    if (!d.auditor || d.auditor === 'Gerente Administrativo') return;
+    if (!stats[d.auditor]) stats[d.auditor] = {criticos:0, atencao:0, ok:0};
+    if (d.saldo_min > 0 && d.status !== 'negativo' && d.status !== 'zero') {
+      stats[d.auditor][d.status]++;
+    }
+  });
+  return stats;
+}
+
+async function saveSnapshot(data, periodo) {
+  if (!sb || !periodo) return;
+  const snap = {
+    periodo,
+    total: data.length,
+    criticos: data.filter(d => d.status === 'critico').length,
+    atencao: data.filter(d => d.status === 'atencao').length,
+    ok_count: data.filter(d => d.status === 'ok').length,
+    supervisores: data.filter(d => d.isSup && d.saldo_min > 0).length,
+    por_auditor: buildAuditorStats(data),
+    updated_at: new Date().toISOString()
+  };
+  try {
+    await sb.from('banco_horas_snapshots').upsert(snap, {onConflict: 'periodo'});
+  } catch(e) {}
+}
+
+async function loadPrevSnapshot(periodo) {
+  if (!sb || !periodo) return;
+  try {
+    const { data } = await sb.from('banco_horas_snapshots')
+      .select('*')
+      .neq('periodo', periodo)
+      .order('updated_at', {ascending: false})
+      .limit(1);
+    prevSnapshot = data?.[0] || null;
+  } catch(e) { prevSnapshot = null; }
+}
+
+// ══════════════════════════════════════════════
+//  TENDÊNCIAS — comparativo vs semana anterior
+// ══════════════════════════════════════════════
+function updateTrends(base) {
+  if (!prevSnapshot) {
+    ['critico','atencao','ok','supervisor'].forEach(k => {
+      const el = document.getElementById('kt-'+k);
+      if (el) el.textContent = '';
+    });
+    return;
+  }
+  const cur = {
+    critico: base.filter(d=>d.status==='critico').length,
+    atencao: base.filter(d=>d.status==='atencao').length,
+    ok: base.filter(d=>d.status==='ok').length,
+    supervisor: base.filter(d=>d.isSup && d.saldo_min>0).length
+  };
+  setTrend('critico', cur.critico, prevSnapshot.criticos, true);
+  setTrend('atencao', cur.atencao, prevSnapshot.atencao, true);
+  setTrend('ok', cur.ok, prevSnapshot.ok_count, false);
+  setTrend('supervisor', cur.supervisor, prevSnapshot.supervisores, true);
+}
+
+function setTrend(key, cur, prev, lowerIsBetter) {
+  const el = document.getElementById('kt-'+key);
+  if (!el || prev == null) return;
+  const diff = cur - prev;
+  if (diff === 0) { el.textContent = '→ igual à semana anterior'; el.style.color = 'var(--text3)'; return; }
+  const good = lowerIsBetter ? diff < 0 : diff > 0;
+  el.textContent = (diff > 0 ? '↑ +' : '↓ ') + Math.abs(diff) + ' vs semana anterior';
+  el.style.color = good ? 'var(--green)' : 'var(--red)';
+}
+
+// ══════════════════════════════════════════════
+//  GRÁFICO POR AUDITOR
+// ══════════════════════════════════════════════
+function renderAuditorChart(data) {
+  const container = document.getElementById('auditor-chart');
+  const inner = document.getElementById('auditor-chart-inner');
+  if (!inner) return;
+  const stats = buildAuditorStats(data);
+  const auditors = Object.keys(stats).sort();
+  if (!auditors.length) { container.style.display='none'; return; }
+  const maxCrit = Math.max(...auditors.map(a => stats[a].criticos), 1);
+  inner.innerHTML = auditors.map(a => {
+    const s = stats[a];
+    const pct = v => Math.round((v/maxCrit)*100);
+    return `<div class="auditor-card">
+      <div class="auditor-name" title="${a}">${a.split(' ')[0]} ${a.split(' ').slice(-1)[0]}</div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--red)">Crítico</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct(s.criticos)}%;background:var(--red)"></div></div>
+        <span class="bar-count" style="color:var(--red)">${s.criticos}</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--yellow)">Atenção</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct(s.atencao)}%;background:var(--yellow)"></div></div>
+        <span class="bar-count" style="color:var(--yellow)">${s.atencao}</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--green)">OK</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct(s.ok)}%;background:var(--green)"></div></div>
+        <span class="bar-count" style="color:var(--green)">${s.ok}</span>
+      </div>
+    </div>`;
+  }).join('');
+  container.style.display = '';
+}
+
+// ══════════════════════════════════════════════
+//  MODO APRESENTAÇÃO
+// ══════════════════════════════════════════════
+function togglePresentation() {
+  const on = document.body.classList.toggle('presentation');
+  document.getElementById('btn-presentation').textContent = on ? '✖ Sair' : '📊 Apresentação';
+  if (on) {
+    updatePresSlide();
+    document.getElementById('pres-slide').style.display = 'flex';
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+  } else {
+    document.getElementById('pres-slide').style.display = 'none';
+    if (document.fullscreenElement) document.exitFullscreen?.();
+  }
+}
+
+function updatePresSlide() {
+  document.getElementById('ps-period').textContent = document.getElementById('header-period').textContent || '';
+  const kpis = [
+    {id:'kv-critico', label:'Críticos', color:'#ff5252'},
+    {id:'kv-atencao', label:'Atenção', color:'#ffd740'},
+    {id:'kv-ok', label:'OK', color:'#69f0ae'},
+    {id:'kv-sup', label:'Supervisores', color:'#ff9100'}
+  ];
+  document.getElementById('ps-kpis').innerHTML = kpis.map(k =>
+    `<div class="ps-kpi-item">
+      <div class="ps-kpi-num" style="color:${k.color}">${document.getElementById(k.id).textContent}</div>
+      <div class="ps-kpi-label">${k.label}</div>
+    </div>`
+  ).join('');
+}
+
+document.addEventListener('keydown', e => {
+  const inField = e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT';
+  if (e.key === 'Escape') {
+    if (document.body.classList.contains('presentation')) {
+      document.getElementById('pres-slide').style.display = 'none';
+      document.body.classList.remove('presentation');
+      document.getElementById('btn-presentation').textContent = '📊 Apresentação';
+      if (document.fullscreenElement) document.exitFullscreen?.();
+    }
+    return;
+  }
+  if (inField) return;
+  if (e.key === 'p' || e.key === 'P') togglePresentation();
+  if (e.key === '1') filterByKPI('critico');
+  if (e.key === '2') filterByKPI('atencao');
+  if (e.key === '3') filterByKPI('ok');
+  if (e.key === '4') filterByKPI('supervisor');
+  if (e.key === '0') {
+    kpiFilter = null;
+    document.querySelectorAll('.kpi-card').forEach(c=>c.classList.remove('selected'));
+    applyFilters();
+  }
+  if (e.key === 'c' || e.key === 'C') captureImage();
+  if (e.key === 'e' || e.key === 'E') exportExcel();
+});
+
+// ══════════════════════════════════════════════
 //  BASE REGIONAIS (hardcoded)
 // ══════════════════════════════════════════════
 const BASE_REGIONAIS = [
@@ -752,9 +1295,12 @@ function saveObs() {
   const text = document.getElementById('obs-textarea').value.trim();
   const key = 'aq_obs_'+currentRow.matricula;
   if (text) {
-    localStorage.setItem(key, JSON.stringify({text, date: new Date().toLocaleDateString('pt-BR'), semana: currentRow.periodo}));
+    const obsObj = {text, date: new Date().toLocaleDateString('pt-BR'), semana: currentRow.periodo};
+    localStorage.setItem(key, JSON.stringify(obsObj));
+    upsertObsSupabase(currentRow.matricula, currentRow.periodo, text, currentRow.auditor);
   } else {
     localStorage.removeItem(key);
+    deleteObsSupabase(currentRow.matricula, currentRow.periodo);
   }
   currentRow._obs = text ? {text, date: new Date().toLocaleDateString('pt-BR'), semana: currentRow.periodo} : null;
   renderTable();
@@ -876,7 +1422,6 @@ function parseXLSX(file) {
       
       allData = data;
       if (periodo) {
-        // Format: 10/2026 -> Outubro/2026
         const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
         const [mm,yy] = periodo.split('/');
         const mFormatted = meses[parseInt(mm)] ? meses[parseInt(mm)]+'/'+yy : periodo;
@@ -884,6 +1429,7 @@ function parseXLSX(file) {
         document.getElementById('header-period').style.display='';
       }
       saveData(data);
+      saveSnapshot(data, periodo);
       showPanel();
     } catch(err) {
       alert('Erro ao processar arquivo: '+err.message);
@@ -907,6 +1453,7 @@ function showPanel() {
   document.getElementById('btn-reset').style.display='';
   populateFilterDropdowns();
   applyFilters();
+  renderAuditorChart(allData);
 }
 
 function handleFile(file) {
@@ -1044,6 +1591,7 @@ function updateKPIs() {
   document.getElementById('kv-atencao').textContent = base.filter(d=>d.status==='atencao').length;
   document.getElementById('kv-ok').textContent = base.filter(d=>d.status==='ok').length;
   document.getElementById('kv-sup').textContent = base.filter(d=>d.isSup && d.saldo_min>0).length;
+  updateTrends(base);
 }
 
 // ══════════════════════════════════════════════
@@ -1191,17 +1739,539 @@ function exportExcel() {
 }
 
 // ══════════════════════════════════════════════
+//  LIMPEZA GERAL
+// ══════════════════════════════════════════════
+function showClearAll() {
+  document.getElementById('clearall-step1').style.display='block';
+  document.getElementById('clearall-step2').style.display='none';
+  document.getElementById('clearall-input') && (document.getElementById('clearall-input').value='');
+  const o = document.getElementById('clearall-overlay');
+  o.style.display='flex';
+}
+function closeClearAll() { document.getElementById('clearall-overlay').style.display='none'; }
+function clearAllStep2() {
+  document.getElementById('clearall-step1').style.display='none';
+  document.getElementById('clearall-step2').style.display='block';
+  document.getElementById('clearall-btn-confirm').disabled=true;
+  document.getElementById('clearall-btn-confirm').style.opacity='.4';
+  setTimeout(()=>document.getElementById('clearall-input').focus(),50);
+}
+async function executeFullClear() {
+  closeClearAll();
+  // Clear localStorage (all aq_ keys)
+  Object.keys(localStorage).filter(k=>k.startsWith('aq_')).forEach(k=>localStorage.removeItem(k));
+  // Clear Supabase
+  if (sb) {
+    try {
+      await sb.from('banco_horas_obs').delete().neq('matricula','__never__');
+      await sb.from('banco_horas_snapshots').delete().neq('periodo','__never__');
+    } catch(e) { /* ignore */ }
+  }
+  // Reset state
+  allData=[]; cpAllData=[]; cpFiltered=[];
+  document.getElementById('tab-badge-bh').style.display='none';
+  document.getElementById('tab-badge-cp').style.display='none';
+  activeTab='bh';
+  document.getElementById('tab-btn-bh').classList.add('active');
+  document.getElementById('tab-btn-cp').classList.remove('active');
+  showUpload();
+  document.getElementById('cp-upload-screen').style.display='none';
+  document.getElementById('cp-main').style.display='none';
+  document.getElementById('main-content').style.display='none';
+  document.getElementById('upload-screen').style.display='flex';
+}
+
+// ══════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════
+let activeTab = 'bh';
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-btn-bh').classList.toggle('active', tab==='bh');
+  document.getElementById('tab-btn-cp').classList.toggle('active', tab==='cp');
+  // BH elements
+  const bhHasData = allData.length > 0;
+  document.getElementById('upload-screen').style.display = tab==='bh' && !bhHasData ? 'flex' : 'none';
+  document.getElementById('main-content').style.display = tab==='bh' && bhHasData ? 'block' : 'none';
+  document.getElementById('bh-warning').style.display = tab==='bh' ? '' : 'none';
+  document.getElementById('btn-presentation').style.display = tab==='bh' ? '' : 'none';
+  document.getElementById('btn-reset').style.display = tab==='bh' && bhHasData ? '' : 'none';
+  // CP elements
+  const cpHasData = cpAllData.length > 0;
+  document.getElementById('cp-upload-screen').style.display = tab==='cp' && !cpHasData ? 'flex' : 'none';
+  document.getElementById('cp-main').style.display = tab==='cp' && cpHasData ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════
+//  CARTÃO DE PONTO — MATCHING (CNPJ direto)
+// ══════════════════════════════════════════════
+// CNPJ direto → número da filial (F02 não existe, era F01; F18 = ADM própria)
+const CP_CNPJ_MAP = {
+  '01626951000133':1,   // F01 MTZ Goiânia
+  '01626951000303':3,   // F03 ARG Araguaína
+  '01626951000486':4,   // F04 RVD Rio Verde
+  '01626951000567':5,   // F05 UBR Uberlândia
+  '01626951001024':10,  // F10 MAR Marabá
+  '01626951001105':11,  // F11 JAT Jataí
+  '01626951001296':12,  // F12 CRI Cristalina
+  '01626951001377':13,  // F13 FAG UBS
+  '01626951001458':14,  // F14 RED Redenção
+  '01626951001610':16,  // F16 IMP Imperatriz
+  '01626951001709':17,  // F17 BAR Barra do Garças
+  '01626951001881':18,  // F18 ADM Administração
+  '01626951001962':19,  // F19 PAL Palmas
+  '01626951002187':21,  // F21 MOZ Mozarlândia
+  '01626951002268':22,  // F22 PGM Paragominas
+  '01626951002349':23,  // F23 SFX São Félix do Xingu
+  '01626951002420':24,  // F24 FAP Fábrica Aparecida
+  '01626951002500':25,  // F25 FCB Cuiabá
+  '01626951002772':27,  // F27 URU Uruaçu
+  '01626951002853':28,  // F28 MOR Morrinhos
+  '01626951002934':29,  // F29 CON Confresa
+  '01626951003078':30,  // F30 FOR Formosa
+  '01626951003159':31,  // F31 JUS Jussara
+  '01626951003230':32,  // F32 XRA Xinguara
+  '01626951003400':34,  // F34 POR Porangatu
+  '01626951003582':35,  // F35 PLA Pontes e Lacerda
+  '01626951003663':36,  // F36 GRA Goianira
+  '01626951003744':37,  // F37 CAN Canarana
+  '01626951003825':38,  // F38 GUR Gurupi
+  '01626951004040':40,  // F40 RIA Rialma
+  '01626951004120':41   // F41 ALT Altamira
+};
+const F18_ADM = {filial:18,sigla:'ADM',loja:'ADMINISTRAÇÃO',estado:'GO',auditor:'ADMINISTRAÇÃO',regiao:'SUL'};
+const CP_CNPJ_CACHE = {};
+
+function matchFilialCP(cnpj) {
+  const digits = (cnpj||'').replace(/\D/g,'').slice(0,14);
+  if (digits in CP_CNPJ_CACHE) return CP_CNPJ_CACHE[digits];
+  const filNum = CP_CNPJ_MAP[digits];
+  let b = null;
+  if (filNum === 18) b = F18_ADM;
+  else if (filNum) b = BASE_REGIONAIS.find(r=>r.filial===filNum)||null;
+  CP_CNPJ_CACHE[digits] = b;
+  return b;
+}
+
+// ══════════════════════════════════════════════
+//  CARTÃO DE PONTO — PARSE
+// ══════════════════════════════════════════════
+let cpAllData = [];
+let cpFiltered = [];
+let cpKPIFilter = null;
+let cpSortCol = 2;
+let cpSortAsc = false;
+
+function handleCPFile(file) { if (file) parseCartaoPonto(file); }
+
+const cpDZ = document.getElementById('cp-drop-zone');
+cpDZ.addEventListener('dragover', e => { e.preventDefault(); cpDZ.classList.add('drag-over'); });
+cpDZ.addEventListener('dragleave', () => cpDZ.classList.remove('drag-over'));
+cpDZ.addEventListener('drop', e => { e.preventDefault(); cpDZ.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleCPFile(e.dataTransfer.files[0]); });
+
+function parseCartaoPonto(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+      // Col indices: 0=Empresa,1=Cnpj,2=Endereco,3=Colaborador,7=Cargo,17=Matricula
+      // 19=Dia,21=JornadaStr,22=EscalaStr,23=MarcacoesStr,25=Ocorrencia,26=Qtde
+      // 38=Data
+      const HE_RE    = /hora extra/i;
+      const INTERV_RE = /intervalo irr|hora extra intervalo|inconsist.*intervalo/i;
+      const MARC_RE  = /marcação irr|marcacao irr|hora extra irr/i;
+      const SEMMARK_RE = /sem marcação|sem marcacao/i;
+      const FALTA_RE = /^falta$/i;
+      const ATRASO_RE = /entrada em atraso/i;
+      const SAIDA_RE = /saída antecipada|saida antecipada/i;
+
+      const byDay = {};
+      let curColab='', curMat='', curCargo='', curCNPJ='', curEnd='', curData='', curDateObj=null;
+
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (r[3]) { curColab=r[3]; curMat=String(r[17]||'').trim(); curCargo=String(r[7]||''); curCNPJ=String(r[1]||''); curEnd=String(r[2]||''); }
+        const rawDate = r[38];
+        if (rawDate) { curDateObj=rawDate; curData=rawDate instanceof Date ? rawDate.toISOString().slice(0,10) : String(rawDate).slice(0,10); }
+
+        const key = curMat + '||' + curData;
+        if (!byDay[key]) {
+          byDay[key] = { nome:curColab, matricula:curMat, cargo:curCargo, cnpj:curCNPJ, end:curEnd,
+            data:curData, dateObj:curDateObj, dia:'', jornada:'', marcacoes:'',
+            heMin:0, hasInterv:false, hasMarcIrr:false, hasSemMark:false,
+            hasFalta:false, hasAtraso:false, hasSaida:false, ocs:[] };
+        }
+        const d = byDay[key];
+        if (r[19]) { d.dia=String(r[19]); d.jornada=String(r[21]||''); d.marcacoes=String(r[23]||'').trim(); }
+
+        const oc = String(r[25]||'').trim();
+        const qt = String(r[26]||'00:00').trim();
+        if (oc && oc !== '0') {
+          d.ocs.push({tipo:oc, qtde:qt});
+          if (HE_RE.test(oc)) d.heMin += timeToMinutes(qt) || 0;
+          if (INTERV_RE.test(oc)) d.hasInterv = true;
+          if (MARC_RE.test(oc)) d.hasMarcIrr = true;
+          if (SEMMARK_RE.test(oc)) d.hasSemMark = true;
+          if (FALTA_RE.test(oc)) d.hasFalta = true;
+          if (ATRASO_RE.test(oc)) d.hasAtraso = true;
+          if (SAIDA_RE.test(oc)) d.hasSaida = true;
+        }
+      }
+
+      // Build employee summaries
+      const empMap = {};
+      for (const day of Object.values(byDay)) {
+        const k = day.matricula || day.nome;
+        if (!k) continue;
+        if (!empMap[k]) {
+          empMap[k] = {
+            nome:day.nome, matricula:day.matricula, cargo:day.cargo,
+            cnpj:day.cnpj, end:day.end, filial: matchFilialCP(day.cnpj),
+            diasHEcrit:0, diasHEatenc:0, diasInterv:0, diasMarcIrr:0,
+            diasSemMark:0, diasFalta:0, diasAtraso:0, maxHEmin:0,
+            dias:[]
+          };
+        }
+        const emp = empMap[k];
+        emp.dias.push(day);
+        if (day.heMin > 120) emp.diasHEcrit++;
+        else if (day.heMin > 60) emp.diasHEatenc++;
+        if (day.hasInterv) emp.diasInterv++;
+        if (day.hasMarcIrr) emp.diasMarcIrr++;
+        if (day.hasSemMark) emp.diasSemMark++;
+        if (day.hasFalta) emp.diasFalta++;
+        if (day.hasAtraso) emp.diasAtraso++;
+        if (day.heMin > emp.maxHEmin) emp.maxHEmin = day.heMin;
+      }
+
+      cpAllData = Object.values(empMap).filter(e =>
+        !/estagiário|estagiario/i.test(e.cargo) &&
+        e.diasHEcrit + e.diasHEatenc + e.diasInterv + e.diasMarcIrr +
+        e.diasSemMark + e.diasFalta + e.diasAtraso > 0
+      ).sort((a,b)=> b.diasHEcrit - a.diasHEcrit);
+
+      showCPPanel();
+    } catch(err) { alert('Erro ao processar cartão de ponto: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════
+//  CARTÃO DE PONTO — UI
+// ══════════════════════════════════════════════
+function showCPPanel() {
+  switchTab('cp');
+  document.getElementById('cp-upload-screen').style.display = 'none';
+  document.getElementById('cp-main').style.display = 'block';
+  showPorteiros = false;
+  populateCPFilters();
+  applyCPFilters();
+  const badge = document.getElementById('tab-badge-cp');
+  badge.textContent = cpAllData.length;
+  badge.style.display = '';
+}
+
+function confirmResetCP() {
+  if (confirm('Limpar dados do Cartão de Ponto?')) {
+    cpAllData = []; cpFiltered = []; cpKPIFilter = null;
+    document.getElementById('tab-badge-cp').style.display='none';
+    switchTab('cp');
+  }
+}
+
+function fillSelectPreserve(id, values) {
+  const s = document.getElementById(id);
+  const prev = s.value;
+  s.innerHTML = '<option value="">Todos</option>' + values.map(v=>`<option value="${v}"${v===prev?' selected':''}>${v}</option>`).join('');
+  if (!values.includes(prev)) s.value = '';
+}
+
+function cpSubset(reg, aud) {
+  return cpAllData.filter(e => {
+    if (reg && e.filial?.regiao !== reg) return false;
+    if (aud && e.filial?.auditor !== aud) return false;
+    return true;
+  });
+}
+
+function cpFilStr(e) {
+  return e.filial&&e.filial.sigla!=='ADM' ? `F${String(e.filial.filial).padStart(2,'0')} ${e.filial.sigla}` : null;
+}
+function cpCargoClean(e) { return e.cargo.replace(/^\d+-/,'').trim(); }
+
+function onCPRegiaoChange() {
+  const reg = document.getElementById('cpf-regiao').value;
+  const sub = cpSubset(reg, '');
+  fillSelectPreserve('cpf-auditor', [...new Set(sub.map(e=>e.filial?.auditor).filter(Boolean))].sort());
+  const aud = document.getElementById('cpf-auditor').value;
+  const sub2 = cpSubset(reg, aud);
+  fillSelectPreserve('cpf-filial', [...new Set(sub2.map(cpFilStr).filter(Boolean))].sort());
+  fillSelectPreserve('cpf-cargo', [...new Set(sub2.map(cpCargoClean).filter(Boolean))].sort());
+  applyCPFilters();
+}
+
+function onCPAuditorChange() {
+  const reg = document.getElementById('cpf-regiao').value;
+  const aud = document.getElementById('cpf-auditor').value;
+  const sub = cpSubset(reg, aud);
+  fillSelectPreserve('cpf-filial', [...new Set(sub.map(cpFilStr).filter(Boolean))].sort());
+  fillSelectPreserve('cpf-cargo', [...new Set(sub.map(cpCargoClean).filter(Boolean))].sort());
+  applyCPFilters();
+}
+
+function populateCPFilters() {
+  onCPRegiaoChange();
+  document.getElementById('cp-porteiro-btn').style.display =
+    cpAllData.some(isPorteiro) ? '' : 'none';
+}
+
+// ══════════════════════════════════════════════
+//  PORTEIROS
+// ══════════════════════════════════════════════
+let showPorteiros = false;
+function isPorteiro(e) { return /porteiro/i.test(e.cargo||''); }
+function togglePorteiros() {
+  showPorteiros = !showPorteiros;
+  document.getElementById('cp-porteiro-btn').classList.toggle('active', showPorteiros);
+  renderCPTable();
+}
+
+function filterCPByKPI(type) {
+  cpKPIFilter = cpKPIFilter === type ? null : type;
+  document.querySelectorAll('.cp-kpi-row .kpi-card').forEach(c=>c.classList.remove('selected'));
+  if (cpKPIFilter) document.getElementById('cpkpi-'+{he_crit:'crit',intervalo:'interv',marcacao:'marc',falta:'falta'}[cpKPIFilter]).classList.add('selected');
+  applyCPFilters();
+}
+
+function applyCPFilters() {
+  const reg = document.getElementById('cpf-regiao').value;
+  const aud = document.getElementById('cpf-auditor').value;
+  const fil = document.getElementById('cpf-filial').value;
+  const car = document.getElementById('cpf-cargo').value;
+  const vio = document.getElementById('cpf-violacao').value || cpKPIFilter;
+
+  cpFiltered = cpAllData.filter(e => {
+    if (reg && e.filial?.regiao !== reg) return false;
+    if (aud && e.filial?.auditor !== aud) return false;
+    if (fil) {
+      const eFilStr = e.filial ? `F${String(e.filial.filial).padStart(2,'0')} ${e.filial.sigla}` : '—';
+      if (eFilStr !== fil) return false;
+    }
+    if (car && cpCargoClean(e) !== car) return false;
+    if (vio === 'he_crit' && !e.diasHEcrit) return false;
+    if (vio === 'he_atenc' && !e.diasHEatenc) return false;
+    if (vio === 'intervalo' && !e.diasInterv) return false;
+    if (vio === 'marcacao' && !e.diasMarcIrr) return false;
+    if (vio === 'sem_marcacao' && !e.diasSemMark) return false;
+    if (vio === 'falta' && !e.diasFalta) return false;
+    if (vio === 'atraso' && !e.diasAtraso) return false;
+    return true;
+  });
+
+  sortCPData();
+  updateCPKPIs();
+  renderCPTable();
+}
+
+function sortCPData() {
+  const cols = ['nome','filial_str','diasHEcrit','diasHEatenc','diasInterv','diasSemMark','diasFalta','maxHEmin'];
+  cpFiltered.sort((a,b)=>{
+    let va, vb;
+    if (cpSortCol===1) { va=(a.filial?.sigla||'zzz'); vb=(b.filial?.sigla||'zzz'); }
+    else { va=a[cols[cpSortCol]]; vb=b[cols[cpSortCol]]; }
+    if (typeof va==='string') va=va.toLowerCase();
+    if (typeof vb==='string') vb=vb.toLowerCase();
+    if (va<vb) return cpSortAsc?-1:1;
+    if (va>vb) return cpSortAsc?1:-1;
+    return 0;
+  });
+}
+
+function sortCPTable(col) {
+  if (cpSortCol===col) cpSortAsc=!cpSortAsc; else { cpSortCol=col; cpSortAsc=false; }
+  document.querySelectorAll('#cp-table th').forEach((th,i)=>{
+    th.classList.toggle('sorted',i===col);
+    const a=th.querySelector('.sort-arrow');
+    if(a) a.textContent=i===col?(cpSortAsc?'↑':'↓'):'↕';
+  });
+  sortCPData(); renderCPTable();
+}
+
+function updateCPKPIs() {
+  const data = cpFiltered.filter(e=>!isPorteiro(e));
+  document.getElementById('cpkv-crit').textContent  = data.filter(e=>e.diasHEcrit>0).length;
+  document.getElementById('cpkv-interv').textContent = data.filter(e=>e.diasInterv>0).length;
+  document.getElementById('cpkv-marc').textContent   = data.filter(e=>e.diasMarcIrr+e.diasSemMark>0).length;
+  document.getElementById('cpkv-falta').textContent  = data.filter(e=>e.diasFalta+e.diasAtraso>0).length;
+}
+
+function renderCPTable() {
+  const tbody = document.getElementById('cp-table-body');
+  if (!cpFiltered.length) {
+    document.getElementById('cp-table-count').textContent = '0 colaborador(es)';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="9">Nenhum colaborador com irregularidades nos filtros selecionados.</td></tr>';
+    return;
+  }
+
+  // Separate porteiros
+  const porteiros = cpFiltered.filter(isPorteiro);
+  const normais = cpFiltered.filter(e=>!isPorteiro(e));
+  const toRender = showPorteiros ? [...normais, ...porteiros] : normais;
+  document.getElementById('cp-table-count').textContent =
+    normais.length + ' colaborador(es)' + (porteiros.length && !showPorteiros ? ` (+${porteiros.length} porteiro(s) oculto(s))` : '');
+
+  // Sort: auditor → filial → HE crit desc
+  const sorted = [...toRender].sort((a,b)=>{
+    const aa = a.filial?.auditor||'zzz', ba = b.filial?.auditor||'zzz';
+    if(aa<ba) return -1; if(aa>ba) return 1;
+    const af = a.filial?.sigla||'zzz', bf = b.filial?.sigla||'zzz';
+    if(af<bf) return -1; if(af>bf) return 1;
+    return b.diasHEcrit - a.diasHEcrit;
+  });
+
+  if (!sorted.length) {
+    tbody.innerHTML='<tr class="empty-row"><td colspan="9">Nenhuma ocorrência nos filtros selecionados.</td></tr>';
+    return;
+  }
+  // Update cpFiltered to match sorted order so modal indices stay consistent
+  cpFiltered.length = 0; sorted.forEach(e=>cpFiltered.push(e));
+
+  let html = '';
+  let curAuditor = null;
+
+  sorted.forEach((e, i) => {
+    const aud = e.filial?.auditor || '— Sem auditor';
+    if (aud !== curAuditor) {
+      curAuditor = aud;
+      const grpEmps = sorted.filter(x=>(x.filial?.auditor||'— Sem auditor')===aud);
+      const grpCrit = grpEmps.filter(x=>x.diasHEcrit>0).length;
+      const grpInterv = grpEmps.filter(x=>x.diasInterv>0).length;
+      const grpFalta = grpEmps.filter(x=>x.diasFalta+x.diasAtraso>0).length;
+      html += `<tr class="cp-auditor-group">
+        <td colspan="9">
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:14px;font-weight:800">${aud}</span>
+            <span style="font-size:11px;color:var(--text2)">${grpEmps.length} colaborador(es)</span>
+            ${grpCrit?`<span class="vbadge vbadge-he-crit" style="font-size:11px">🔴 ${grpCrit} HE crítico</span>`:''}
+            ${grpInterv?`<span class="vbadge vbadge-interval" style="font-size:11px">🟠 ${grpInterv} intervalo</span>`:''}
+            ${grpFalta?`<span class="vbadge vbadge-falta" style="font-size:11px">❌ ${grpFalta} falta/atraso</span>`:''}
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    const filStr = e.filial
+      ? `<strong>F${String(e.filial.filial).padStart(2,'0')} ${e.filial.sigla}</strong>`
+      : `<span class="filial-unknown">${(e.cnpj||'').replace(/\D/g,'').slice(10,14)}</span>`;
+    const badges = [];
+    if(e.diasHEcrit)  badges.push(`<span class="vbadge vbadge-he-crit">🔴 ${e.diasHEcrit}d&gt;2h</span>`);
+    if(e.diasHEatenc) badges.push(`<span class="vbadge vbadge-he-atenc">🟡 ${e.diasHEatenc}d&gt;1h</span>`);
+    if(e.diasInterv)  badges.push(`<span class="vbadge vbadge-interval">🟠 ${e.diasInterv}d interv.</span>`);
+    if(e.diasMarcIrr||e.diasSemMark) badges.push(`<span class="vbadge vbadge-marcacao">🟣 ${e.diasMarcIrr+e.diasSemMark}d marc.</span>`);
+    if(e.diasFalta)   badges.push(`<span class="vbadge vbadge-falta">❌ ${e.diasFalta}d falta</span>`);
+    if(e.diasAtraso)  badges.push(`<span class="vbadge vbadge-atraso">⏰ ${e.diasAtraso}d atraso</span>`);
+    const rowClass = isPorteiro(e) ? 'row-porteiro' : e.diasHEcrit ? 'row-red' : e.diasInterv||e.diasHEatenc ? 'row-yellow' : '';
+    const cargo = e.cargo.replace(/^\d+-/,'').trim();
+    html += `<tr class="${rowClass}" onclick="openCPModal(${i})">
+      <td><strong>${e.nome}</strong><br><small style="color:var(--text2)">${cargo}</small></td>
+      <td>${filStr}<br><small style="color:var(--text2)">${e.filial?.loja||'—'}</small></td>
+      <td style="color:var(--red);font-weight:800;font-size:16px">${e.diasHEcrit||'—'}</td>
+      <td style="color:var(--yellow);font-weight:700">${e.diasHEatenc||'—'}</td>
+      <td style="color:var(--orange);font-weight:700">${e.diasInterv||'—'}</td>
+      <td style="color:var(--text2)">${e.diasSemMark||'—'}</td>
+      <td style="color:var(--text2)">${e.diasFalta||'—'}</td>
+      <td style="font-weight:800">${e.maxHEmin>0?minutesToTime(e.maxHEmin):'—'}</td>
+      <td><div class="cp-violation-row">${badges.join('')}</div></td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+//  CARTÃO DE PONTO — MODAL DETALHE
+// ══════════════════════════════════════════════
+function openCPModal(idx) {
+  const e = cpFiltered[idx];
+  document.getElementById('cpm-nome').textContent = e.nome;
+  const cargo = e.cargo.replace(/^\d+-/,'').trim();
+  const filStr = e.filial ? `F${String(e.filial.filial).padStart(2,'0')} ${e.filial.sigla} · ${e.filial.auditor}` : e.cnpj;
+  document.getElementById('cpm-meta').textContent = `${cargo} · ${filStr}`;
+  document.getElementById('cpm-s-crit').textContent   = e.diasHEcrit;
+  document.getElementById('cpm-s-interv').textContent  = e.diasInterv;
+  document.getElementById('cpm-s-marc').textContent   = e.diasMarcIrr + e.diasSemMark;
+  document.getElementById('cpm-s-falta').textContent  = e.diasFalta + e.diasAtraso;
+
+  const diasOrdenados = [...e.dias].sort((a,b)=> a.data<b.data?-1:1);
+  const kpiFilterLabel = {he_crit:'HE > 2h/dia',he_atenc:'HE 1-2h/dia',intervalo:'Intervalo irregular',marcacao:'Marcação irregular',falta:'Faltas e atrasos'}[cpKPIFilter];
+  document.getElementById('cpm-dias').previousElementSibling.textContent =
+    kpiFilterLabel ? `Detalhe por Dia — ${kpiFilterLabel}` : 'Detalhe por Dia';
+  let diasBase = diasOrdenados.filter(d => d.heMin>0||d.hasInterv||d.hasMarcIrr||d.hasSemMark||d.hasFalta||d.hasAtraso);
+  if (cpKPIFilter==='he_crit')    diasBase = diasBase.filter(d=>d.heMin>120);
+  else if (cpKPIFilter==='he_atenc')  diasBase = diasBase.filter(d=>d.heMin>60&&d.heMin<=120);
+  else if (cpKPIFilter==='intervalo') diasBase = diasBase.filter(d=>d.hasInterv);
+  else if (cpKPIFilter==='marcacao')  diasBase = diasBase.filter(d=>d.hasMarcIrr||d.hasSemMark);
+  else if (cpKPIFilter==='falta')     diasBase = diasBase.filter(d=>d.hasFalta||d.hasAtraso);
+  document.getElementById('cpm-dias').innerHTML = diasBase
+    .map(d => {
+      let rowClass = 'ok';
+      if (d.heMin > 120) rowClass = 'crit';
+      else if (d.heMin > 60 || d.hasInterv) rowClass = 'atenc';
+      else if (d.hasMarcIrr || d.hasSemMark) rowClass = 'interv';
+      const ocs = d.ocs.filter(o=>o.tipo!=='0').map(o=>`${o.tipo}: ${o.qtde}`).join(', ');
+      return `<div class="cp-day-row ${rowClass}">
+        <span style="font-weight:700">${d.dia||'—'} ${d.data.slice(8)}</span>
+        <span class="cp-day-marcacoes">${d.marcacoes||'—'}</span>
+        <span style="font-size:11px;color:var(--text2)">${ocs}</span>
+        <span class="cp-day-he" style="color:${d.heMin>120?'var(--red)':d.heMin>60?'var(--yellow)':'var(--text2)'}">
+          ${d.heMin>0?'HE '+minutesToTime(d.heMin):''}
+        </span>
+      </div>`;
+    }).join('') || '<div style="color:var(--text3);font-size:12px;padding:12px">Nenhuma irregularidade registrada pelo sistema.</div>';
+
+  document.getElementById('cp-modal-overlay').classList.add('open');
+}
+
+function closeCPModal(e) {
+  if (e && e.target !== document.getElementById('cp-modal-overlay')) return;
+  document.getElementById('cp-modal-overlay').classList.remove('open');
+}
+
+function exportCPExcel() {
+  const rows = [['Colaborador','Cargo','Filial','Sigla','Auditor','Região','Dias HE>2h','Dias HE 1-2h','Intervalo irr.','Marc. irr.','Sem marcação','Faltas','Atrasos','Max HE/dia']];
+  cpFiltered.forEach(e => {
+    rows.push([e.nome, e.cargo.replace(/^\d+-/,'').trim(),
+      e.filial?`F${String(e.filial.filial).padStart(2,'0')}`:'—',
+      e.filial?.sigla||'—', e.filial?.auditor||'—', e.filial?.regiao||'—',
+      e.diasHEcrit, e.diasHEatenc, e.diasInterv, e.diasMarcIrr,
+      e.diasSemMark, e.diasFalta, e.diasAtraso,
+      e.maxHEmin>0?minutesToTime(e.maxHEmin):'']);
+  });
+  const wb2 = XLSX.utils.book_new();
+  const ws2 = XLSX.utils.aoa_to_sheet(rows);
+  ws2['!cols'] = rows[0].map((_,i)=>({wch:[30,25,8,6,22,8,10,10,10,10,10,8,8,10][i]||12}));
+  XLSX.utils.book_append_sheet(wb2, ws2, 'Marcações Irregulares');
+  XLSX.writeFile(wb2, `MarcacoesIrregulares_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`);
+}
+
+// ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-(function init() {
+(async function init() {
+  initSupabase();
   const saved = loadData();
   if (saved && saved.length) {
+    const periodo = saved[0]?.periodo;
+    if (periodo) {
+      await Promise.all([loadObsSupabase(periodo), loadPrevSnapshot(periodo)]);
+    }
     allData = saved.map(d => ({...d, _obs: getObs(d.matricula)}));
-    // Restore period label
-    if (allData[0]?.periodo) {
+    if (periodo) {
       const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-      const [mm,yy] = allData[0].periodo.split('/');
-      const mf = meses[parseInt(mm)] ? meses[parseInt(mm)]+'/'+yy : allData[0].periodo;
+      const [mm,yy] = periodo.split('/');
+      const mf = meses[parseInt(mm)] ? meses[parseInt(mm)]+'/'+yy : periodo;
       document.getElementById('header-period').textContent = mf;
       document.getElementById('header-period').style.display='';
     }
