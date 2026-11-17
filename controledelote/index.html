@@ -9122,14 +9122,22 @@ const CFOP_REMESSA=new Set(['5116','5117','6116','6117']);
 function PED_exCfop(c){const m=String(c||'').trim().match(/^(\d+)/);return m?m[1]:'';}
 function PED_exNum(p){const m=String(p||'').match(/^(\d+)/);return m?m[1]:String(p);}
 function PED_exCod(v){const m=String(v||'').match(/^(\d+)\s*-/);return m?parseInt(m[1]):null;}
-// Detecta se o "vendedor" é na verdade um escritório de outra filial.
+// Detecta se o "vendedor" é na verdade um escritório de outra filial ou nome de cidade/loja.
 // Padrão real nos dados: "CÓDIGO - ESC.XXXXX" ou "CÓDIGO - ESC XXXXX"
 // (ex.: "1336 - ESC FORMOS", "24 - ESC.MATRIZ"). O cadastro é bagunçado,
 // mas o único padrão confiável é o nome (após o código) começar com "ESC" + espaço/ponto.
+// Também filtra quando o nome é igual ao nome de uma cidade/loja cadastrada em BASE_FILIAIS.
 // Esses registros NÃO entram em nenhuma contagem (nem pedido, nem canhoto).
+const _PED_NOMES_FILIAL = new Set(
+  Object.values(BASE_FILIAIS).map(f =>
+    (f.loja||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim()
+  ).filter(Boolean)
+);
+function _PED_norm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim(); }
 function PED_ehEscritorio(v){
   const nome=String(v||'').replace(/^\d+\s*-\s*/,'').trim();
-  return /^ESC[\s.]/i.test(nome) || nome.toUpperCase()==='ESC';
+  if(/^ESC[\s.]/i.test(nome) || nome.toUpperCase()==='ESC') return true;
+  return _PED_NOMES_FILIAL.has(_PED_norm(nome));
 }
 function PED_nomeLimpo(v){return String(v||'').replace(/^\d+\s*-\s*/,'').trim();}
 function PED_fmtDt(d){
