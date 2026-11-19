@@ -1790,6 +1790,9 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
 .tag-sem{display:inline-block;padding:1px 7px;background:var(--amber-lt);
   border:1px solid var(--amber);border-radius:10px;font-size:9px;font-weight:700;
   color:var(--amber-dk);margin-left:4px;}
+.tag-copia{display:inline-block;padding:1px 6px;background:var(--bg3);
+  border:1px solid var(--border2);border-radius:10px;font-size:9px;font-weight:700;
+  color:var(--texto-muted);margin-left:4px;cursor:help;}
 
 /* ===== ABA DIAGNÓSTICO & SUPERVISÃO — cabeçalho compacto ===== */
 .diag-cab{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
@@ -9134,10 +9137,23 @@ const _PED_NOMES_FILIAL = new Set(
   ).filter(Boolean)
 );
 function _PED_norm(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim(); }
+// O cadastro de vendedor às vezes grava o nome da cidade/loja truncado ou com
+// pequeno erro de digitação (ex.: "MOZARLANDI" em vez de "MOZARLÂNDIA"). Além
+// do match exato, tolera-se prefixo/truncamento de até 3 caracteres de diferença.
+function _PED_pareceCidade(nomeNorm){
+  if(!nomeNorm || nomeNorm.length<5) return false;
+  if(_PED_NOMES_FILIAL.has(nomeNorm)) return true;
+  for(const cidade of _PED_NOMES_FILIAL){
+    if(cidade.length<5) continue;
+    if(cidade.startsWith(nomeNorm) && cidade.length-nomeNorm.length<=3) return true;
+    if(nomeNorm.startsWith(cidade) && nomeNorm.length-cidade.length<=3) return true;
+  }
+  return false;
+}
 function PED_ehEscritorio(v){
   const nome=String(v||'').replace(/^\d+\s*-\s*/,'').trim();
   if(/^ESC[\s.]/i.test(nome) || nome.toUpperCase()==='ESC') return true;
-  return _PED_NOMES_FILIAL.has(_PED_norm(nome));
+  return _PED_pareceCidade(_PED_norm(nome));
 }
 function PED_nomeLimpo(v){return String(v||'').replace(/^\d+\s*-\s*/,'').trim();}
 function PED_fmtDt(d){
@@ -9525,7 +9541,7 @@ function PED_agPedidosVend(){
     else{
       map[vend].pend++;
       if(isSem) map[vend].semPend++;
-      map[vend].dets.push({ped:p.num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||r['NT_FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),sem:isSem,cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF '])});
+      map[vend].dets.push({ped:p.num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||r['NT_FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),sem:isSem,cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF ']),copia:APP_PED.copiaIds.has(p.num)});
     }
     const d=r['DT EMISSAO NF']||r['DT EMISSAO NF '];
     if(d){const dt=d instanceof Date?d:new Date(d);if(!isNaN(dt)){if(!dtMin||dt<dtMin)dtMin=dt;if(!dtMax||dt>dtMax)dtMax=dt;}}
@@ -9545,7 +9561,7 @@ function PED_agSementesVend(){
     const vend=String(r.VENDEDOR||r['VENDEDOR']||'').trim();
     if(!map[vend]) map[vend]={vend,ass:0,pend:0,dets:[]};
     if(p.status==='ASSINADO') map[vend].ass++;
-    else{map[vend].pend++;map[vend].dets.push({ped:p.num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF '])});}
+    else{map[vend].pend++;map[vend].dets.push({ped:p.num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF ']),copia:APP_PED.copiaIds.has(p.num)});}
   });
   return Object.values(map);
 }
@@ -9557,7 +9573,7 @@ function PED_agCanMes(){
     const mes=r._mes||'Desconhecido';
     if(!map[mes]) map[mes]={mes,ass:0,pend:0,dets:[]};
     if(st==='ASSINADO') map[mes].ass++;
-    else{map[mes].pend++;map[mes].dets.push({ped:r._num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF '])});}
+    else{map[mes].pend++;map[mes].dets.push({ped:r._num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF ']),copia:APP_PED.copiaIds.has(r._num)});}
   });
   return Object.values(map).sort((a,b)=>a.mes.localeCompare(b.mes));
 }
@@ -9569,7 +9585,7 @@ function PED_agCanVend(){
     const vend=String(r.VENDEDOR||r['VENDEDOR']||'').trim();
     if(!map[vend]) map[vend]={vend,ass:0,pend:0,dets:[]};
     if(st==='ASSINADO') map[vend].ass++;
-    else{map[vend].pend++;map[vend].dets.push({ped:r._num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF '])});}
+    else{map[vend].pend++;map[vend].dets.push({ped:r._num,tipo:String(r['TIPO PEDIDO']||'').trim(),nf:String(r['NT FISCAL']||'').trim(),cfop:PED_exCfop(r.CFOP||''),cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF ']),copia:APP_PED.copiaIds.has(r._num)});}
   });
   return Object.values(map);
 }
@@ -9596,7 +9612,7 @@ function PED_detHTML(dets,cols,naoContab){
     html+=`<table class="det-table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
     html+=dets.map(d=>{
       let cells='';
-      if('ped' in d) cells+=`<td>${d.ped}</td>`;
+      if('ped' in d) cells+=`<td>${d.ped}${d.copia?' <span class="tag-copia" title="Pedido com cópia registrada (Pedido_Copia.xls)">📋 Cópia</span>':''}</td>`;
       if('tipo' in d) cells+=`<td>${d.tipo}</td>`;
       if('nf' in d) cells+=`<td>${d.nf}</td>`;
       if('cfop' in d) cells+=`<td>${d.cfop}</td>`;
@@ -9791,7 +9807,8 @@ function PED_agRiscoSementes(){
       vend:PED_nomeLimpo(String(r.VENDEDOR||r['VENDEDOR']||'')),
       valor:(Number(APP_PED.semValor[p.num])||0),
       cliente:String(r['CLIENTE  ']||r['CLIENTE']||'').trim(),
-      dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF '])
+      dtEmissao:PED_fmtDt(r['DT EMISSAO NF']||r['DT EMISSAO NF ']),
+      copia:APP_PED.copiaIds.has(p.num)
     });
   });
   const total=itens.reduce((s,i)=>s+(Number(i.valor)||0),0);
@@ -10059,7 +10076,7 @@ function PED_renderDiagnostico(narr,tendMes,pedVend,clientes,risco,plano,tSP){
       <div class="risco-desc">
         <b>${risco.itens.length} pedido(s) de semente pendente(s)</b> representando este valor em produto.
         Esta filial não pode ter nenhuma semente pendente — ação imediata necessária.
-        <div class="risco-lista">${risco.itens.map(i=>`<div>• Pedido <b>${i.ped}</b> — ${i.vend} — ${i.tipo} — <b>R$ ${i.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</b></div>`).join('')}</div>
+        <div class="risco-lista">${risco.itens.map(i=>`<div>• Pedido <b>${i.ped}</b>${i.copia?' <span class="tag-copia" title="Pedido com cópia registrada (Pedido_Copia.xls)">📋 Cópia</span>':''} — ${i.vend} — ${i.tipo} — <b>R$ ${i.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</b></div>`).join('')}</div>
       </div>
     </div>`;
   }else{
@@ -10250,12 +10267,12 @@ function PED_expConferencia(tipo){
     ws1['!cols']=[{wch:32},{wch:12},{wch:12},{wch:12},{wch:13}];
     XLSX.utils.book_append_sheet(wb,ws1,'Resumo');
     // Aba Pendências
-    const p=[['CANHOTOS PENDENTES — '+(fi.loja||'')],['Período',APP_PED.periodo||'—'],[],['Vendedor','Nº Pedido','Cliente','Tipo','NT Fiscal','CFOP','Data Emissão NF']];
+    const p=[['CANHOTOS PENDENTES — '+(fi.loja||'')],['Período',APP_PED.periodo||'—'],[],['Vendedor','Nº Pedido','Cliente','Tipo','NT Fiscal','CFOP','Cópia?','Data Emissão NF']];
     let tem=false;
-    cv.forEach(v=>v.dets.forEach(d=>{tem=true;p.push([PED_nomeLimpo(v.vend),d.ped,d.cliente||'',d.tipo,d.nf,d.cfop,d.dtEmissao||'']);}));
+    cv.forEach(v=>v.dets.forEach(d=>{tem=true;p.push([PED_nomeLimpo(v.vend),d.ped,d.cliente||'',d.tipo,d.nf,d.cfop,d.copia?'SIM':'',d.dtEmissao||'']);}));
     if(!tem) p.push(['— Nenhuma pendência —']);
     const ws2=XLSX.utils.aoa_to_sheet(p);
-    ws2['!cols']=[{wch:28},{wch:14},{wch:30},{wch:22},{wch:12},{wch:10},{wch:16}];
+    ws2['!cols']=[{wch:28},{wch:14},{wch:30},{wch:22},{wch:12},{wch:10},{wch:9},{wch:16}];
     XLSX.utils.book_append_sheet(wb,ws2,'Pendências');
     XLSX.writeFile(wb,`Conferencia_Canhotos_${(fi.sigla||'Filial')}_${dt}.xlsx`);
     return;
@@ -10284,12 +10301,12 @@ function PED_expConferencia(tipo){
     ws1['!cols']=[{wch:32},{wch:14},{wch:12},{wch:12},{wch:13}];
     XLSX.utils.book_append_sheet(wb,ws1,'Resumo');
     // Aba Pendências (com valor)
-    const p=[['SEMENTES PENDENTES — '+(fi.loja||'')],['Período',APP_PED.periodo||'—'],[],['Vendedor','Nº Pedido','Cliente','Tipo','NT Fiscal','CFOP','Valor (R$)','Data Emissão NF']];
+    const p=[['SEMENTES PENDENTES — '+(fi.loja||'')],['Período',APP_PED.periodo||'—'],[],['Vendedor','Nº Pedido','Cliente','Tipo','NT Fiscal','CFOP','Cópia?','Valor (R$)','Data Emissão NF']];
     let tem=false;
-    risco.itens.forEach(i=>{tem=true;p.push([i.vend,i.ped,i.cliente||'',i.tipo,'','',i.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),i.dtEmissao||'']);});
+    risco.itens.forEach(i=>{tem=true;p.push([i.vend,i.ped,i.cliente||'',i.tipo,'','',i.copia?'SIM':'',i.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),i.dtEmissao||'']);});
     if(!tem) p.push(['— Nenhuma pendência de semente —']);
     const ws2=XLSX.utils.aoa_to_sheet(p);
-    ws2['!cols']=[{wch:28},{wch:14},{wch:30},{wch:22},{wch:12},{wch:10},{wch:14},{wch:16}];
+    ws2['!cols']=[{wch:28},{wch:14},{wch:30},{wch:22},{wch:12},{wch:10},{wch:9},{wch:14},{wch:16}];
     XLSX.utils.book_append_sheet(wb,ws2,'Pendências');
     XLSX.writeFile(wb,`Conferencia_Sementes_${(fi.sigla||'Filial')}_${dt}.xlsx`);
     return;
@@ -10314,12 +10331,12 @@ function PED_expConferencia(tipo){
   const ws1=XLSX.utils.aoa_to_sheet(resumo);
   ws1['!cols']=[{wch:32},{wch:12},{wch:12},{wch:12},{wch:13},{wch:11}];
   XLSX.utils.book_append_sheet(wb,ws1,'Resumo');
-  const pend=[['RELAÇÃO DE PENDÊNCIAS — '+(fi.loja||'')],['Período',APP_PED.periodo||'—'],[],['Vendedor','Nº Pedido','Cliente','Tipo','NT Fiscal','CFOP','Semente?','Data Emissão NF']];
+  const pend=[['RELAÇÃO DE PENDÊNCIAS — '+(fi.loja||'')],['Período',APP_PED.periodo||'—'],[],['Vendedor','Nº Pedido','Cliente','Tipo','NT Fiscal','CFOP','Semente?','Cópia?','Data Emissão NF']];
   let temPend=false;
-  pv.forEach(v=>v.dets.forEach(d=>{temPend=true;pend.push([PED_nomeLimpo(v.vend),d.ped,d.cliente||'',d.tipo,d.nf,d.cfop,d.sem?'SIM':'',d.dtEmissao||'']);}));
+  pv.forEach(v=>v.dets.forEach(d=>{temPend=true;pend.push([PED_nomeLimpo(v.vend),d.ped,d.cliente||'',d.tipo,d.nf,d.cfop,d.sem?'SIM':'',d.copia?'SIM':'',d.dtEmissao||'']);}));
   if(!temPend) pend.push(['— Nenhuma pendência —']);
   const ws2=XLSX.utils.aoa_to_sheet(pend);
-  ws2['!cols']=[{wch:28},{wch:14},{wch:30},{wch:22},{wch:12},{wch:10},{wch:10},{wch:16}];
+  ws2['!cols']=[{wch:28},{wch:14},{wch:30},{wch:22},{wch:12},{wch:10},{wch:10},{wch:9},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws2,'Pendências');
   XLSX.writeFile(wb,`Conferencia_Pedidos_${(fi.sigla||'Filial')}_${dt}.xlsx`);
 }
@@ -10408,8 +10425,8 @@ function PED_expPDF(wrId,tipo){
     sv.forEach(v=>{const t=v.ass+v.pend;corpo+=`<tr><td>${PED_nomeLimpo(v.vend)}</td><td>${t}</td><td>${v.ass}</td><td class="${v.pend>0?'pend':''}">${v.pend}</td><td class="${PED_pct(v.ass,t)>=100?'ok':'pend'}">${PED_fp(PED_pct(v.ass,t))}</td></tr>`;});
     corpo+=`<tr class="tot"><td>TOTAL</td><td>${tC}</td><td>${tA}</td><td>${tP}</td><td>${PED_fp(PED_pct(tA,tC))}</td></tr></table>`;
     if(risco.itens.length){
-      corpo+=`<h2>Sementes Pendentes</h2><table><tr><th>Vendedor</th><th>Nº Pedido</th><th>Tipo</th><th>Valor R$</th></tr>`;
-      risco.itens.forEach(i=>corpo+=`<tr><td>${i.vend}</td><td>${i.ped}</td><td>${i.tipo}</td><td class="pend">${i.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`);
+      corpo+=`<h2>Sementes Pendentes</h2><table><tr><th>Vendedor</th><th>Nº Pedido</th><th>Tipo</th><th>Cópia</th><th>Valor R$</th></tr>`;
+      risco.itens.forEach(i=>corpo+=`<tr><td>${i.vend}</td><td>${i.ped}</td><td>${i.tipo}</td><td>${i.copia?'SIM':'—'}</td><td class="pend">${i.valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`);
       corpo+=`</table>`;
     }
   }else{ // pedidos (padrão)
@@ -10427,8 +10444,8 @@ function PED_expPDF(wrId,tipo){
     // Pendências detalhadas
     const temPend=pv.some(v=>v.dets.length);
     if(temPend){
-      corpo+=`<h2>Relação de Pendências</h2><table><tr><th>Vendedor</th><th>Nº Pedido</th><th>Tipo</th><th>NT Fiscal</th><th>CFOP</th><th>Semente</th></tr>`;
-      pv.forEach(v=>v.dets.forEach(d=>corpo+=`<tr><td>${PED_nomeLimpo(v.vend)}</td><td>${d.ped}</td><td>${d.tipo}</td><td>${d.nf}</td><td>${d.cfop}</td><td>${d.sem?'<span class="pend">SIM</span>':'—'}</td></tr>`));
+      corpo+=`<h2>Relação de Pendências</h2><table><tr><th>Vendedor</th><th>Nº Pedido</th><th>Tipo</th><th>NT Fiscal</th><th>CFOP</th><th>Semente</th><th>Cópia</th></tr>`;
+      pv.forEach(v=>v.dets.forEach(d=>corpo+=`<tr><td>${PED_nomeLimpo(v.vend)}</td><td>${d.ped}</td><td>${d.tipo}</td><td>${d.nf}</td><td>${d.cfop}</td><td>${d.sem?'<span class="pend">SIM</span>':'—'}</td><td>${d.copia?'<span class="pend">SIM</span>':'—'}</td></tr>`));
       corpo+=`</table>`;
     }
   }
