@@ -15,7 +15,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
-<!-- Credenciais publicadas (preenchidas ao clicar em "Publicar para todos") -->
 <style>
 :root{
   --bg:#0a1322;--bg2:#101d33;--bg3:#16243d;
@@ -420,19 +419,19 @@ body,#topo,.kpi,.chart-card,.rank-wrap,.modal-box,.arq-card,.drop-zone,.btn-topo
     <div id="topo-titulo">🏆 Ranking Geral de Auditorias — AGROQUIMA</div>
     <div id="topo-sub">Consolida Pedido/Canhoto, Sementes e Vencidos para premiação de filiais</div>
   </div>
-  <div id="sync-indicator" style="display:inline-flex;align-items:center;padding:5px 10px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);margin-right:4px;" title="Status da sincronização com a nuvem">☁ <span style="font-size:11px;margin-left:4px;color:var(--text3);">Sem sync</span></div>
+  <div id="sync-indicator" onclick="syncPush(true)" title="Sincronização Supabase — clique para forçar" style="cursor:pointer;display:inline-flex;align-items:center;padding:4px 8px;border-radius:5px;border:1px solid transparent;background:none;margin-right:4px;opacity:0.35;transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="if(!['error','syncing'].includes((this.dataset&&this.dataset.status)||''))this.style.opacity='0.35'">☁</div>
   <button id="btn-acoes-mobile" style="display:none;" onclick="toggleAcoesMobile()">&#9776; A&ccedil;&otilde;es</button>
   <div class="topo-btns" id="topo-btns-wrap">
     <button class="btn-topo btn-tema" id="btn-tema" onclick="toggleThema()" title="Alternar entre tema claro e escuro"><span id="icone-tema">☀</span><span class="btn-topo-txt" id="label-tema"> Claro</span></button>
     <button class="btn-topo primary" onclick="triggerImport()" title="Importar arquivos de auditoria (.json) ou relatório de faturamento CFOP (.xls/.xlsx). O tipo do arquivo é detectado automaticamente.">📥<span class="btn-topo-txt"> Importar</span></button>
-    <button class="btn-topo" onclick="abrirModalFaturamento()" title="Base de faturamento — usada para calcular o % Vencidos/Faturamento. Permite ajuste manual ou importação de arquivo JSON com histórico mensal por filial.">💰<span class="btn-topo-txt"> Faturamento</span></button>
-    <button class="btn-topo" onclick="syncPush(true)" title="Publicar dados na nuvem (JSONBin) para que todos os usuários com o link vejam o painel atualizado. Requer Master Key configurada em ⚙ Config.">☁<span class="btn-topo-txt"> Publicar</span></button>
+    <button class="btn-topo" onclick="abrirModalFaturamento()" title="Base de faturamento — usada para calcular o % Vencidos/Faturamento.">💰<span class="btn-topo-txt"> Faturamento</span></button>
     <button class="btn-topo" onclick="exportarRankingXLS()" title="Exportar ranking completo em planilha Excel (.xlsx) com 5 abas: Anual, Por Período, Por Regional, Por Auditor e Cobertura.">📤<span class="btn-topo-txt"> Exportar XLS</span></button>
   </div>
   </div><!-- /topo-btns-wrap -->
   <input type="file" id="inp-import" accept=".json,.xlsx,.xls" multiple style="display:none;" onchange="processarArquivosImportados(this)">
   <input type="file" id="inp-backup" accept=".json" style="display:none;" onchange="lerBackupJSON(this)">
   <input type="file" id="inp-fat-json" accept=".json" style="display:none;" onchange="processarFatJSON(this)">
+  <input type="file" id="inp-trienio-xls" accept=".xls,.xlsx" style="display:none;" onchange="processarTrienioXLS(this)">
   <input type="file" id="inp-nota-auditoria" accept=".json,.xlsx,.xls" style="display:none;" onchange="processarNotaAuditoriaArquivo(this)">
 </div>
 
@@ -453,17 +452,13 @@ body,#topo,.kpi,.chart-card,.rank-wrap,.modal-box,.arq-card,.drop-zone,.btn-topo
   <div class="modal-box" style="max-width:600px;">
     <div class="modal-title">💰 Faturamento das Filiais</div>
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.7;">
-      <strong style="color:var(--text);">Para que serve:</strong> o faturamento mensal é usado para calcular o <strong>% Vencidos/Faturamento</strong> na aba Por Período. Sem ele, esse indicador não é calculado.<br><br>
-      <strong style="color:var(--text);">Como preencher:</strong><br>
-      <span style="display:block;margin-left:8px;">① <strong>Via Relatório CFOP (recomendado):</strong> use o botão <strong>📥 Importar</strong> no cabeçalho e selecione o arquivo <code>.xls</code> exportado do sistema (Resumo CFOP). O painel reconhece e acumula automaticamente.</span>
-      <span style="display:block;margin-left:8px;margin-top:4px;">② <strong>Via arquivo JSON salvo:</strong> se você exportou uma base JSON de faturamento de uma sessão anterior, importe abaixo.</span>
-      <span style="display:block;margin-left:8px;margin-top:4px;">③ <strong>Manual:</strong> para ajuste pontual, preencha o valor mensal de uma filial nos campos abaixo.</span>
+      Importe a planilha do <strong>triênio de vendas</strong> (Região / Realizado) para carregar o faturamento. O valor anual é dividido por 12 e distribuído em todos os meses do ano de referência. Ou ajuste manualmente por filial nos campos abaixo.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button class="btn-modal sec" onclick="document.getElementById('inp-fat-json').click()" title="Importar arquivo JSON com histórico de faturamento por filial e período (gerado pelo próprio painel em sessão anterior)">📂 Importar JSON salvo</button>
+      <button class="btn-modal sec" onclick="document.getElementById('inp-trienio-xls').click()" title="Importar planilha XLS do triênio de vendas (formato: Região / Realizado). Distribui o valor anual em 12 meses do ano de referência.">📊 Importar Triênio XLS</button>
       <button class="btn-modal sec" onclick="fecharModal('modal-fat');abrirFatHistoricoView()" title="Ver tabela completa do faturamento carregado (Filial × Período)">👁 Ver Base Carregada</button>
     </div>
-    <div class="modal-sub">Ajuste manual por filial (opcional — sobrescrito pelo CFOP ou JSON):</div>
+    <div class="modal-sub">Ajuste manual por filial (opcional):</div>
     <div id="fat-rows"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-modal sec" onclick="fecharModal('modal-fat')">Cancelar</button>
@@ -481,6 +476,24 @@ body,#topo,.kpi,.chart-card,.rank-wrap,.modal-box,.arq-card,.drop-zone,.btn-topo
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-modal sec" onclick="fecharModal('modal-fat-base')">Cancelar</button>
       <button class="btn-modal primary" onclick="confirmarFatBase()">✔ Importar e Acumular</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRÉVIA TRIÊNIO XLS -->
+<div class="modal-overlay hidden" id="modal-trienio-xls">
+  <div class="modal-box" style="max-width:720px;">
+    <div class="modal-title">📊 Importar Triênio XLS — Prévia</div>
+    <div class="modal-sub" id="trienio-sub">Verificando arquivo...</div>
+    <div style="margin:10px 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <label style="font-size:12px;color:var(--text2);">Ano de referência:</label>
+      <input type="number" id="trienio-ano" min="2020" max="2035" style="width:80px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;" oninput="_trienioAtualizarPrevia()">
+      <span style="font-size:11px;color:var(--text3);">O valor anual será dividido por 12 e distribuído em todos os meses do ano selecionado.</span>
+    </div>
+    <div id="trienio-preview" style="max-height:400px;overflow:auto;margin-top:8px;font-size:11px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn-modal sec" onclick="fecharModal('modal-trienio-xls')">Cancelar</button>
+      <button class="btn-modal primary" onclick="confirmarTrienioXLS()">✔ Importar e Acumular</button>
     </div>
   </div>
 </div>
@@ -821,7 +834,7 @@ function processarArquivosImportados(input) {
     renderArquivos();
     input.value = '';
     processarERenderizar();
-    if (getBinId() && getMasterKey()) syncPush();
+    if (sbIsConfigured()) syncPush();
   });
 }
 
@@ -1132,7 +1145,7 @@ function removerArquivo(id) {
   renderArquivos();
   renderGerenciarArquivos();
   if (REGISTROS.length) processarERenderizar();
-  if (getBinId() && getMasterKey()) syncPush();
+  if (sbIsConfigured()) syncPush();
 }
 
 function abrirGerenciarArquivos() {
@@ -1461,7 +1474,7 @@ function processarERenderizar() {
   document.getElementById('painel').classList.remove('hidden');
   mudarAba(ABA_ATUAL);
   // Publica automaticamente na nuvem se configurado
-  if (getBinId() && getMasterKey() && !jbinSyncing) syncPush();
+  if (sbIsConfigured()) syncPush();
 }
 
 // ============================================================
@@ -2183,7 +2196,7 @@ function processarCronogramaArquivo(input) {
     CRONO_AUD_OCULTOS=new Set();
     input.value='';
     if (ABA_ATUAL==='cronograma') renderAbaCronograma();
-    if (getBinId() && getMasterKey()) syncPush();
+    if (sbIsConfigured()) syncPush();
     alert('Planilha de Cronograma carregada! '+novos.length+' auditoria(s) reconhecida(s)'+(qtdAndamento?(' · '+qtdAndamento+' em andamento (não finalizada)'):'')+(desconsideradas?(' · '+desconsideradas+' linha(s) de filial não auditada (FAP/GRA/FAG) desconsiderada(s)'):'')+(ignoradas?(' · '+ignoradas+' linha(s) ignorada(s)'):'')+'.');
   };
   const lower=nome.toLowerCase();
@@ -2216,7 +2229,7 @@ function limparCronograma() {
   if (!confirm('Remover todos os dados do Cronograma de Auditorias? Isso não afeta o Ranking.')) return;
   CRONO_AUDITORIAS=[]; CRONO_ARQUIVO_INFO=null;
   renderAbaCronograma();
-  if (getBinId() && getMasterKey()) syncPush();
+  if (sbIsConfigured()) syncPush();
 }
 
 function salvarCronogramaMeta() {
@@ -2226,7 +2239,7 @@ function salvarCronogramaMeta() {
   const vc=parseInt(document.getElementById('crono-meta-confianca-input')?.value);
   if (vc && vc>=1) CRONO_META_CONFIANCA=vc;
   renderAbaCronograma();
-  if (getBinId() && getMasterKey()) syncPush();
+  if (sbIsConfigured()) syncPush();
 }
 
 function _cronoAnosDisponiveis() {
@@ -4651,8 +4664,6 @@ function gerarCertificado(sigla, posicao) {
 function fecharModal(id){ document.getElementById(id).classList.add('hidden'); }
 
 function abrirModalFaturamento() {
-  const temFatHist = Object.keys(FAT_HISTORICO).length>0;
-  if(!REGISTROS.length && !ARQUIVOS.length && !temFatHist){ alert('Importe arquivos primeiro.'); return; }
   acumularFaturamento();
   const siglas=[...new Set([
     ...REGISTROS.map(r=>r.filial),
@@ -4689,6 +4700,7 @@ function salvarFaturamentos() {
   });
   fecharModal('modal-fat');
   processarERenderizar();
+  if(sbIsConfigured()) syncPush();
 }
 
 
@@ -4806,64 +4818,24 @@ function limparTudo() {
   document.getElementById('painel').classList.add('hidden');
   document.getElementById('arqs-wrap').innerHTML='';
   document.getElementById('btn-processar-wrap').classList.add('hidden');
-  if(getBinId()&&getMasterKey()) syncPush();
+  if(sbIsConfigured()) syncPush();
 }
 
 // ============================================================
-// SINCRONIZAÇÃO JSONBIN (mesmo padrão do painel de vencidos)
+// SINCRONIZAÇÃO SUPABASE
 // ============================================================
-const JBIN_CFG_KEY = 'agroquima_ranking_jbin_cfg';
-let jbinSyncing = false;
-// Esta sessão já conseguiu LER a base remota? Publicar sobrescreve o bin
-// inteiro, então publicar sem ter lido antes pode apagar o dado de todo mundo
-// só porque a leitura falhou por rede e o estado local ficou vazio.
-let jbinPullOk = false;
-const HARDCODED_BIN_ID = '6a3292bfda38895dfed005ec';
-const HARDCODED_READ_KEY = '$2a$10$NhmXfS0QZiXUxosdImwfGuw6SSpu/ofmat/2kSNj9YKW8I4beCIpq';
+const SB_CFG_KEY = 'agroquima_ranking_sb_cfg';
+const SB_DEFAULT_URL = 'https://yeburvkopwbmnfcmthtz.supabase.co';
+const SB_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllYnVydmtvcHdibW5mY210aHR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2ODk5NDMsImV4cCI6MjEwODI2NTk0M30.3t-4Q8SM9XV0OdQLHktMUmKNItg1byBkyv0HGN3B-74';
+let sbSyncing = false;
+let sbPullOk = false;
 
-function getJBinCfg(){ try{return JSON.parse(localStorage.getItem(JBIN_CFG_KEY)||'{}');}catch(e){return {};} }
-function saveJBinCfg(cfg){ localStorage.setItem(JBIN_CFG_KEY, JSON.stringify({...getJBinCfg(),...cfg})); }
-function getBinId(){ return getJBinCfg().binId || (typeof PUBLISHED_BIN_ID!=='undefined'?PUBLISHED_BIN_ID:HARDCODED_BIN_ID); }
-function getMasterKey(){ return getJBinCfg().masterKey || (typeof PUBLISHED_READ_KEY!=='undefined'?PUBLISHED_READ_KEY:HARDCODED_READ_KEY); }
-function getReadKey(){ return getJBinCfg().masterKey || (typeof PUBLISHED_READ_KEY!=='undefined'?PUBLISHED_READ_KEY:HARDCODED_READ_KEY); }
+function getSbCfg(){ try{return JSON.parse(localStorage.getItem(SB_CFG_KEY)||'{}');}catch(e){return {};} }
+function saveSbCfg(cfg){ localStorage.setItem(SB_CFG_KEY, JSON.stringify({...getSbCfg(),...cfg})); }
+function getSbUrl(){ return getSbCfg().url||SB_DEFAULT_URL; }
+function getSbKey(){ return getSbCfg().key||SB_DEFAULT_KEY; }
+function sbIsConfigured(){ return true; }
 
-async function jbinCreate(masterKey){
-  const r=await fetch('https://api.jsonbin.io/v3/b',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','X-Master-Key':masterKey,'X-Bin-Name':'Agroquima-Ranking','X-Bin-Private':'false'},
-    body:JSON.stringify({registros:[],faturamentos:{},observacoes:{},config:CONFIG,app:'agroquima-ranking',v:1})
-  });
-  const d=await r.json();
-  if(!r.ok) throw new Error(d.message||'Erro ao criar bin');
-  return d.metadata?.id;
-}
-async function jbinRead(binId, masterKey){
-  let lastErr, rec;
-  try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{headers:{}});
-    const d=await r.json();
-    if(r.ok){rec=d.record;} else lastErr=new Error(d.message||('HTTP '+r.status));
-  }catch(e){lastErr=e;}
-  if(rec===undefined&&masterKey){
-    try{
-      const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{headers:{'X-Master-Key':masterKey}});
-      const d=await r.json();
-      if(r.ok){rec=d.record;} else lastErr=new Error(d.message||('HTTP '+r.status));
-    }catch(e){lastErr=e;}
-  }
-  if(rec===undefined) throw lastErr||new Error('Erro ao ler');
-  return descompactarPayload(rec);
-}
-async function jbinWrite(binId, masterKey, payload){
-  const r=await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{
-    method:'PUT',
-    headers:{'Content-Type':'application/json','X-Master-Key':masterKey},
-    body:JSON.stringify(payload)
-  });
-  const d=await r.json();
-  if(!r.ok) throw new Error(d.message||'Erro ao salvar');
-  return d;
-}
 function compactarPayload(obj){
   const json=JSON.stringify(obj);
   if(typeof LZString!=='undefined'&&LZString.compressToUTF16){ return {__lz:true,d:LZString.compressToUTF16(json)}; }
@@ -4880,38 +4852,74 @@ function setSyncStatus(status, detail){
   const el=document.getElementById('sync-indicator'); if(!el) return;
   const m={
     ok:['#1e8449','☁','Sincronizado'],
-    conectado:['#2563eb','☁','Conectado · nuvem vazia'],
+    conectado:['#2563eb','☁','Conectado · vazio'],
     syncing:['#d68910','⟳','Sincronizando...'],
     error:['#c0392b','⚠','Erro de sync'],
-    nokey:['#94a3b8','☁','Sem sync'],
+    nokey:['#94a3b8','☁',''],
   };
   const [color,icon,label]=m[status]||m['nokey'];
-  el.style.borderColor=color;
-  el.innerHTML=`<span style="color:${color}">${icon}</span><span style="font-size:11px;margin-left:4px;color:${color}">${detail&&status==='ok'?detail:label}</span>`;
+  el.dataset.status=status;
+  el.style.borderColor=(status==='error'||status==='syncing')?color:'transparent';
+  el.style.background=(status==='error'||status==='syncing')?'var(--bg2)':'none';
+  el.style.opacity=(status==='error'||status==='syncing')?'1':'0.35';
+  el.innerHTML=`<span style="color:${color}">${icon}</span>${label?`<span style="font-size:10px;margin-left:3px;color:${color}">${label}</span>`:''}`;
+  if(status==='ok'||status==='conectado'){
+    el.style.opacity='0.9';
+    setTimeout(()=>{ if(el.dataset.status===status) el.style.opacity='0.35'; }, 2000);
+  }
+}
+
+async function sbRead(){
+  const url=getSbUrl(), key=getSbKey();
+  if(!url||!key) return null;
+  const r=await fetch(`${url}/rest/v1/ranking_state?id=eq.main&select=payload`,{
+    headers:{'apikey':key,'Authorization':`Bearer ${key}`,'Content-Type':'application/json'}
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data=await r.json();
+  if(!data.length) return null;
+  return descompactarPayload(data[0].payload);
+}
+
+async function sbWrite(payload){
+  const url=getSbUrl(), key=getSbKey();
+  if(!url||!key) throw new Error('Supabase não configurado');
+  const r=await fetch(`${url}/rest/v1/ranking_state`,{
+    method:'POST',
+    headers:{
+      'apikey':key,'Authorization':`Bearer ${key}`,
+      'Content-Type':'application/json',
+      'Prefer':'resolution=merge-duplicates'
+    },
+    body:JSON.stringify({id:'main',payload:compactarPayload(payload),updated_at:new Date().toISOString()})
+  });
+  if(!r.ok){
+    const err=await r.json().catch(()=>({}));
+    throw new Error(err.message||`HTTP ${r.status}`);
+  }
 }
 
 async function syncPull(){
-  const binId=getBinId();
-  if(!binId){ setSyncStatus('nokey'); return; }
+  if(!sbIsConfigured()){ setSyncStatus('nokey'); return; }
   setSyncStatus('syncing','Carregando...');
   try{
-    const remote=await jbinRead(binId, getReadKey());
-    jbinPullOk = true; // leitura ok (inclusive bin vazio): publicar agora é seguro
-    const temRanking = remote && (Array.isArray(remote.registros)&&remote.registros.length || (remote.arquivos&&remote.arquivos.length) || (remote.fatHistorico&&Object.keys(remote.fatHistorico).length));
-    const temCrono = remote && Array.isArray(remote.cronoAuditorias) && remote.cronoAuditorias.length;
-    if(remote && (temRanking || temCrono)){
+    const remote=await sbRead();
+    sbPullOk=true;
+    const temRanking=remote&&(Array.isArray(remote.registros)&&remote.registros.length||(remote.arquivos&&remote.arquivos.length)||(remote.fatHistorico&&Object.keys(remote.fatHistorico).length));
+    const temCrono=remote&&Array.isArray(remote.cronoAuditorias)&&remote.cronoAuditorias.length;
+    if(remote&&(temRanking||temCrono)){
       if(remote.faturamentos) FATURAMENTOS=remote.faturamentos;
       if(remote.fatHistorico) FAT_HISTORICO=remote.fatHistorico;
       if(remote.fatBaseInfo) FAT_BASE_INFO=remote.fatBaseInfo;
       if(remote.auditoriaNotas) AUDITORIA_NOTAS=remote.auditoriaNotas;
       if(remote.auditoriaNotasInfo) AUDITORIA_NOTAS_INFO=remote.auditoriaNotasInfo;
       if(remote.observacoes) OBSERVACOES=remote.observacoes;
-      if(remote.config) CONFIG=Object.assign(CONFIG, remote.config);
+      if(remote.config) CONFIG=Object.assign(CONFIG,remote.config);
       if(remote.cronoAuditorias) CRONO_AUDITORIAS=remote.cronoAuditorias;
       if(remote.cronoArquivoInfo) CRONO_ARQUIVO_INFO=remote.cronoArquivoInfo;
       if(remote.cronoMeta) CRONO_META=remote.cronoMeta;
       if(remote.cronoMetaConfianca) CRONO_META_CONFIANCA=remote.cronoMetaConfianca;
-      if(remote.arquivos && remote.arquivos.length){
+      if(remote.arquivos&&remote.arquivos.length){
         ARQUIVOS=remote.arquivos;
         processarERenderizar();
       } else if(remote.registros){
@@ -4926,64 +4934,58 @@ async function syncPull(){
       } else if(temCrono){
         document.getElementById('tela-import').style.display='none';
         document.getElementById('painel').classList.remove('hidden');
-        mudarAba(ABA_ATUAL==='anual' ? 'cronograma' : ABA_ATUAL);
+        mudarAba(ABA_ATUAL==='anual'?'cronograma':ABA_ATUAL);
       }
       setSyncStatus('ok');
-      saveJBinCfg({lastPull:new Date().toLocaleString('pt-BR')});
+      saveSbCfg({lastPull:new Date().toLocaleString('pt-BR')});
     } else {
       setSyncStatus(REGISTROS.length?'ok':'conectado');
     }
   }catch(e){
-    setSyncStatus('error', e.message.slice(0,20));
-    console.warn('JSONBin pull:', e.message);
+    setSyncStatus('error',e.message.slice(0,20));
+    console.warn('Supabase pull:',e.message);
   }
 }
 
 async function syncPush(explicito=false){
-  const binId=getBinId(), masterKey=getMasterKey();
-  if(!binId||!masterKey){ alert('Configure a Master Key e o Bin ID na aba ⚙ Configurações antes de publicar.'); return; }
-  if(jbinSyncing) return;
-  // Publicar substitui a base inteira pelo estado deste navegador. Se a leitura
-  // da nuvem falhou nesta sessão, o estado local pode estar vazio por causa da
-  // falha — e não porque não há dados. Publicar aí apagaria a base de todos.
-  if(!jbinPullOk){
+  if(sbSyncing) return;
+  if(!sbPullOk){
     if(!explicito){
       setSyncStatus('error','sem leitura');
-      console.warn('Publicação automática bloqueada: esta sessão ainda não leu a base na nuvem.');
+      console.warn('Publicação automática bloqueada: leitura não realizada nesta sessão.');
       return;
     }
-    if(!confirm('Esta sessão ainda não conseguiu LER a base na nuvem.\n\nPublicar agora vai SOBRESCREVER a base de todos com o que está neste navegador. Se a leitura falhou por problema de rede, isso apaga o trabalho dos outros.\n\nPublicar mesmo assim?')) return;
+    if(!confirm('Esta sessão ainda não leu a base na nuvem.\n\nPublicar agora vai SOBRESCREVER tudo com o que está neste navegador. Publicar mesmo assim?')) return;
   }
-  jbinSyncing=true;
+  sbSyncing=true;
   setSyncStatus('syncing','Publicando...');
   try{
     const payload={
-      registros:REGISTROS, faturamentos:FATURAMENTOS, fatHistorico:FAT_HISTORICO, fatBaseInfo:FAT_BASE_INFO,
-      auditoriaNotas:AUDITORIA_NOTAS, auditoriaNotasInfo:AUDITORIA_NOTAS_INFO, observacoes:OBSERVACOES,
-      config:CONFIG, arquivos:ARQUIVOS,
-      cronoAuditorias:CRONO_AUDITORIAS, cronoArquivoInfo:CRONO_ARQUIVO_INFO, cronoMeta:CRONO_META, cronoMetaConfianca:CRONO_META_CONFIANCA,
-      lastUpdate:new Date().toISOString(), app:'agroquima-ranking'
+      registros:REGISTROS,faturamentos:FATURAMENTOS,fatHistorico:FAT_HISTORICO,fatBaseInfo:FAT_BASE_INFO,
+      auditoriaNotas:AUDITORIA_NOTAS,auditoriaNotasInfo:AUDITORIA_NOTAS_INFO,observacoes:OBSERVACOES,
+      config:CONFIG,arquivos:ARQUIVOS,
+      cronoAuditorias:CRONO_AUDITORIAS,cronoArquivoInfo:CRONO_ARQUIVO_INFO,cronoMeta:CRONO_META,cronoMetaConfianca:CRONO_META_CONFIANCA,
+      lastUpdate:new Date().toISOString(),app:'agroquima-ranking'
     };
-    await jbinWrite(binId, masterKey, compactarPayload(payload));
+    await sbWrite(payload);
     setSyncStatus('ok');
-    saveJBinCfg({lastPush:new Date().toLocaleString('pt-BR')});
+    saveSbCfg({lastPush:new Date().toLocaleString('pt-BR')});
   }catch(e){
-    setSyncStatus('error', e.message.slice(0,20));
-    alert('Erro ao publicar: '+e.message);
-  }finally{ jbinSyncing=false; }
+    setSyncStatus('error',e.message.slice(0,20));
+    if(explicito) alert('Erro ao sincronizar: '+e.message);
+  }finally{ sbSyncing=false; }
 }
 
 // ============================================================
 // ABA DE CONFIGURAÇÃO
 // ============================================================
 function renderAbaConfig(){
-  const cfg=getJBinCfg();
-  const binId=getBinId(), hasKey=!!getMasterKey();
+  const cfg=getSbCfg();
+  const configured=sbIsConfigured();
   const c=document.getElementById('conteudo-abas');
   let statusHtml;
-  if(binId&&hasKey) statusHtml=`<span style="color:var(--green-dk)">✔ <strong>Sincronizado</strong></span> · Bin: <code style="font-size:11px;background:var(--bg3);padding:1px 5px;border-radius:3px">${binId}</code> · <span style="font-size:11px;color:var(--text3)">Última sync: ${cfg.lastPush||cfg.lastPull||'—'}</span>`;
-  else if(binId&&!hasKey) statusHtml=`<span style="color:var(--brand-dk)">👁 Visualizador</span> · Lê da nuvem sem publicar · <span style="font-size:11px;color:var(--text3)">Bin: ${binId}</span>`;
-  else statusHtml=`<span style="color:var(--amber-dk)">⚠ Sem sincronização</span> · <a href="https://jsonbin.io" target="_blank" style="color:var(--brand-dk)">Configure em jsonbin.io</a>`;
+  if(configured) statusHtml=`<span style="color:var(--green-dk)">✔ <strong>Configurado</strong></span> · <span style="font-size:11px;color:var(--text3)">Última sync: ${cfg.lastPush||cfg.lastPull||'—'}</span>`;
+  else statusHtml=`<span style="color:var(--amber-dk)">⚠ Sem sincronização</span> · Configure a URL e anon key do seu projeto Supabase`;
 
   const fatCard = FAT_BASE_INFO ? `
     <div class="chart-card" style="max-width:1000px;margin-top:16px;">
@@ -5025,23 +5027,26 @@ function renderAbaConfig(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1000px;">
 
       <div class="chart-card">
-        <div class="chart-title">☁ Sincronização (JSONBin)</div>
+        <div class="chart-title">☁ Sincronização (Supabase)</div>
         <div style="font-size:12px;margin-bottom:14px;padding:8px 12px;background:var(--bg3);border-radius:6px;line-height:1.6;">${statusHtml}</div>
-        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px;">Master Key</label>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px;">URL do Projeto</label>
         <div style="display:flex;gap:6px;margin-bottom:12px;">
-          <input type="password" id="jbin-key-input" placeholder="$2a$10$..." value="${cfg.masterKey||''}" style="flex:1;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-size:12px;font-family:monospace;">
-          <button class="btn-topo" onclick="toggleKeyVisibility()" title="Mostrar/ocultar">👁</button>
+          <input type="text" id="sb-url-input" placeholder="https://xxxx.supabase.co" value="${cfg.url||''}" style="flex:1;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-size:12px;font-family:monospace;">
         </div>
-        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px;">Bin ID</label>
+        <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px;">Anon Key</label>
         <div style="display:flex;gap:6px;margin-bottom:14px;">
-          <input type="text" id="jbin-id-display" readonly value="${cfg.binId||binId||''}" placeholder="Gerado ao criar" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font-size:12px;font-family:monospace;">
-          <button class="btn-topo" onclick="copyBinId()" title="Copiar">📋</button>
+          <input type="password" id="sb-key-input" placeholder="eyJ..." value="${cfg.key||''}" style="flex:1;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-size:12px;font-family:monospace;">
+          <button class="btn-topo" onclick="toggleSbKeyVisibility()" title="Mostrar/ocultar">👁</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--text3);margin-bottom:12px;padding:8px 10px;background:var(--bg3);border-radius:5px;line-height:1.6;">
+          Tabela necessária no Supabase:<br>
+          <code style="font-size:10px;">CREATE TABLE ranking_state (id text PRIMARY KEY, payload jsonb, updated_at timestamptz DEFAULT now());</code><br>
+          RLS: permita anon SELECT e INSERT/UPDATE.
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn-az" style="font-size:12px;padding:7px 12px;margin:0;" onclick="handleSaveConfig()">💾 Salvar</button>
-          <button class="btn-topo" onclick="handleCreateBin()">➕ Criar Bin</button>
-          <button class="btn-topo" onclick="handleTestConnection()">🔌 Testar</button>
-          <button class="btn-topo primary" onclick="handlePublicar()">📤 Publicar para todos</button>
+          <button class="btn-az" style="font-size:12px;padding:7px 12px;margin:0;" onclick="handleSaveSbConfig()">💾 Salvar</button>
+          <button class="btn-topo" onclick="handleTestSbConnection()">🔌 Testar</button>
+          <button class="btn-topo primary" onclick="syncPush(true)">☁ Sincronizar agora</button>
         </div>
         <div id="config-status" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;white-space:pre-wrap;line-height:1.5;"></div>
       </div>
@@ -5073,44 +5078,33 @@ function renderAbaConfig(){
     </div>`;
 }
 
-function toggleKeyVisibility(){
-  const inp=document.getElementById('jbin-key-input'); if(!inp) return;
+function toggleSbKeyVisibility(){
+  const inp=document.getElementById('sb-key-input'); if(!inp) return;
   inp.type = inp.type==='password' ? 'text' : 'password';
 }
-function copyBinId(){
-  const v=document.getElementById('jbin-id-display').value;
-  if(v && navigator.clipboard){ navigator.clipboard.writeText(v).then(()=>showConfigStatus('ok','Bin ID copiado!')); }
-}
-function handleSaveConfig(){
-  const key=document.getElementById('jbin-key-input').value.trim();
-  const binId=document.getElementById('jbin-id-display').value.trim();
-  if(!key){ showConfigStatus('warning','Cole a Master Key antes de salvar.'); return; }
-  saveJBinCfg({masterKey:key, binId:binId||getJBinCfg().binId});
-  showConfigStatus('ok','Configuração salva com sucesso!');
+function handleSaveSbConfig(){
+  const url=document.getElementById('sb-url-input').value.trim();
+  const key=document.getElementById('sb-key-input').value.trim();
+  if(!url||!key){ showConfigStatus('warning','Preencha a URL e a Anon Key antes de salvar.'); return; }
+  saveSbCfg({url,key});
+  showConfigStatus('ok','Configuração Supabase salva!');
   renderAbaConfig();
 }
-async function handleCreateBin(){
-  const key=document.getElementById('jbin-key-input').value.trim();
-  if(!key){ showConfigStatus('error','Cole a Master Key primeiro.'); return; }
-  showConfigStatus('loading','Criando bin no JSONBin...');
-  try{
-    const binId=await jbinCreate(key);
-    document.getElementById('jbin-id-display').value=binId;
-    saveJBinCfg({masterKey:key, binId});
-    showConfigStatus('ok','Bin criado! Bin ID: '+binId+'\n\nAgora clique em "Publicar para todos" para distribuir o link.');
-    setSyncStatus('conectado');
-    renderAbaConfig();
-  }catch(e){ showConfigStatus('error','Erro: '+e.message+'\n\nVerifique a Master Key.'); }
-}
-async function handleTestConnection(){
-  const key=document.getElementById('jbin-key-input').value.trim()||getMasterKey();
-  const binId=document.getElementById('jbin-id-display').value.trim()||getBinId();
-  if(!binId){ showConfigStatus('error','Nenhum Bin ID. Crie um bin primeiro.'); return; }
+async function handleTestSbConnection(){
+  const url=document.getElementById('sb-url-input').value.trim()||getSbUrl();
+  const key=document.getElementById('sb-key-input').value.trim()||getSbKey();
+  if(!url||!key){ showConfigStatus('error','Preencha URL e Key primeiro.'); return; }
   showConfigStatus('loading','Testando conexão...');
   try{
-    const data=await jbinRead(binId, key);
-    const n=(data?.registros?.length)||0;
-    showConfigStatus('ok',`Conexão OK! Bin acessível. Registros na nuvem: ${n}.`);
+    const r=await fetch(`${url}/rest/v1/ranking_state?id=eq.main&select=id`,{
+      headers:{'apikey':key,'Authorization':`Bearer ${key}`}
+    });
+    if(!r.ok){
+      const err=await r.json().catch(()=>({}));
+      throw new Error(err.message||`HTTP ${r.status}`);
+    }
+    const data=await r.json();
+    showConfigStatus('ok',`Conexão OK! ${data.length?'Dados encontrados na nuvem.':'Tabela acessível (vazia).'}`);
   }catch(e){ showConfigStatus('error','Falha: '+e.message); }
 }
 function showConfigStatus(type,msg){
@@ -5128,33 +5122,14 @@ function salvarConfigParams(){
   CONFIG.rodadasConfianca=parseInt(document.getElementById('cfg-rodadas-confianca')?.value)||2;
   showConfigStatus('ok','Parâmetros salvos!');
   if(REGISTROS.length) processarERenderizar();
-  if(getBinId()&&getMasterKey()) syncPush();
-}
-
-// Publicar: gera HTML com Bin ID + Read Key embutidos (igual painel de vencidos)
-function handlePublicar(){
-  const binId=getBinId(), masterKey=getMasterKey();
-  if(!binId){ showConfigStatus('error','Crie/configure um Bin primeiro.'); return; }
-  // syncPush antes de publicar para garantir dados na nuvem
-  if(masterKey) syncPush(true);
-  let html=document.documentElement.outerHTML;
-  const inject=`<scr`+`ipt>var PUBLISHED_BIN_ID='${binId}';${masterKey?`var PUBLISHED_READ_KEY='${masterKey}';`:''}<\/scr`+`ipt>`;
-  // injeta logo após a tag de comentário de credenciais
-  html=html.replace('<!-- Credenciais publicadas (preenchidas ao clicar em "Publicar para todos") -->',
-                    '<!-- Credenciais publicadas -->\n'+inject);
-  const blob=new Blob(['<!DOCTYPE html>\n'+html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url; a.download='Ranking_Auditoria_Agroquima_PUBLICADO.html'; a.click();
-  URL.revokeObjectURL(url);
-  showConfigStatus('ok','HTML publicável gerado! Suba esse arquivo na sua hospedagem. Todos que abrirem já leem a nuvem automaticamente.');
+  if(sbIsConfigured()) syncPush();
 }
 
 // ============================================================
 // INICIALIZAÇÃO — puxa da nuvem ao abrir
 // ============================================================
 window.addEventListener('DOMContentLoaded', ()=>{
-  if(getBinId()) syncPull(); else setSyncStatus('nokey');
+  if(sbIsConfigured()) syncPull(); else setSyncStatus('nokey');
 });
 
 
@@ -5299,8 +5274,118 @@ window.addEventListener('DOMContentLoaded', ()=>{
     fecharModal('modal-fat-base');
     processarERenderizar();
     if (ABA_ATUAL==='config') renderAbaConfig();
+    if(sbIsConfigured()) syncPush();
     const total = Object.values(FAT_HISTORICO).reduce(function(s,v){ return s+Object.keys(v).length; }, 0);
     alert('Base importada! ' + total + ' registros de faturamento no histórico.');
+  }
+
+  // ── TRIÊNIO XLS ──────────────────────────────────────────────────────────
+  let _trienioRawLinhas = []; // [{sigla, loja, cidadeXls, valorAnual}]
+
+  function _normStr(s) {
+    return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+  }
+
+  function _parseValorTrienio(v) {
+    return parseFloat(String(v||'').replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.').trim()) || 0;
+  }
+
+  function _cidadeDeRegiao(r) {
+    const s = _normStr(String(r||''));
+    const idx = s.indexOf('VENDA ');
+    return idx >= 0 ? s.slice(idx + 6).trim() : s;
+  }
+
+  function _trienioCidadeParaSigla() {
+    const map = {};
+    Object.entries(BASE_FILIAIS).forEach(function([sig, f]) {
+      map[_normStr(f.loja)] = sig;
+    });
+    map['GOIANIA'] = 'MTZ'; // Matriz está em Goiânia
+    return map;
+  }
+
+  function processarTrienioXLS(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = '';
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:false});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+        if (!rows || rows.length < 2) { alert('Planilha vazia ou inválida.'); return; }
+        const cidadeMap = _trienioCidadeParaSigla();
+        _trienioRawLinhas = [];
+        const semMapa = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const reg = String(row[0]||'').trim();
+          if (!reg) continue;
+          const cidade = _cidadeDeRegiao(reg);
+          const valor = _parseValorTrienio(row[1]);
+          if (!valor) continue;
+          const sigla = cidadeMap[cidade];
+          if (sigla) {
+            _trienioRawLinhas.push({sigla, loja: BASE_FILIAIS[sigla]?.loja || sigla, cidadeXls: cidade, valorAnual: valor});
+          } else {
+            semMapa.push(cidade);
+          }
+        }
+        document.getElementById('trienio-ano').value = CONFIG.ano || new Date().getFullYear();
+        _trienioAtualizarPrevia(semMapa);
+        fecharModal('modal-fat');
+        document.getElementById('modal-trienio-xls').classList.remove('hidden');
+      } catch(err) { alert('Erro ao ler XLS: ' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function _trienioAtualizarPrevia(semMapa) {
+    const ano = parseInt(document.getElementById('trienio-ano')?.value) || CONFIG.ano || new Date().getFullYear();
+    const mensal = function(v) { return Math.round(v/12*100)/100; };
+    const fmtBR = function(v) { return 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); };
+    const sub = _trienioRawLinhas.length + ' filiais mapeadas · ' + (semMapa ? semMapa.length + ' não reconhecidas' : '');
+    document.getElementById('trienio-sub').innerHTML =
+      'Arquivo lido &nbsp;·&nbsp; <strong>' + _trienioRawLinhas.length + '</strong> filiais' +
+      (semMapa && semMapa.length ? ' &nbsp;·&nbsp; <span style="color:var(--amber-dk)">' + semMapa.length + ' não reconhecidas</span>' : '');
+    const header = '<tr style="background:var(--bg3);"><th style="padding:4px 8px;text-align:left;font-size:10px;">Sigla</th><th style="padding:4px 8px;text-align:left;font-size:10px;">Filial</th><th style="padding:4px 8px;text-align:right;font-size:10px;">Valor Anual</th><th style="padding:4px 8px;text-align:right;font-size:10px;">Mensal (÷12)</th></tr>';
+    const rows = _trienioRawLinhas.map(function(r) {
+      const jaMes = Object.keys((FAT_HISTORICO[r.sigla]||{})).filter(function(p){ return p.endsWith('/'+ano); }).length;
+      const warn = jaMes > 0 ? ' <span style="color:var(--amber-dk)" title="' + jaMes + ' mês(es) já existentes para este ano — serão substituídos">⚠</span>' : '';
+      return '<tr><td style="padding:3px 8px;font-weight:700;">' + r.sigla + '</td>' +
+        '<td style="padding:3px 8px;">' + r.loja + warn + '</td>' +
+        '<td style="padding:3px 8px;text-align:right;">' + fmtBR(r.valorAnual) + '</td>' +
+        '<td style="padding:3px 8px;text-align:right;color:var(--green-dk);">' + fmtBR(mensal(r.valorAnual)) + '</td></tr>';
+    }).join('');
+    const semMapaHTML = semMapa && semMapa.length
+      ? '<div style="margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:6px;font-size:10.5px;color:var(--amber-dk);"><strong>Não mapeadas (ignoradas):</strong> ' + semMapa.join(', ') + '</div>'
+      : '';
+    document.getElementById('trienio-preview').innerHTML =
+      '<table style="border-collapse:collapse;width:100%;"><thead>' + header + '</thead><tbody>' + rows + '</tbody></table>' + semMapaHTML;
+  }
+
+  function confirmarTrienioXLS() {
+    if (!_trienioRawLinhas.length) return;
+    const ano = parseInt(document.getElementById('trienio-ano')?.value) || CONFIG.ano || new Date().getFullYear();
+    let qtd = 0;
+    _trienioRawLinhas.forEach(function(r) {
+      const mensal = Math.round(r.valorAnual/12*100)/100;
+      if (!FAT_HISTORICO[r.sigla]) FAT_HISTORICO[r.sigla] = {};
+      for (let m = 1; m <= 12; m++) {
+        const p = String(m).padStart(2,'0') + '/' + ano;
+        FAT_HISTORICO[r.sigla][p] = mensal;
+        qtd++;
+      }
+    });
+    _trienioRawLinhas = [];
+    fecharModal('modal-trienio-xls');
+    processarERenderizar();
+    if (ABA_ATUAL==='config') renderAbaConfig();
+    if(sbIsConfigured()) syncPush();
+    const total = Object.values(FAT_HISTORICO).reduce(function(s,v){ return s+Object.keys(v).length; }, 0);
+    alert('Triênio importado! ' + qtd + ' períodos adicionados (' + (qtd/12|0) + ' filiais × 12 meses). Total histórico: ' + total + ' registros.');
   }
 
   function processarNotaAuditoriaArquivo(input) {
@@ -5351,7 +5436,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       input.value = '';
       processarERenderizar();
       if (ABA_ATUAL==='config') renderAbaConfig();
-      if (getBinId() && getMasterKey()) syncPush();
+      if (sbIsConfigured()) syncPush();
       alert('Nota Média de Auditoria carregada! ' + AUDITORIA_NOTAS_INFO.qtdFiliais + ' filiais, ' + qtdFinalizadas + ' auditorias finalizadas consideradas.');
     };
     const lower = nome.toLowerCase();
@@ -5386,7 +5471,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     FAT_BASE_INFO = null;
     processarERenderizar();
     if (ABA_ATUAL==='config') renderAbaConfig();
-    if (getBinId() && getMasterKey()) syncPush();
+    if (sbIsConfigured()) syncPush();
   }
 
   function abrirFatHistoricoView() {
@@ -5450,7 +5535,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     AUDITORIA_NOTAS_INFO = null;
     processarERenderizar();
     if (ABA_ATUAL==='config') renderAbaConfig();
-    if (getBinId() && getMasterKey()) syncPush();
+    if (sbIsConfigured()) syncPush();
   }
 
   // ── TEMA CLARO / ESCURO ───────────────────────────────────────────────────
@@ -5831,7 +5916,7 @@ function salvarManual(){
 
   fecharModal('modal-manual-reg');
   processarERenderizar();
-  if(getBinId()&&getMasterKey()) syncPush();
+  if(sbIsConfigured()) syncPush();
 }
 
 function _deletarManualAtual(){
@@ -5840,7 +5925,7 @@ function _deletarManualAtual(){
   CONFIG.registrosManuais=(CONFIG.registrosManuais||[]).filter(x=>x._id!==_manualEditId);
   fecharModal('modal-manual-reg');
   processarERenderizar();
-  if(getBinId()&&getMasterKey()) syncPush();
+  if(sbIsConfigured()) syncPush();
 }
 
 function _abrirAuditManual(){
@@ -5882,7 +5967,7 @@ function _deletarManualPorId(id){
   if(!confirm('Excluir esta entrada manual?')) return;
   CONFIG.registrosManuais=(CONFIG.registrosManuais||[]).filter(x=>x._id!==id);
   processarERenderizar();
-  if(getBinId()&&getMasterKey()) syncPush();
+  if(sbIsConfigured()) syncPush();
   _abrirAuditManual();
 }
 </script>
