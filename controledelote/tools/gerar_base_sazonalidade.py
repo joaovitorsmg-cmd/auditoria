@@ -47,7 +47,11 @@ A sazonalidade mede o MÊS QUE VENDEU (faturamento), NÃO o mês que entregou.
 - O campo "ate" do JSON de saída reflete o mês da VENDA MAIS RECENTE realmente
   encontrada nos dados (não o limite da janela), para o painel mostrar a cobertura
   real do arquivo importado.
-- Sazonalidade medida em UNIDADES (soma da quantidade), por mês (Jan=0 ... Dez=11).
+- Sazonalidade medida em UNIDADES (soma da quantidade), por mês (Jan=0 ... Dez=11),
+  SOMADA ao longo de todos os anos da janela (não é uma média por ano). O campo
+  "desde" (início fixo da janela) vai junto no JSON para o app calcular quantos
+  anos essa soma cobre e dividir por isso antes de projetar venda futura — sem
+  "desde", o app projetaria a soma de ~2-3 anos como se fosse de 1 ano só.
 """
 
 import sys, os, json, re, argparse, time, glob, itertools, traceback
@@ -795,6 +799,7 @@ def main():
 
     saida = {
         "siglas": siglas,
+        "desde": f"{PERIODO_INI[0]:04d}-{PERIODO_INI[1]:02d}",
         "ate": ate_real,
         "fonte": os.path.basename(arquivo),
         "gerado_em": datetime.now().strftime("%Y-%m-%d %H:%M"),

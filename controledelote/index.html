@@ -969,30 +969,6 @@
   .sit-local { background: rgba(245,158,11,0.16); color: #fbbf24; border: 1px solid rgba(245,158,11,0.38); }
   .sit-sem-dados { background: rgba(100,116,139,0.18); color: #94a3b8; border: 1px solid rgba(100,116,139,0.35); }
 
-  .rota-pill {
-    display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 9px;
-    border-radius: 20px; white-space: nowrap; cursor: help;
-  }
-  .rota-pill.rota-transferir { background: rgba(52,211,153,0.18); color: #34d399; border: 1px solid rgba(52,211,153,0.4); }
-  .rota-pill.rota-devolucao  { background: rgba(95,212,160,0.16); color: #5fd4a0; border: 1px solid rgba(95,212,160,0.4); }
-  .rota-pill.rota-revalidar  { background: rgba(96,165,250,0.16); color: #60a5fa; border: 1px solid rgba(96,165,250,0.4); }
-  .rota-pill.rota-venda      { background: rgba(245,158,11,0.16); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); }
-  .rota-pill.rota-descarte   { background: rgba(239,68,68,0.18); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); }
-
-  .rotas-panel {
-    background: var(--card-bg); border: 1px solid var(--borda); border-radius: 10px;
-    padding: 14px 18px; margin-bottom: 18px;
-  }
-  .rotas-title { font-size: 12px; font-weight: 800; color: var(--branco); letter-spacing: 0.3px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
-  .rotas-list { display: flex; flex-direction: column; gap: 9px; }
-  .rota-row { display: grid; grid-template-columns: 240px 1fr 190px; align-items: center; gap: 12px; }
-  .rota-label { font-size: 11px; font-weight: 600; color: var(--texto); display: flex; align-items: center; gap: 6px; }
-  .rota-label i { font-size: 14px; }
-  .rota-tipo { font-size: 9px; color: var(--texto-muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 3px; margin-left: 4px; white-space: nowrap; }
-  .rota-bar { height: 16px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
-  .rota-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-  .rota-val { font-size: 12px; font-weight: 700; color: var(--branco); text-align: right; }
-  .rota-val span { font-size: 10px; font-weight: 400; color: var(--texto-muted); }
   @media (max-width: 768px) {
     /* Sidebar: oculta no mobile, aparece como overlay ao abrir */
     .sidebar {
@@ -1028,9 +1004,6 @@
     .topbar-meta { display: none !important; }
     /* Filial badge: só o ponto verde */
     .filial-badge .filial-nome-text { display: none; }
-    /* Rotas */
-    .rota-row { grid-template-columns: 1fr; gap: 3px; }
-    .rota-val { text-align: left; }
     /* Modal: sheet desliza de baixo */
     .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
     .modal-box {
@@ -2017,13 +1990,6 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
   html[data-theme="light"] .sit-verificar { background: rgba(217,119,6,.12) !important; color: #92400e !important; border-color: rgba(217,119,6,.35) !important; }
   html[data-theme="light"] .sit-sem-dados { background: rgba(100,116,139,.1) !important; color: #475569 !important; border-color: rgba(100,116,139,.3) !important; }
 
-  /* Rota pills no tema claro */
-  html[data-theme="light"] .rota-pill.rota-transferir { background: rgba(22,163,74,.12); color: #166534; border-color: rgba(22,163,74,.35); }
-  html[data-theme="light"] .rota-pill.rota-devolucao  { background: rgba(22,163,74,.10); color: #166534; border-color: rgba(22,163,74,.3); }
-  html[data-theme="light"] .rota-pill.rota-revalidar  { background: rgba(29,78,216,.12); color: #1e40af; border-color: rgba(29,78,216,.3); }
-  html[data-theme="light"] .rota-pill.rota-venda      { background: rgba(217,119,6,.12); color: #92400e; border-color: rgba(217,119,6,.35); }
-  html[data-theme="light"] .rota-pill.rota-descarte   { background: rgba(220,38,38,.12); color: #991b1b; border-color: rgba(220,38,38,.3); }
-
   /* Checklist items no tema claro */
   html[data-theme="light"] .prod-cod { background: rgba(29,78,216,.12); color: #1e40af; }
   html[data-theme="light"] .prod-extra-tag { background: rgba(22,163,74,.12); color: #166534; }
@@ -2385,6 +2351,7 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
               <option value="sobra">Só os que vão sobrar</option>
             </select>
             <input class="search-box" placeholder="Buscar produto ou lote..." id="busca-alerta" oninput="filtrarAlerta()">
+            <input type="number" min="0" step="1" class="select-sm" style="width:130px;" placeholder="Vai sobrar ≥ (un)" id="filtro-sobra-min-a" oninput="filtrarAlerta()" title="Mostrar só lotes com sobra prevista maior ou igual a esta quantidade">
             <button class="btn-limpar" onclick="limparFiltros('alerta')" title="Limpar filtros"><i class="ti ti-x"></i></button>
             <div class="export-dropdown" id="dd-alerta">
               <button class="btn-sm primary" onclick="toggleDropdown('dd-alerta')"><i class="ti ti-download"></i> Exportar <i class="ti ti-chevron-down" style="font-size:9px;"></i></button>
@@ -2399,18 +2366,18 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
           <table id="tabela-alerta">
             <thead>
               <tr>
-                <th>Janela</th>
-                <th>Linha</th>
-                <th>Código</th>
-                <th>Produto</th>
-                <th>Lote</th>
-                <th>Vence em</th>
-                <th>Dias</th>
-                <th>Qtd</th>
-                <th>Vlr Parado</th>
-                <th>Giro aqui?</th>
-                <th>Vai sobrar</th>
-                <th>Ação sugerida</th>
+                <th onclick="sortTable('alerta',0)">Janela</th>
+                <th onclick="sortTable('alerta',1)">Linha</th>
+                <th onclick="sortTable('alerta',2)">Código</th>
+                <th onclick="sortTable('alerta',3)">Produto</th>
+                <th onclick="sortTable('alerta',4)">Lote</th>
+                <th onclick="sortTable('alerta',5)">Vence em</th>
+                <th onclick="sortTable('alerta',6)">Dias</th>
+                <th onclick="sortTable('alerta',7)">Qtd</th>
+                <th onclick="sortTable('alerta',8)">Vlr Parado</th>
+                <th onclick="sortTable('alerta',9)">Giro aqui?</th>
+                <th onclick="sortTable('alerta',10)">Vai sobrar</th>
+                <th onclick="sortTable('alerta',11)">Ação sugerida</th>
               </tr>
             </thead>
             <tbody id="body-alerta"></tbody>
@@ -2430,13 +2397,8 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
         <i class="ti ti-info-circle met-icon"></i>
         <div class="met-texto">
           <strong>O que é esta tela.</strong> Lista o estoque <strong>ainda válido</strong> que <strong>não gira nesta filial</strong> — capital imobilizado que tende a virar prejuízo se nada for feito (diferente da aba <strong>Vencidos</strong>, que mostra o que já venceu, e de <strong>Análise de Risco</strong>, que projeta o que vai sobrar).
-          Há dois tipos: <strong>Parado aqui</strong> (vende em outras filiais — sinaliza problema de compra) e <strong>Dead stock</strong> (nunca vendeu em filial alguma). <em>Não há transferência entre filiais.</em>
-          A coluna <strong>Recomendação</strong> aplica as regras de destinação da Agroquima:
-          <strong>Nutrição Animal</strong> (fábricas FAP/FCB) não aceita devolução → venda a custo/bonificação ou descarte;
-          <strong>Semente de Pastagem</strong> (fábrica FAG) admite devolução à FAG, sobretudo sementes de alto giro (ex.: Ruziziensis);
-          <strong>Agrícola</strong> (semente, fornecedor terceiro) pode ter revalidação de análise;
-          demais fornecedores terceiros, sem previsão de devolução → venda/bonificação.
-          <em>Valor Parado = Quantidade × Custo Unitário.</em> Passe o mouse na recomendação para ver a justificativa.
+          Há dois tipos: <strong>Parado aqui</strong> (vende em outras filiais — sinaliza problema de compra) e <strong>Dead stock</strong> (nunca vendeu em filial alguma). <em>Não há transferência entre filiais e devoluções à fábrica não são mais aceitas.</em>
+          <em>Valor Parado = Quantidade × Custo Unitário.</em>
         </div>
       </div>
       <div class="semgiro-cfop-note">
@@ -2447,7 +2409,6 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
       </div>
       <div id="export-wrap-semgiro" style="background:var(--bg);padding:4px 0;">
       <div class="summary-grid" id="summary-semgiro"></div>
-      <div id="semgiro-rotas"></div>
       <div class="table-container" id="tc-semgiro">
         <div class="table-header">
           <div class="table-title"><i class="ti ti-package-off" style="color:var(--amber)"></i> Produtos Parados — Detalhamento por Lote</div>
@@ -2479,7 +2440,6 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
                 <th onclick="sortTable('semgiro',6)">Dias p/ Venc.</th>
                 <th onclick="sortTable('semgiro',7)">Qtd</th>
                 <th onclick="sortTable('semgiro',8)">Valor Parado</th>
-                <th onclick="sortTable('semgiro',9)">Recomendação</th>
               </tr>
             </thead>
             <tbody id="body-semgiro"></tbody>
@@ -2728,7 +2688,7 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
   </div>
 
   <div style="margin-top:20px;font-size:11px;color:var(--text3);padding:12px 16px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
-    <strong>Score de Vencidos:</strong> O score é calculado no <em>Ranking Geral</em> após importar o faturamento das filiais via relatório de Resumo CFOP. Aqui são registrados apenas os dados de vencidos (quantidade, valor, sem giro).
+    <strong>Score de Vencidos:</strong> calculado direto pelo valor vencido em R$ no momento do registro (0 a 100%, conforme as faixas de valor) — não depende de faturamento da filial.
   </div>
 </div>
 <!-- /ABA HISTÓRICO -->
@@ -3339,9 +3299,9 @@ tr.tr-na td{color:var(--text3);font-style:italic;}
           <thead><tr><th>Item</th><th>Peso</th><th>Critério</th><th>Fórmula</th></tr></thead>
           <tbody>
             <tr><td>🔴 <b>Pedido de Semente</b></td><td><b>40 pts</b></td><td>Zero tolerância</td><td>40 se sem pendências / 0 se qualquer pendência</td></tr>
-            <tr><td>🔵 <b>Pedido de Venda</b></td><td><b>30 pts</b></td><td>Meta ≥ 95%</td><td>MIN(% atingido / 95, 1) × 30</td></tr>
-            <tr><td>🟡 <b>Produtos Vencidos</b></td><td><b>20 pts</b></td><td>Painel Vencidos</td><td>Prévia local por valor (R$): 0=100%, até 1.000=90%, até 5.000=70%, até 20.000=40%, até 50.000=15%, acima=0%. O score oficial usa % do valor vencido sobre o faturamento, calculado no Ranking Geral.</td></tr>
-            <tr><td>🟢 <b>Canhoto</b></td><td><b>10 pts</b></td><td>Meta ≥ 95%</td><td>MIN(% atingido / 95, 1) × 10</td></tr>
+            <tr><td>🔵 <b>Pedido de Venda</b></td><td><b>30 pts</b></td><td>Meta ≥ 95%</td><td>30 se % assinados ≥ 95% / 0 se abaixo (sem pontuação parcial)</td></tr>
+            <tr><td>🟡 <b>Produtos Vencidos</b></td><td><b>20 pts</b></td><td>Painel Vencidos</td><td>Por valor vencido (R$) no momento do registro: 0=100%, até 1.000=90%, até 5.000=70%, até 20.000=40%, até 50.000=15%, acima=0%.</td></tr>
+            <tr><td>🟢 <b>Canhoto</b></td><td><b>10 pts</b></td><td>Meta ≥ 95%</td><td>10 se % assinados ≥ 95% / 0 se abaixo (sem pontuação parcial)</td></tr>
             <tr style="font-weight:700;background:var(--az-cl)"><td colspan="2"><b>TOTAL MÁXIMO: 100 pts</b></td><td colspan="2">🥇 ≥90 pts | 🟢 ≥75 | 🟡 ≥60 | 🔴 &lt;60</td></tr>
           </tbody>
         </table>
@@ -3608,46 +3568,6 @@ function janelaSafraInfo(codProduto, sigla, diasVenc, linha, dtFabricacao, dtVen
   return { html: '<span class="safra-badge safra-neutro" title="Linha sem régua de safra agronômica ou validade aplicável">não se aplica</span>', safrasRestantes: null, status: 'nao_aplica' };
 }
 
-// Recomendação de destinação por linha/fornecedor (regras Agroquima)
-// Recomendação de destinação por linha/fábrica (regras Agroquima — sem transferência entre filiais).
-// Semente de Pastagem (18): fabricada pela FAG → devolução à FAG (sementes de alto giro, ex. Ruziziensis, são aceitas).
-// Nutrição Animal (1): fabricada por FAP/FCB (fábricas próprias) → NÃO aceitam devolução → venda/bonificação ou descarte.
-// Agrícola (4,5): fornecedor terceiro; se semente, possível revalidação da análise; senão venda/bonificação.
-// Demais fornecedores terceiros (2-Pastagem, 3, 6, 7, 8, 15-Vetoquinol, 0): sem devolução → venda/bonificação (ou descarte se vencido).
-function recomendacaoSemGiro(l) {
-  const linha = String(l.linha);
-  const dias = l.diasVencimento;
-  const vencido = dias < 0;
-  const vendeOutras = l._vendeOutras || [];
-
-  // Semente de Pastagem — fábrica FAG. Não se transfere entre filiais; devolve-se à FAG.
-  if (linha === '18') {
-    const dest = vendeOutras.slice(0, 3).join(', ') + (vendeOutras.length > 3 ? '…' : '');
-    return { rota: 'DEVOLUÇÃO', cls: 'rota-devolucao',
-      detalhe: vendeOutras.length
-        ? `Semente de Pastagem (fábrica FAG): tem giro em ${dest}. Sementes de alto giro (ex.: Ruziziensis) têm devolução à FAG aceita. Não se transfere entre filiais — devolver à FAG.`
-        : 'Semente de Pastagem (fábrica FAG): avaliar devolução à FAG (mais provável em sementes de alto giro, ex.: Ruziziensis); senão venda/bonificação. Não se transfere entre filiais.' };
-  }
-
-  // Nutrição Animal — fábricas FAP/FCB não aceitam devolução de nenhum produto.
-  if (linha === '1') {
-    return vencido
-      ? { rota: 'DESCARTE', cls: 'rota-descarte', detalhe: 'Nutrição Animal (fábricas FAP/FCB): não aceitam devolução. Produto vencido → descarte conforme norma. Perda total.' }
-      : { rota: 'VENDA/BONIFICAÇÃO', cls: 'rota-venda', detalhe: 'Nutrição Animal (fábricas FAP/FCB): não aceitam devolução. Escoar via venda a preço de custo ou bonificação antes do vencimento.' };
-  }
-
-  // Agrícola — fornecedor terceiro; semente pode revalidar.
-  if (linha === '4' || linha === '5') {
-    return { rota: 'REVALIDAR/VENDA', cls: 'rota-revalidar',
-      detalhe: 'Linha Agrícola (fornecedor terceiro): se semente, avaliar revalidação da análise (reteste); senão venda/bonificação. Devolução ao fornecedor é rara.' };
-  }
-
-  // Demais fornecedores terceiros — sem previsão de devolução/troca.
-  return vencido
-    ? { rota: 'DESCARTE', cls: 'rota-descarte', detalhe: 'Fornecedor terceiro sem devolução: vencido → venda no estado a preço de custo ou descarte.' }
-    : { rota: 'VENDA/BONIFICAÇÃO', cls: 'rota-venda', detalhe: 'Fornecedor terceiro sem previsão de devolução/troca: escoar via venda a preço de custo ou bonificação.' };
-}
-
 // ==================== ESTADO GLOBAL ====================
 const APP = {
   lotes: [],
@@ -3662,7 +3582,7 @@ const APP = {
   dataAuditoria: new Date(),
   lotesLoaded: false,
   regionais: {},
-  sortState: { risco: {col:-1,asc:true}, vencidos: {col:-1,asc:true}, semgiro: {col:-1,asc:true} },
+  sortState: { risco: {col:-1,asc:true}, vencidos: {col:-1,asc:true}, semgiro: {col:-1,asc:true}, alerta: {col:-1,asc:true} },
   pages: { risco: 1, vencidos: 1, semgiro: 1 },
   pageSize: 50,
   filteredRisco: [],
@@ -3817,12 +3737,7 @@ function carregarLotes(input) {
       }
       // Verifica se os cabeçalhos batem com o relatório de lotes esperado
       const header = (data[0] || []).map(h => String(h||'').trim().toLowerCase());
-      const obrigatorios = ['lote', 'dt vencimento', 'situação'];
-      const headerStr = header.join('|');
-      const faltando = obrigatorios.filter(col =>
-        !header.some(h => h.includes(col.split(' ')[0]) && (col.split(' ')[1] ? h.includes(col.split(' ')[1].substring(0,4)) : true))
-      );
-      // Validação mais robusta: precisa ter as colunas-chave do TabelaManterLoteProduto
+      // Precisa ter as colunas-chave do TabelaManterLoteProduto
       const temLote = header.some(h => h === 'lote');
       const temVenc = header.some(h => h.includes('vencimento'));
       const temSituacao = header.some(h => h.includes('situa'));
@@ -4070,10 +3985,14 @@ function processarDados() {
         const maxValor = 100000;
         const valorScore = Math.min(100, valorRisco / maxValor * 100);
         score += valorScore * 0.40;
-        // Componente 3: cobertura vs vencimento (20%)
-        const cobScore = (diasVenc > 0 && coberturaDias < 9999)
-          ? (coberturaDias < diasVenc ? 0 : Math.min(100, (coberturaDias - diasVenc) / diasVenc * 100))
-          : 0;
+        // Componente 3: cobertura vs vencimento (20%). coberturaDias===9999 é o sentinela de
+        // "sem venda nenhuma" (vendaDiaria=0) — isso é o MÁXIMO risco nesta dimensão, não 0
+        // (antes caía no mesmo "senão" de diasVenc<=0 e zerava o componente por engano).
+        const cobScore = diasVenc <= 0
+          ? 0
+          : coberturaDias >= 9999
+            ? 100
+            : (coberturaDias < diasVenc ? 0 : Math.min(100, (coberturaDias - diasVenc) / diasVenc * 100));
         score += cobScore * 0.20;
         
         score = Math.round(score);
@@ -4126,8 +4045,6 @@ function processarDados() {
           const semDados = dead && !temRemessa;
           const tipo = semDados ? 'sem_dados' : (dead ? 'verificar' : (vendeOutras.length ? 'local' : 'dead'));
           const e = { ...l, semGiroTipo: tipo, _vendeOutras: vendeOutras, _temRemessa: temRemessa, _semDados: semDados };
-          e._rec = recomendacaoSemGiro(e);
-          e._recRota = e._rec.rota;
           return e;
         })
         .sort((a, b) => b.vlrCustoTotal - a.vlrCustoTotal);
@@ -4175,7 +4092,9 @@ function projetarVendas(codProduto, sigla, meses, hoje) {
   const mesAtual = hoje.getMonth() + 1;
   for (let i = 0; i < meses; i++) {
     const mes = ((mesAtual - 1 + i) % 12) + 1;
-    projecaoTotal += fonte[mes - 1] || 0;
+    // fonte[mes-1] é a SOMA desse mês-calendário ao longo de ANOS_BASE anos — divide para
+    // obter a venda típica de UM mês antes de projetar.
+    projecaoTotal += (fonte[mes - 1] || 0) / ANOS_BASE;
   }
   return projecaoTotal;
 }
@@ -4183,7 +4102,7 @@ function projetarVendas(codProduto, sigla, meses, hoje) {
 function getVendaDiaria(codProduto, sigla) {
   const fonte = getSazonalFilial(codProduto, sigla);
   if (!fonte) return 0;
-  return fonte.reduce((a,b) => a+b, 0) / 365;
+  return fonte.reduce((a,b) => a+b, 0) / (ANOS_BASE * 365);
 }
 
 // ==================== RENDER ====================
@@ -4475,11 +4394,14 @@ function filtrarAlerta() {
   const j = document.getElementById('filtro-janela-a').value;
   const h = parseInt(document.getElementById('filtro-horizonte-a')?.value) || 540;
   const busca = (document.getElementById('busca-alerta').value || '').toLowerCase();
+  const sobraMinEl = document.getElementById('filtro-sobra-min-a');
+  const sobraMin = sobraMinEl && sobraMinEl.value.trim() !== '' ? parseFloat(sobraMinEl.value) : null;
   APP.filteredAlerta = APP.alerta.filter(l => {
     const mJanela = !j || (j === 'sobra' ? l.sobra > 0 : l.janela === j);
     const mHorizonte = l.diasVencimento <= h;
     const mBusca = !busca || l.nomeProduto.toLowerCase().includes(busca) || String(l.lote).toLowerCase().includes(busca) || String(l.codProduto).includes(busca);
-    return mJanela && mHorizonte && mBusca;
+    const mSobraMin = sobraMin === null || l.sobra >= sobraMin;
+    return mJanela && mHorizonte && mBusca && mSobraMin;
   });
   renderTabelaAlerta();
 }
@@ -4534,7 +4456,16 @@ function normFab(s) { return String(s || '').replace(/^\s*\d+\s*-\s*/, '').toUpp
 // Extrai só o código do fabricante ("9025 - AGROQUIMA..." -> "9025")
 function codFab(s) { const m = String(s || '').match(/^\s*(\d+)\s*-/); return m ? m[1] : ''; }
 // Assinatura estrutural do lote ("053-22-03000" -> "9-9-9"; "ABC12" -> "A9") para comparar formatos
-function loteSig(s) { return String(s).toUpperCase().replace(/[0-9]+/g, '9').replace(/[A-Z]+/g, 'A').replace(/\s+/g, ' ').trim(); }
+// Assinatura estrutural do lote p/ comparar formato entre filiais (ex.: "AB1234" -> "AA9999").
+// Preserva o COMPRIMENTO de cada bloco de letras/dígitos — sem isso, "A123" e "A123456"
+// caíam na mesma assinatura ("A9"), então um lote truncado/com dígitos a mais passava
+// despercebido como "mesmo formato".
+function loteSig(s) {
+  return String(s).toUpperCase().trim()
+    .replace(/[0-9]+/g, m => '9'.repeat(m.length))
+    .replace(/[A-Z]+/g, m => 'A'.repeat(m.length))
+    .replace(/\s+/g, ' ');
+}
 
 function computarCacaErros() {
   const lotes = APP.allLotes || [];
@@ -4740,16 +4671,21 @@ function computarCacaErros() {
     }
 
     if (linha === '15') {
-      // Vetoquinol: só fabricante 70.
+      // Vetoquinol: fabricantes aceitos são o próprio Vetoquinol (70) e a Biogenesis (Bagó),
+      // que também fabrica para essa linha — não é mais erro ter os dois.
+      // Grafia real nos dados é "BIOGENESIS" (ex.: "8955 - BIOGENESIS BAGO SAUDE ANIMAL
+      // LTDA."), não "BIOGÊNESE" em português — o regex antigo exigia terminar em "...NESE"
+      // e nunca batia com "...NESIS", então continuava marcando erro. Casa só o radical
+      // comum "BIOGENES" (cobre BIOGENESIS e a variante em português BIOGÊNESE/BIOGENESE).
       for (const c of codigos) {
-        if (c === '70') continue;
+        if (c === '70' || /BIOG[EÊ]NES/i.test(normFab(fabs[c][0]?.fabricante))) continue;
         const recs = fabs[c];
         const fils = [...new Set(recs.map(r => r.sigla))];
         findings.push({
           tipo: 'grave', cat: 'fabricante', catLabel: 'Fabricante divergente — Vetoquinol',
           codProduto: cod, produto: prodNome, lote: '',
           filiais: fils,
-          titulo: `<strong>Fabricante incorreto (Vetoquinol):</strong> ${prodNome} só pode ser fabricado por "70 - Vetoquinol", mas ${fils.map(lojaNome).join(', ')} está com o fabricante "${c} - ${normFab(recs[0]?.fabricante)}".`,
+          titulo: `<strong>Fabricante incorreto (Vetoquinol):</strong> ${prodNome} só pode ser fabricado por "70 - Vetoquinol" ou Biogenesis, mas ${fils.map(lojaNome).join(', ')} está com o fabricante "${c} - ${normFab(recs[0]?.fabricante)}".`,
           cols: [{ h: 'LOJA', k: 'loja' }, { h: 'FABRICANTE', k: 'fab' }, { h: 'VENC', k: 'vencimento' }],
           rows: recs.slice(0, 8).map(r => ({ sigla: r.sigla, loja: lojaNome(r.sigla), fab: r.fabricante || '—', vencimento: r.dtVencimento || '—', flag: 'erro' }))
         });
@@ -4968,15 +4904,6 @@ function adicionarInconsistenciasChecklist() {
   if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
 }
 
-// Metadados das rotas de destinação (ordem, cor, rótulo executivo)
-const ROTA_META = {
-  'DEVOLUÇÃO':         { label: 'Devolução à fábrica FAG',         cor: '#5fd4a0', icon: 'ti-arrow-back-up',  tipo: 'Recuperável' },
-  'REVALIDAR/VENDA':   { label: 'Revalidação de análise / venda',   cor: '#60a5fa', icon: 'ti-refresh',        tipo: 'Parcial' },
-  'VENDA/BONIFICAÇÃO': { label: 'Venda a custo / bonificação',      cor: '#f59e0b', icon: 'ti-discount-2',     tipo: 'Perda de margem' },
-  'DESCARTE':          { label: 'Descarte (perda total)',           cor: '#ef4444', icon: 'ti-trash',          tipo: 'Perda total' },
-};
-const ROTAS_RECUPERAVEIS = ['DEVOLUÇÃO'];
-
 function renderSummarySemGiro() {
   const t = document.getElementById('semgiro-sigla-title');
   if (t) t.textContent = APP.sigla;
@@ -4993,28 +4920,12 @@ function renderSummarySemGiro() {
   const semDadosValor = semDados.reduce((s, l) => s + l.vlrCustoTotal, 0);
   const semDadosProd = new Set(semDados.map(l => l.codProduto)).size;
 
-  const recuperavel = data.filter(l => ROTAS_RECUPERAVEIS.includes(l._recRota)).reduce((s, l) => s + l.vlrCustoTotal, 0);
-  const semRetorno = valorParado - recuperavel;
-  const pctRec = valorParado > 0 ? Math.round(recuperavel / valorParado * 100) : 0;
-
   document.getElementById('summary-semgiro').innerHTML = `
     <div class="summary-card red">
       <div class="summary-label">Capital Parado Total</div>
       <div class="summary-value" style="font-size:18px;">${formatValor(valorParado)}</div>
       <div class="summary-sub">${qtdProdutos} produtos · ${qtdLotes} lotes sem giro nesta filial</div>
       <i class="ti ti-currency-dollar summary-icon"></i>
-    </div>
-    <div class="summary-card green">
-      <div class="summary-label">Recuperável</div>
-      <div class="summary-value" style="font-size:18px;">${formatValor(recuperavel)}</div>
-      <div class="summary-sub">${pctRec}% — devolução à fábrica FAG (sementes de pastagem)</div>
-      <i class="ti ti-arrow-back-up summary-icon"></i>
-    </div>
-    <div class="summary-card orange">
-      <div class="summary-label">Perda de Margem / Descarte</div>
-      <div class="summary-value" style="font-size:18px;">${formatValor(semRetorno)}</div>
-      <div class="summary-sub">${100 - pctRec}% — venda a custo, bonificação ou descarte</div>
-      <i class="ti ti-discount-2 summary-icon"></i>
     </div>
     <div class="summary-card red">
       <div class="summary-label">Dead Stock</div>
@@ -5029,41 +4940,6 @@ function renderSummarySemGiro() {
       <i class="ti ti-database-off summary-icon"></i>
     </div>` : ''}
   `;
-
-  renderSemGiroRotas(data, valorParado);
-}
-
-function renderSemGiroRotas(data, total) {
-  const cont = document.getElementById('semgiro-rotas');
-  if (!cont) return;
-  if (!data.length) { cont.innerHTML = ''; return; }
-
-  const porRota = {};
-  for (const l of data) {
-    const r = l._recRota;
-    if (!porRota[r]) porRota[r] = { valor: 0, qtd: 0 };
-    porRota[r].valor += l.vlrCustoTotal;
-    porRota[r].qtd++;
-  }
-  const ordem = Object.keys(ROTA_META).filter(r => porRota[r]);
-
-  cont.innerHTML = `
-    <div class="rotas-panel">
-      <div class="rotas-title"><i class="ti ti-route" style="color:var(--azul-claro);"></i> Rotas de Destinação — para onde vai o capital parado</div>
-      <div class="rotas-list">
-        ${ordem.map(r => {
-          const m = ROTA_META[r];
-          const v = porRota[r];
-          const pct = total > 0 ? Math.round(v.valor / total * 100) : 0;
-          return `
-          <div class="rota-row">
-            <div class="rota-label"><i class="ti ${m.icon}" style="color:${m.cor};"></i> ${m.label}<span class="rota-tipo">${m.tipo}</span></div>
-            <div class="rota-bar"><div class="rota-fill" style="width:${Math.max(pct, 2)}%; background:${m.cor};"></div></div>
-            <div class="rota-val">${formatValor(v.valor)} <span>· ${pct}% · ${v.qtd} lote${v.qtd > 1 ? 's' : ''}</span></div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
 }
 
 function renderTabelaSemGiro(page) {
@@ -5074,7 +4950,7 @@ function renderTabelaSemGiro(page) {
 
   const tbody = document.getElementById('body-semgiro');
   if (slice.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><i class="ti ti-circle-check" style="color:var(--verde)"></i><p>Nenhum produto parado — todo o estoque registrou giro nesta filial.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><i class="ti ti-circle-check" style="color:var(--verde)"></i><p>Nenhum produto parado — todo o estoque registrou giro nesta filial.</p></div></td></tr>`;
     document.getElementById('pag-semgiro').innerHTML = '';
     return;
   }
@@ -5091,8 +4967,6 @@ function renderTabelaSemGiro(page) {
         : tipo === 'dead'
           ? '<span class="sit-tag sit-dead" title="Nunca registrou venda em nenhuma filial na base histórica">Dead stock</span>'
           : `<span class="sit-tag sit-local" title="Vende em: ${(l._vendeOutras||[]).join(', ') || '—'}">Parado aqui</span>`;
-    const rota = l._rec.rota;
-    const rotaCls = l._rec.cls;
     return `<tr>
       <td>${sitTag}</td>
       <td><span style="font-size:11px; color:var(--texto-muted);">${getNomeLinha(l.linha)}</span></td>
@@ -5103,7 +4977,6 @@ function renderTabelaSemGiro(page) {
       <td><span style="color:${corVenc}; font-weight:${vencido || l.diasVencimento<=90 ? '700':'400'};">${dias}</span></td>
       <td>${l.quantidade.toLocaleString('pt-BR')}</td>
       <td><span style="color:var(--amber-dk); font-weight:700;">${formatValor(l.vlrCustoTotal)}</span></td>
-      <td><span class="rota-pill ${rotaCls}" title="${l._rec.detalhe.replace(/"/g,'&quot;')}">${rota}</span></td>
     </tr>`;
   }).join('');
 
@@ -5591,6 +5464,7 @@ function limparFiltros(tipo) {
   } else if (tipo === 'alerta') {
     document.getElementById('filtro-janela-a').value = '';
     document.getElementById('busca-alerta').value = '';
+    document.getElementById('filtro-sobra-min-a').value = '';
     filtrarAlerta();
   } else if (tipo === 'cacaerros') {
     document.getElementById('filtro-filial-ce').value = '';
@@ -7896,7 +7770,6 @@ function renderPlanoAcao() {
   // Ações estratégicas — sempre presentes
   const semVenda = new Set(APP.semGiro.map(l => l.codProduto)).size;
   const semVendaValor = APP.semGiro.reduce((s, l) => s + l.vlrCustoTotal, 0);
-  const sgRecuperavel = APP.semGiro.filter(l => ROTAS_RECUPERAVEIS.includes(l._recRota)).reduce((s, l) => s + l.vlrCustoTotal, 0);
   const sgDeadProd = new Set(APP.semGiro.filter(l => l.semGiroTipo === 'dead').map(l => l.codProduto)).size;
   const acoesEstrategicas = `
     <div class="plano-item">
@@ -7917,7 +7790,7 @@ function renderPlanoAcao() {
       <div class="plano-item-num">3</div>
       <div class="plano-item-body">
         <div class="plano-item-acao">Destinar ${semVenda} produto${semVenda!==1?'s':''} de capital parado (sem giro nesta filial)</div>
-        <div class="plano-item-detalhe">Estoque ainda válido que não gira nesta filial soma <strong>${formatValor(semVendaValor)}</strong> em capital parado, sendo <strong style="color:var(--verde);">${formatValor(sgRecuperavel)}</strong> recuperável via devolução à fábrica FAG (sementes de pastagem) e ${sgDeadProd} produto${sgDeadProd!==1?'s':''} de dead stock (nunca venderam). A aba <strong style="color:var(--amber-dk);cursor:pointer;text-decoration:underline;" onclick="showTab('semgiro')">Sem Giro</strong> traz a recomendação de destinação por produto. Leve ao gestor comercial.</div>
+        <div class="plano-item-detalhe">Estoque ainda válido que não gira nesta filial soma <strong>${formatValor(semVendaValor)}</strong> em capital parado, sendo ${sgDeadProd} produto${sgDeadProd!==1?'s':''} de dead stock (nunca venderam). Devolução à fábrica não é mais aceita — escoar via venda a custo, bonificação ou descarte. A aba <strong style="color:var(--amber-dk);cursor:pointer;text-decoration:underline;" onclick="showTab('semgiro')">Sem Giro</strong> traz o detalhamento por produto. Leve ao gestor comercial.</div>
       </div>
     </div>
     <div class="plano-item">
@@ -8270,18 +8143,29 @@ function sortTable(tipo, col) {
   const colKeys = {
     risco: ['linha','codProduto','nomeProduto','lote','dtVencimento','diasVencimento','safrasRestantes','quantidade','projecao','saldoRisco','valorRisco','coberturaDias','score','nivel'],
     vencidos: ['linha','codProduto','nomeProduto','lote','dtFabricacao','dtVencimento','diasVencimento','quantidade','vlrCusto','vlrCustoTotal','fabricante'],
-    semgiro: ['semGiroTipo','linha','codProduto','nomeProduto','lote','dtVencimento','diasVencimento','quantidade','vlrCustoTotal','_recRota']
+    semgiro: ['semGiroTipo','linha','codProduto','nomeProduto','lote','dtVencimento','diasVencimento','quantidade','vlrCustoTotal'],
+    alerta: ['janela','linha','codProduto','nomeProduto','lote','dtVencimento','diasVencimento','quantidade','vlrCustoTotal','giroAqui','sobra','acaoAlerta']
   };
 
   const key = colKeys[tipo][col];
-  const arr = tipo === 'risco' ? APP.filteredRisco : tipo === 'vencidos' ? APP.filteredVencidos : APP.filteredSemGiro;
+  const arr = tipo === 'risco' ? APP.filteredRisco : tipo === 'vencidos' ? APP.filteredVencidos : tipo === 'semgiro' ? APP.filteredSemGiro : APP.filteredAlerta;
 
+  const JANELA_ORDER = { critico: 1, urgente: 2, atencao: 3, monitorar: 4, planejamento: 5 };
   arr.sort((a, b) => {
     let va = a[key], vb = b[key];
-    // Ordenação especial para nível de criticidade
+    // Ordenação especial para nível de criticidade / janela de urgência
     if (key === 'nivel') {
       va = NIVEL_ORDER[va] || 0;
       vb = NIVEL_ORDER[vb] || 0;
+      return state.asc ? va - vb : vb - va;
+    }
+    if (key === 'janela') {
+      va = JANELA_ORDER[va] || 0;
+      vb = JANELA_ORDER[vb] || 0;
+      return state.asc ? va - vb : vb - va;
+    }
+    if (key === 'giroAqui') {
+      va = va ? 1 : 0; vb = vb ? 1 : 0;
       return state.asc ? va - vb : vb - va;
     }
     if (typeof va === 'number') return state.asc ? va - vb : vb - va;
@@ -8290,7 +8174,8 @@ function sortTable(tipo, col) {
 
   if (tipo === 'risco') renderTabelaRisco(1);
   else if (tipo === 'vencidos') renderTabelaVencidos(1);
-  else renderTabelaSemGiro(1);
+  else if (tipo === 'semgiro') renderTabelaSemGiro(1);
+  else renderTabelaAlerta();
 }
 
 function atualizarSidebar() {
@@ -8374,8 +8259,6 @@ function exportarExcel(tipo) {
       Fabricante: l.fabricante,
       'Situação': l.semGiroTipo === 'sem_dados' ? 'Sem dados na base (produto não encontrado no histórico)' : l.semGiroTipo === 'verificar' ? 'Verificar remessa (CFOP 5116/5117/6116/6117)' : l.semGiroTipo === 'dead' ? 'Dead stock (nunca vendeu na base histórica)' : 'Parado nesta filial',
       'Vende em (filiais)': (l._vendeOutras || []).join(', '),
-      'Recomendação': l._recRota,
-      'Justificativa': l._rec ? l._rec.detalhe : '',
     } : {}),
   })));
   const wb = XLSX.utils.book_new();
@@ -8572,13 +8455,40 @@ async function exportarPNGHQ(elementId, nome) {
 function exportarPDF() { window.print(); }
 
 // ==================== UTILS ====================
+// Usada para custo unitário/total de cada lote importado (TabelaManterLoteProduto). Antes
+// tratava "." sempre como separador de milhar mesmo sem vírgula, então um valor sem
+// formatação BR (ex.: célula de origem "6654.32") virava 665432 (100x maior) em silêncio.
+// parseValorBR decide pelo contexto (vírgula presente = decimal; ponto sozinho só vira
+// milhar com exatamente 3 dígitos depois), então cobre os dois formatos corretamente.
 function parseValor(v) {
-  if (!v) return 0;
-  return parseFloat(String(v).replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.')) || 0;
+  return parseValorBR(v) ?? 0;
 }
 
 function formatValor(v) {
   return 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// Interpreta um valor em R$ digitado livremente (campo de texto), aceitando tanto
+// "6654" / "6654.32" quanto formato BR "6.654" / "6.654,32". parseFloat sozinho (usado
+// num <input type="number">) lê "." sempre como separador decimal, então "6.654" virava
+// 6,654 (menos de 7 reais) em vez de R$ 6.654 — bug que derrubava o score de Vencidos
+// para quase zero de impacto. Regra: vírgula presente = separador decimal (ponto(s) viram
+// milhar); só ponto e com EXATAMENTE 3 dígitos depois = separador de milhar (centavos BR
+// são sempre 2 dígitos, então "6.65" continua sendo lido como decimal).
+function parseValorBR(s) {
+  if (s === null || s === undefined) return null;
+  s = String(s).trim().replace(/[^\d.,-]/g, '');
+  if (s === '' || s === '-') return null;
+  if (s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    const partes = s.split('.');
+    if (partes.length > 2 || (partes.length === 2 && partes[1].length === 3)) {
+      s = partes.join('');
+    }
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
 }
 
 function getNomeLinha(linha) {
@@ -8608,24 +8518,15 @@ function _salvarVencHist() {
   try { localStorage.setItem('aqVencHist', JSON.stringify(VENC_HIST)); } catch(e) {}
 }
 
-// Score de vencidos baseado no % (valor vencidos / faturamento)
-// Quanto menor o %, maior a nota — escala por faixas definida
-function calcScoreVenc(valorVencidos, faturamento) {
-  if (!faturamento || faturamento <= 0) return 100; // sem faturamento informado → assume 100%
-  const pct = (valorVencidos / faturamento) * 100;
-  if (pct === 0)        return 100;
-  if (pct <= 0.05)      return 95;
-  if (pct <= 0.1)       return 85;
-  if (pct <= 0.25)      return 70;
-  if (pct <= 0.5)       return 55;
-  if (pct <= 1.0)       return 35;
-  if (pct <= 2.0)       return 15;
-  return 0;
-}
-
-// Score estimado baseado no VALOR vencido (sem necessidade de faturamento, que só é
-// importado no Ranking Geral). É só uma prévia local — o score final e oficial usa
-// % do valor vencido sobre o faturamento da filial, calculado no Ranking Geral.
+// Score de vencidos baseado no VALOR vencido (R$) no momento do registro — é o único
+// cálculo que este app usa e exibe (Registrar Auditoria e Histórico). Havia uma função
+// calcScoreVenc(valorVencidos, faturamento) para um 2º cálculo por % sobre faturamento,
+// supostamente feito numa tela "Ranking Geral" — mas essa tela nunca existiu neste app e
+// a função nunca era chamada por nada aqui (código morto, removido). Se existir um sistema
+// externo de ranking que também calcula score por faturamento (ex.: a partir do JSON de
+// exportarArquivoVencidosPadrao), ele é independente deste app; dentro daqui, o número que
+// o auditor vê no registro JÁ É o final — os textos de ajuda que diziam "provisório até o
+// Ranking Geral" foram corrigidos para não confundir o auditor.
 function calcScoreVencPrevValor(valor) {
   if (!valor || valor <= 0) return 100;
   if (valor <= 1000)  return 90;
@@ -8651,7 +8552,7 @@ function normalizarFilialArq(sigla, loja) {
   return nome || 'FILIAL';
 }
 
-// Botão Registrar: vai direto ao registro (faturamento é gerenciado no Ranking Geral)
+// Botão Registrar: vai direto ao registro (score de vencidos calculado por valor, sem faturamento)
 function _gravarRegistroVencidos(override = {}) {
   const sigla = override.filial || APP.sigla || '—';
   const filialNome = lojaNome(sigla) || '—';
@@ -8906,10 +8807,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // arquivo foi importado (sem reimportar o mesmo). A embutida fica guardada
 // para permitir "Reverter".
 // ============================================================
-const BASE_EMBUTIDA = { siglas: SIGLAS_IDX.slice(), base: SAZONAL_BASE, nomes: META_NOMES, remessa: {}, ate: '2026-06', fonte: 'Embutida no aplicativo (até 12/06/2026)' };
+const BASE_EMBUTIDA = { siglas: SIGLAS_IDX.slice(), base: SAZONAL_BASE, nomes: META_NOMES, remessa: {}, desde: '2024-01', ate: '2026-06', fonte: 'Embutida no aplicativo (até 12/06/2026)' };
 const LS_BASE = 'agq_sazonal_base';        // base ativa salva (JSON completo)
 const LS_BASE_META = 'agq_sazonal_meta';   // metadados da base ativa
 const LS_BASE_LOG = 'agq_sazonal_log';     // histórico de arquivos importados (dedupe)
+
+// Cada mês da base (SAZONAL_BASE) é a SOMA das vendas daquele mês-calendário ao longo de
+// TODOS os anos da janela "desde"–"ate" (gerar_base_sazonalidade.py não tira média por
+// ano). ANOS_BASE guarda quantos anos essa soma cobre, para projetarVendas/getVendaDiaria
+// dividirem antes de projetar — sem isso, a venda projetada ficava inflada pelo número de
+// anos da janela (ex.: ~2.5x numa base de 30 meses), escondendo risco real de vencimento.
+let ANOS_BASE = 2.5; // janela padrão da base embutida (Jan/2024–Jun/2026 = 30 meses)
+function _anosDaBase(desde, ate) {
+  if (!desde || !ate) return null;
+  const [ya, ma] = String(desde).split('-').map(Number);
+  const [yb, mb] = String(ate).split('-').map(Number);
+  if (!ya || !ma || !yb || !mb) return null;
+  const meses = (yb - ya) * 12 + (mb - ma) + 1;
+  return meses > 0 ? meses / 12 : null;
+}
 
 function aplicarBaseSazonal(data) {
   SIGLAS_IDX = data.siglas;
@@ -8918,6 +8834,9 @@ function aplicarBaseSazonal(data) {
   // Produtos com remessa de entrega futura (CFOP 5116/5117/6116/6117) — não é venda, mas
   // comprova saída física de estoque. Usado para alertar "Dead stock" suspeito na aba Sem Giro.
   REMESSA_BASE = data.remessa || {};
+  // Base antiga sem o campo "desde" (gerada antes desta correção): mantém o fallback de
+  // 2.5 anos (janela original Jan/2024–Jun/2026) em vez de assumir errado que é só 1 ano.
+  ANOS_BASE = _anosDaBase(data.desde, data.ate) || 2.5;
 }
 
 function lerLogImport() {
@@ -9428,7 +9347,7 @@ function _resetAppLotes() {
     lotes: [], vendas: {}, vendasFilial: {}, vencidos: [], emRisco: [], semGiro: [],
     allLotes: [], filial: '', sigla: '', dataAuditoria: new Date(), lotesLoaded: false,
     regionais: {},
-    sortState: { risco: {col:-1,asc:true}, vencidos: {col:-1,asc:true}, semgiro: {col:-1,asc:true} },
+    sortState: { risco: {col:-1,asc:true}, vencidos: {col:-1,asc:true}, semgiro: {col:-1,asc:true}, alerta: {col:-1,asc:true} },
     pages: { risco: 1, vencidos: 1, semgiro: 1 }, pageSize: 50,
     filteredRisco: [], filteredVencidos: [], filteredSemGiro: [],
     alerta: [], filteredAlerta: [], cacaErros: [], filteredCacaErros: [],
@@ -10799,10 +10718,14 @@ function registrarAuditoriaUnificada() {
 
 function ajusteRecalcScore() {
   const auto = window._ajusteAutoVals || {};
-  const val = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseFloat(el.value) : null; return v !== null && !isNaN(v) ? v : (auto[k] ?? 0); };
+  // Mesmo risco do campo de vencidos: contagens >= 1000 digitadas em formato BR ("1.234")
+  // seriam lidas erradas por parseFloat puro ("1.234" -> 1,234). parseValorBR cobre isso.
+  const val = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseValorBR(el.value) : null; return v !== null ? v : (auto[k] ?? 0); };
   const pedConf = val('pedConf'), pedAss = val('pedAss'), pedPend = val('pedPend');
   const canConf = val('canConf'), canAss = val('canAss'), canPend = val('canPend');
-  const valorVenc = val('valorVencidos');
+  const _elVenc = document.getElementById('ajp-valorVencidos');
+  const _vvDigitado = _elVenc && _elVenc.value.trim() !== '' ? parseValorBR(_elVenc.value) : null;
+  const valorVenc = _vvDigitado !== null ? _vvDigitado : (auto.valorVencidos ?? 0);
   const pctPed = pedConf > 0 ? parseFloat((pedAss/pedConf*100).toFixed(2)) : 0;
   const pctCan = canConf > 0 ? parseFloat((canAss/canConf*100).toFixed(2)) : 0;
   const semPend = val('semPend');
@@ -10819,8 +10742,8 @@ function ajusteRecalcScore() {
 }
 
 function confirmarAjusteRegistro() {
-  const valInt = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseInt(el.value) : null; return v !== null && !isNaN(v) ? v : null; };
-  const valFloat = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseFloat(el.value) : null; return v !== null && !isNaN(v) ? v : null; };
+  const valInt = k => { const el = document.getElementById('ajp-' + k); const v = el && el.value.trim() !== '' ? parseValorBR(el.value) : null; return v !== null ? Math.round(v) : null; };
+  const valFloat = k => { const el = document.getElementById('ajp-' + k); return el && el.value.trim() !== '' ? parseValorBR(el.value) : null; };
 
   const temLotes = APP.lotes.length > 0;
   const temPedidos = APP_PED.pedidos.length > 0 || APP_PED.canhoto.length > 0;
@@ -10998,19 +10921,19 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
             <label style="font-size:11.5px; color:#8ba8c8;">
               Conferidos (total)
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-pedConf"></div>
-              <input id="ajp-pedConf" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-pedConf" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
             <label style="font-size:11.5px; color:#8ba8c8;">
               Assinados
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-pedAss"></div>
-              <input id="ajp-pedAss" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-pedAss" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
             <label style="font-size:11.5px; color:#8ba8c8;">
               Pendentes
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-pedPend"></div>
-              <input id="ajp-pedPend" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-pedPend" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
           </div>
@@ -11023,19 +10946,19 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
             <label style="font-size:11.5px; color:#8ba8c8;">
               Conferidos (total)
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-canConf"></div>
-              <input id="ajp-canConf" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-canConf" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
             <label style="font-size:11.5px; color:#8ba8c8;">
               Assinados
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-canAss"></div>
-              <input id="ajp-canAss" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-canAss" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
             <label style="font-size:11.5px; color:#8ba8c8;">
               Pendentes
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-canPend"></div>
-              <input id="ajp-canPend" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-canPend" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
           </div>
@@ -11048,7 +10971,7 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
             <label style="font-size:11.5px; color:#8ba8c8;">
               Valor vencidos (R$)
               <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-valorVencidos"></div>
-              <input id="ajp-valorVencidos" type="number" min="0" step="0.01" placeholder="auto" oninput="ajusteRecalcScore()"
+              <input id="ajp-valorVencidos" type="text" inputmode="decimal" placeholder="auto (aceita 6.654 ou 6654,00)" oninput="ajusteRecalcScore()"
                 style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
             </label>
           </div>
@@ -11071,7 +10994,7 @@ function PED_dropArq(e){e.preventDefault();PED_dlDrag();PED_handleFiles(e.dataTr
           <label style="font-size:11.5px; color:#8ba8c8;">
             Pedidos de sementes pend.
             <div style="font-size:10px; color:#4a6a8a; margin-bottom:3px;" id="ajp-auto-semPend"></div>
-            <input id="ajp-semPend" type="number" min="0" placeholder="auto" oninput="ajusteRecalcScore()"
+            <input id="ajp-semPend" type="text" inputmode="numeric" placeholder="auto" oninput="ajusteRecalcScore()"
               style="width:100%; padding:7px 10px; background:#0a1a30; border:1px solid #1e3a5f; border-radius:6px; color:#fff; font-size:13px; box-sizing:border-box;">
           </label>
         </div>
